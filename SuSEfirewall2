@@ -128,6 +128,12 @@ FW_CUSTOMRULES=""
 
 USE_IPTABLES_BATCH=""
 
+# whether ip6tables supports state matching
+IP6TABLES_HAVE_STATE=1
+
+# whether ip6tables support REJECT
+IP6TABLES_HAVE_REJECT=1
+
 ACTION="start"
 MODE="standard"
 
@@ -276,6 +282,10 @@ else
 
     # Do we have a kernel with IPv6 enabled?
     $IP6TABLES -nvL >/dev/null 2>&1 || IP6TABLES=:
+    if ! $IP6TABLES -m state --help >/dev/null 2>&1; then
+	warning "ip6tables does not support state matching. Extended IPv6 support disabled."
+	IP6TABLES_HAVE_STATE=0
+    fi
 fi
 AWK="/bin/awk"
 SED="/bin/sed"
@@ -349,28 +359,18 @@ REJECT="reject_func"
 [ "$FW_REJECT" = yes ] && DROP="reject_func"
 
 ### ipv6 checks
-case "$FW_IPv6_REJECT_OUTGOING" in
-	yes) : ;;
-	no) : ;;
-	*) FW_IPv6_REJECT_OUTGOING="yes" ;;
-esac
-
-DROP6="DROP"
 case "$FW_IPv6" in
-	drop) DROP6="DROP" ;;
-	reject) DROP6="reject_func" ;;
-	no) DROP6=""; IP6TABLES=":" ;;
+	drop|reject) IP6TABLES_HAVE_STATE=0 ;;
+	no) IP6TABLES=":" ;;
+	*) FW_IPv6="" ;;
 esac
 
-if ! $modinfo ip6t_REJECT >/dev/null 2>&1; then
-	if [ "$DROP6" = "reject_func" ]; then
-	    warning "Kernel lacks support for IPv6 REJECT target! Using DROP instead."
-	    DROP6="DROP"
-	fi
-	if [ "$FW_IPv6_REJECT_OUTGOING" = "yes" ]; then
-	    echo "It's not possible to reject outgoing packets. Expect Timeouts."
-	    FW_IPv6_REJECT_OUTGOING="no"
-	fi
+$modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
+
+if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
+    -a "$IP6TABLES" != ":" -a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
+	warning "Kernel lacks support for IPv6 REJECT target! Using DROP instead."
+	DROP="DROP"
 fi
 
 ### Functions
@@ -508,18 +508,12 @@ function set_basic_rules()
     $IPTABLES -A INPUT  -j "$ACCEPT" -i lo
     $IPTABLES -A OUTPUT -j "$ACCEPT" -o lo
 
-    local DROP6_JUMP
-    if [ "$DROP6" = "ACCEPT" ]; then
-	DROP6_JUMP="ACCEPT"
-    else
-	DROP6_JUMP="DROP"
-    fi
     $IP6TABLES -F INPUT
     $IP6TABLES -F OUTPUT
     $IP6TABLES -F FORWARD
-    $IP6TABLES -P INPUT "$DROP6_JUMP"
-    $IP6TABLES -P OUTPUT "$ACCEPT"
-    $IP6TABLES -P FORWARD "$DROP6_JUMP"
+    $IP6TABLES -P INPUT "$DROP_JUMP"
+    $IP6TABLES -P OUTPUT "$DROP_JUMP"
+    $IP6TABLES -P FORWARD "$DROP_JUMP"
     $IP6TABLES -F
     $IP6TABLES -X
     # Special REJECT function #
@@ -534,22 +528,22 @@ function set_basic_rules()
     $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo
     $IP6TABLES -A OUTPUT -j "$ACCEPT" -o lo
 
-# XXX move outa here
-    # No state matching with IPv6 yet
-    #$LAA $IP6TABLES -A INPUT -m state --state ESTABLISHED,RELATED -j LOG ${LOG}"-ACC-ALL "
-    #$IP6TABLES -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
-    #$LAA $IP6TABLES -A OUTPUT -m state --state NEW,ESTABLISHED,RELATED -j LOG ${LOG}"-ACC-ALL "
-    #$IP6TABLES -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
-
-    # Drop all until IPv6 is really supported
-    $LDA $IP6TABLES -A INPUT -j LOG ${LOG}"-IN-IPv6_PROHIB "
-    $IP6TABLES -A INPUT -j "$DROP"
-
-    if [ "$FW_IPv6_REJECT_OUTGOING" = "yes" ]; then
-	$LDA $IP6TABLES -A OUTPUT -j LOG ${LOG}"-OUT-IPv6_PROHIB "
-	$IP6TABLES -A OUTPUT -j reject_func
+    # workaround for ip6tables without state matching
+    if [ "$IP6TABLES_HAVE_STATE" != 1 ]; then
+	# Drop all until IPv6 is really supported
+	$LDA $IP6TABLES -A INPUT -j LOG ${LOG}"-IN-IPv6_PROHIB "
+	if [ "$FW_IPv6" = "drop" -o "$IP6TABLES_HAVE_REJECT" != 1 ]; then
+	    $IP6TABLES -A INPUT -j "$DROP"
+	else
+	    $IP6TABLES -A INPUT -j "$REJECT"
+	fi
+	if [ "$IP6TABLES_HAVE_REJECT" != 1 -o "$FW_IPv6_REJECT_OUTGOING" != "yes" ]; then
+	    $IP6TABLES -A OUTPUT -j "$DROP"
+	else
+	    $IP6TABLES -A OUTPUT -j "$REJECT"
+	fi
+	IP6TABLES=":" # disable further rules
     fi
-#/XXX
 }
 
 # $1 protocol
@@ -1115,9 +1109,12 @@ set_proc_stuff()
 # Make input/forward chains
 create_chains()
 {
-    for TARGET in input forward; do
-	for CHAIN in ext dmz int; do
-	    $IPTABLES -N ${TARGET}_${CHAIN}
+    local iptables
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	for TARGET in input forward; do
+	    for CHAIN in ext dmz int; do
+		$iptables -N ${TARGET}_${CHAIN}
+	    done
 	done
     done
 }
@@ -1208,40 +1205,48 @@ allow_ipsec()
 #####################################
 # Rule split up - forking to chains #
 #####################################
+# ipv4 and ipv6
 fork_to_chains()
 {
-    for DEV in $FW_DEV_EXT; do
-	$IPTABLES -A INPUT -j input_ext -i $DEV
-	test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j forward_ext -i $DEV
-    done
-    for DEV in $FW_DEV_DMZ; do
-	$IPTABLES -A INPUT -j input_dmz -i $DEV
-	test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j forward_dmz -i $DEV
-    done
-    for DEV in $FW_DEV_INT; do
-	$IPTABLES -A INPUT -j input_int -i $DEV
-	test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j forward_int -i $DEV
+    local iptables
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	for DEV in $FW_DEV_EXT; do
+	    $iptables -A INPUT -j input_ext -i $DEV
+	    test "$FW_ROUTE" = yes && $iptables -A FORWARD -j forward_ext -i $DEV
+	done
+	for DEV in $FW_DEV_DMZ; do
+	    $iptables -A INPUT -j input_dmz -i $DEV
+	    test "$FW_ROUTE" = yes && $iptables -A FORWARD -j forward_dmz -i $DEV
+	done
+	for DEV in $FW_DEV_INT; do
+	    $iptables -A INPUT -j input_int -i $DEV
+	    test "$FW_ROUTE" = yes && $iptables -A FORWARD -j forward_int -i $DEV
+	done
     done
 }
 
+# ipv4 and ipv6
 finish_chains()
 {
-    # anything which is now not in the input_* chains is evil
-    $LDAC $IPTABLES -A INPUT -j LOG ${LOG}"-IN-ILL-TARGET " 
-    $IPTABLES -A INPUT -j "$DROP"
+    local iptables
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	# anything which is now not in the input_* chains is evil
+	$LDAC $iptables -A INPUT -j LOG ${LOG}"-IN-ILL-TARGET " 
+	$iptables -A INPUT -j "$DROP"
 
-    if [ "$FW_ROUTE" = yes ]; then
-	$LDAC $IPTABLES -A FORWARD -j LOG ${LOG}"-FWD-ILL-ROUTING "
-	$IPTABLES -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
-    fi
+	if [ "$FW_ROUTE" = yes ]; then
+	    $LDAC $iptables -A FORWARD -j LOG ${LOG}"-FWD-ILL-ROUTING "
+	    $iptables -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
+	fi
 
-    # MSS stuff needs this?
-    if [ "$FW_ROUTE" = yes ]; then
-	$IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
-    fi
+	# MSS stuff needs this?
+	if [ "$FW_ROUTE" = yes ]; then
+	    $IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+	fi
 
-    $IPTABLES -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
-    $IPTABLES -A OUTPUT -j LOG ${LOG}"-$i-ERROR " 
+	$iptables -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
+	$iptables -A OUTPUT -j LOG ${LOG}"-$i-ERROR " 
+    done
 }
 
 # anti ip spoofing rules
@@ -1309,8 +1314,11 @@ protect_from_internal()
 {
     [ "$FW_PROTECT_FROM_INTERNAL" != no ] && return
 
-    $LAA $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-ALL-INT " 
-    $IPTABLES -A input_int -j "$ACCEPT"
+    local iptables
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	$LAA $iptables -A input_int -j LOG ${LOG}"-INint-ACC-ALL-INT " 
+	$iptables -A input_int -j "$ACCEPT"
+    done
 }
 
 # ICMP stuff
@@ -1319,24 +1327,45 @@ allow_icmp()
     local chain dev itype
     # INPUT ICMP rules
     if [ "$FW_ALLOW_FW_SOURCEQUENCH" != "no" ]; then
-	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-SOURCEQUENCH "  -p icmp --icmp-type source-quench
-	$IPTABLES -A input_ext -j "$ACCEPT" -p icmp --icmp-type source-quench
+	for chain in input_ext input_dmz input_int; do
+	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-INext-ACC-SOURCEQUENCH "  -p icmp --icmp-type source-quench
+	    $IPTABLES -A $chain -j "$ACCEPT" -p icmp --icmp-type source-quench
+	done
     fi
 
     if [ "$FW_ALLOW_PING_FW" = yes ]; then
 	for chain in input_ext input_dmz input_int; do
 	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request
 	    $IPTABLES -A $chain -j "$ACCEPT" -p icmp --icmp-type echo-request
+
+	    $LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request
+	    $IP6TABLES -A $chain -j "$ACCEPT" -p icmpv6 --icmpv6-type echo-request
 	done
     fi
     local icmp_types="echo-reply destination-unreachable time-exceeded parameter-problem timestamp-reply address-mask-reply"
     for itype in $icmp_types; do
 	for chain in input_ext input_dmz input_int; do
-	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-ICMP "  -p icmp --icmp-type $itype
-	    $IPTABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
+	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-ICMP "  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
+	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
+	done
+    done
+    icmp_types="echo-reply destination-unreachable time-exceeded parameter-problem"
+    for itype in $icmp_types; do
+	for chain in input_ext input_dmz input_int; do
+	    $LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-ICMP " -m state --state ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
+	    $IP6TABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
 	done
     done
     # DROP rules for input ICMP are after trusted handling (see below)
+    
+    # state matching for these seems to be broken
+    icmp_types="router-solicitation router-advertisement neighbour-solicitation neighbour-advertisement"
+    for itype in $icmp_types; do
+	for chain in input_ext input_dmz input_int; do
+	    $LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-ICMP " -p icmpv6 --icmpv6-type $itype
+	    $IP6TABLES -A $chain -j "$ACCEPT" -p icmpv6 --icmpv6-type $itype
+	done
+    done
 
     # OUTPUT ICMP rules
     $LA $IPTABLES -A OUTPUT -j LOG ${LOG}"-OUT-TRACERT-ATTEMPT "  -p icmp --icmp-type time-exceeded
@@ -1345,6 +1374,7 @@ allow_icmp()
 	$IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type port-unreachable
     else
 	$IPTABLES -A OUTPUT -j "$DROP" -p icmp --icmp-type time-exceeded
+	$IP6TABLES -A OUTPUT -j "$DROP" -p icmpv6 --icmpv6-type time-exceeded
     fi
 
 # XXX what about other types?
@@ -1352,6 +1382,10 @@ allow_icmp()
 	$IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type $itype
     done
     $IPTABLES -A OUTPUT -j "$DROP" -p icmp --icmp-type destination-unreachable # we deny all other icmp type 3 codes
+    
+# XXX hmm, maybe additional restrictions here like for IPv4?
+    $LAA $IP6TABLES -A OUTPUT -j LOG ${LOG}"-OUT-ICMP " -p icmpv6
+    $IP6TABLES -A OUTPUT -j "$ACCEPT" -p icmpv6
 
     # FORWARD ICMP rules
     if [ "$FW_ROUTE" = "yes" ]; then
@@ -1360,20 +1394,28 @@ allow_icmp()
 		for chain in forward_ext forward_int; do
 		    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request -o $dev
 		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $dev
+		    $LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request -o $dev
+		    $IP6TABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmpv6 --icmpv6-type echo-request -o $dev
 		done
 	    done
 	    $LAA $IPTABLES -A forward_dmz -j LOG ${LOG}"-FWDdmz-ACC-PING "  -p icmp --icmp-type echo-reply
 	    $IPTABLES -A forward_dmz -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
+	    $LAA $IP6TABLES -A forward_dmz -j LOG ${LOG}"-FWDdmz-ACC-PING "  -p icmpv6 --icmpv6-type echo-reply
+	    $IP6TABLES -A forward_dmz -j "$ACCEPT"  -m state --state ESTABLISHED -p icmpv6 --icmpv6-type echo-reply
 	fi
 	if [ "$FW_ALLOW_PING_EXT" = yes ]; then
 	    for dev in $FW_DEV_EXT; do
 		for chain in forward_int forward_dmz; do
 		    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request -o $dev
 		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $dev
+		    $LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request -o $dev
+		    $IP6TABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmpv6 --icmpv6-type echo-request -o $dev
 		done
 	    done
 	    $LAA $IPTABLES -A forward_ext -j LOG ${LOG}"-FWDext-ACC-PING "  -p icmp --icmp-type echo-reply
 	    $IPTABLES -A forward_ext -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
+	    $LAA $IP6TABLES -A forward_ext -j LOG ${LOG}"-FWDext-ACC-PING "  -p icmpv6 --icmpv6-type echo-reply
+	    $IP6TABLES -A forward_ext -j "$ACCEPT"  -m state --state ESTABLISHED -p icmpv6 --icmpv6-type echo-reply
 	fi
     fi
     # drop rule for forwarding chains are at the end of the forwarding rules
@@ -1404,20 +1446,6 @@ process_trusted_nets()
     done
 }
 
-drop_icmp()
-{
-    local chain
-    for chain in input_ext input_dmz input_int; do
-	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type redirect
-	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type source-quench
-	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type timestamp-request
-	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type address-mask-request
-	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type 2
-	$LDA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP " -p icmp
-	$IPTABLES -A $chain -j "$DROP" -p icmp
-    done
-}
-
 # determine port numbers of rpc services and generate a suitable iptables
 # parameter fragment
 #
@@ -1435,6 +1463,7 @@ reject_or_drop_services()
     local action="$2"
     local var="FW_SERVICES_${action}_$3"
     local services target service proto port
+    local iptables
 
     eval target=\$$action
     eval services=\"\$$var\"
@@ -1443,8 +1472,10 @@ reject_or_drop_services()
 	IFS=, eval set -- \$service
 
 	if check_proto_port "$1" "$2" "$var"; then
-	    $LDA $IPTABLES -A $chain $proto $port -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
-	    $IPTABLES -A $chain $proto $port -m state --state NEW -j "$target"
+	    for iptables in "$IPTABLES" "$IP6TABLES"; do
+		$LDA $iptables -A $chain $proto $port -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
+		$iptables -A $chain $proto $port -m state --state NEW -j "$target"
+	    done
 	fi
     done
 }
@@ -1538,23 +1569,29 @@ allow_rpc_services()
 
 allow_ip_services()
 {
+    local iptables
     local chain="input_$1"
     shift
-    for PROTO in $*; do
-	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-IP " -p $PROTO
-	$IPTABLES -A $chain -j "$ACCEPT" -p $PROTO
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	for PROTO in $*; do
+	    $LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-IP " -p $PROTO
+	    $iptables -A $chain -j "$ACCEPT" -p $PROTO
+	done
     done
 }
 
 allow_tcp_services()
 {
     local port
+    local iptables
     local chain="input_$1"
     shift
-    for port in $*; do
-	$LAC $IPTABLES -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port --syn
-	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port
-	$IPTABLES -A input_ext -j "$ACCEPT" -p tcp --dport $port
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	for port in $*; do
+	    $LAC $iptables -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port --syn
+	    $LAA $iptables -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port
+	    $iptables -A input_ext -j "$ACCEPT" -p tcp --dport $port
+	done
     done
 }
 
@@ -1562,11 +1599,14 @@ allow_tcp_services()
 allow_udp_services()
 {
     local port
+    local iptables
     local chain="input_$1"
     shift
-    for port in $*; do
-	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-UDP " -p udp --dport $port
-	$IPTABLES -A input_ext -j "$ACCEPT" -p udp --dport $port
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	for port in $*; do
+	    $LAA $iptables -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-UDP " -p udp --dport $port
+	    $iptables -A input_ext -j "$ACCEPT" -p udp --dport $port
+	done
     done
 }
 
@@ -1574,9 +1614,12 @@ allow_related()
 {
     local proto="$1"
     local chain
-    for chain in input_int input_dmz input_ext; do
-	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state ESTABLISHED,RELATED -p $proto
-	$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p $proto
+    local iptables
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	for chain in input_int input_dmz input_ext; do
+	    $LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state ESTABLISHED,RELATED -p $proto
+	    $iptables -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p $proto
+	done
     done
 }
 
@@ -1846,6 +1889,7 @@ forward_masquerading_rules()
 drop_all()
 {
     local chain
+    local itype
     local chains="input_ext input_dmz input_int"
 
     [ "$FW_ROUTE" = yes ] && chains="$chains forward_ext forward_dmz forward_int"
@@ -1854,26 +1898,37 @@ drop_all()
 	# some packet types are considered critical
 	if [ -z "$LDC" ]; then
 	    $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p tcp --syn
-	    for TYPE in source-quench redirect echo-request timestamp-request address-mask-request; do
-		$IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p icmp --icmp-type $TYPE
+	    $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p tcp --syn
+	    for itype in "source-quench" "redirect" "echo-request" "timestamp-request" "address-mask-request" "2"; do
+		$IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT " -p icmp --icmp-type $itype
+	    done
+	    for itype in "redirect" "echo-request"; do
+		$IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmpv6 --icmpv6-type $itype
 	    done
 	    $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p udp
+	    $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p udp
 	fi
 	# log anything else
 	$LDA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT "
 	$IPTABLES -A $chain -j "$DROP"
+	$LDA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT "
+	$IP6TABLES -A $chain -j "$DROP"
     done
 }
 
 # hard drop rule for invalid
+# ipv4 and ipv6
 drop_invalid()
 {
+    local iptables
     local chain
     local chains="input_ext input_dmz input_int"
     [ "$FW_ROUTE" = yes ] && chains="$chains forward_ext forward_dmz forward_int"
-    for chain in $chains; do
-	$LDAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
-	$IPTABLES -A $chain -j DROP -m state --state INVALID
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	for chain in $chains; do
+	    $LDAC $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
+	    $iptables -A $chain -j DROP -m state --state INVALID
+	done
     done
 }
 
@@ -1921,17 +1976,16 @@ fork_to_chains
 
 antispoof_per_interface
 
-drop_invalid
-
 allow_icmp
+
+# invalid after icmp otherwise icmpv6 Neighbor Solicitation (type 135) get
+# dropped
+drop_invalid
 
 # HOOK
 fw_custom_before_port_handling
 
 process_trusted_nets
-
-# ICMP drop rules must be here to allow trusted rules for ICMP
-drop_icmp
 
 allow_ip_services ext $FW_SERVICES_EXT_IP
 allow_ip_services int $FW_SERVICES_INT_IP
