@@ -104,6 +104,7 @@
 # automatically activated for FW_MASQ_DEV devices. and last but not least:
 # all incoming connection via external interfaces are REJECTED.
 # You will only need to configure 2.) and FW_MASQ_DEV in 6.)
+# Optionally, you may add entries to section 9a.)
 #
 # Choice: "yes" or "no", if not set defaults to "no"
 #
@@ -287,6 +288,43 @@ FW_SERVICES_INT_UDP=""
 
 # For VPN/Routing which END at the firewall!!
 FW_SERVICES_INT_IP=""
+
+# 9a.)
+# External services in QUICKMODE.
+# This is only used for QUICKMODE (see 1.)!
+# (The settings here are similar to section 9.)
+# Which services ON THE FIREWALL should be accessible from either the 
+# internet (or other untrusted networks), i.e. the external interface(s)
+# $FW_DEV_EXT
+#
+# Enter all ports or known portnames below, seperated by a space.
+# TCP services (e.g. SMTP, WWW) must be set in FW_SERVICES_QUICK_TCP, and
+# UDP services (e.g. syslog) must be set in FW_SERVICES_QUICK_UDP.
+# e.g. if a secure shell daemon on the firewall should be accessible from
+# the internet: 
+# FW_SERVICES_QUICK_TCP="ssh"
+# e.g. if the firewall should receive isakmp (IPsec) internet:
+# FW_SERVICES_QUICK_UDP="isakmp"
+# For IP protocols (like IPsec) you need to set
+# FW_SERVICES_QUICK_IP="50"
+#
+# Choice: leave empty or any number of ports, known portnames (from
+# /etc/services) and port ranges seperated by a space. Port ranges are
+# written like this: allow port 1 to 10 -> "1:10"
+# e.g. "", "smtp", "123 514", "3200:3299", "ftp 22 telnet 512:514"
+# For FW_SERVICES_*_IP enter the protocol name (like "igmp") or number ("2")
+#
+# QUICKMODE: TCP services open to external networks (InterNet)
+# (Common: ssh smtp)
+FW_SERVICES_QUICK_TCP=""
+
+# QUICKMODE: UDP services open to external networks (InterNet)
+# (Common: isakmp)
+FW_SERVICES_QUICK_UDP=""
+
+# QUICKMODE: IP protocols unconditionally open to external networks (InterNet)
+# (For VPN firewall that is VPN gateway: 50)
+FW_SERVICES_QUICK_IP=""
 
 #
 # 10.)

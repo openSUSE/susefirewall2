@@ -289,6 +289,7 @@ test -e /etc/resolv.conf && NAMESERVERS=`$AWK '/^nameserver/ {print $2}' /etc/re
 # Parse the Command line #
 #                        #
 ##########################
+# KG: FIXME: Shouldn't this be removed and just set FW_QUICKMODE=yes instead ?
 test "$1" = easy -o "$1" = novice && {
     # Reset the filter rules
     set_basic_rules
@@ -396,12 +397,12 @@ test -z "$FW_DEV_EXT" && {
     exit 6
 }
 
-#####################################################################
-#                                                                   #
-# If FW_QUICKMODE is set to yes, we only have to set                #
-# some very basic rules. This is done here and then we exit gracely #
-#                                                                   #
-#####################################################################
+########################################################################
+#                                                                      #
+# If FW_QUICKMODE is set to yes, we only have to set                   #
+# some very basic rules. This is done here and then we exit gracefully #
+#                                                                      #
+########################################################################
 test "$FW_QUICKMODE" = yes && {
     # Reset the filter rules
     set_basic_rules
@@ -422,21 +423,42 @@ test "$FW_QUICKMODE" = yes && {
             $IPTABLES -A INPUT -j "$ACCEPT" -m state --state NEW -p udp -s $k --sport 53 --dport 1024:65535
     done
 
-    # log incoming tcp connection requests
-    $IPTABLES -A INPUT -j LOG -p tcp --syn --log-level warning --log-tcp-options --log-ip-options --log-prefix "SuSE-FW-DROP-NEW-CONNECT "
 
     # masquerading part 1
     test -z "$FW_MASQ_DEV" || {
-	echo 1 > /proc/sys/net/ipv4/ip_forward
 	$IPTABLES -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED -p udp --dport 61000:65095
         $IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     }
 
-    # no reject everything which is entering through insecure interfaces
+    # New chain for external input
+    $IPTABLES -N input_ext
+    $IPTABLES -A input_ext -j "$REJECT"
+    # log incoming tcp connection requests
+    $IPTABLES -I input_ext 1 -j LOG -p tcp --syn --log-level warning --log-tcp-options --log-ip-options --log-prefix "SuSE-FW-DROP-NEW-CONNECT "
+
+    # now reject everything which is entering through insecure interfaces
     for i in $FW_DEV_EXT; do
-	$IPTABLES -A INPUT -i $i -j "$REJECT"
+	$IPTABLES -A INPUT -i $i -j input_ext
 	$IPTABLES -A FORWARD -i $i -j "$REJECT"
     done
+    
+    # Apply settings from FW_SERVICE_QUICK_*
+    # Note that we push the rules to the head of the chain; therefore the reversed order
+    # UDP Stuff #
+    for PORT in $FW_SERVICES_QUICK_UDP; do
+	$IPTABLES -I input_ext 1 -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport $PORT
+    done
+    # If port 113 (auth/identd) will not allowed below, outgoing mail would
+    # be delayed most of the time. Hence we put a hardcoded reject line in.
+    $IPTABLES -I input_ext 1 -j "$REJECT" -p tcp --dport 113 --syn 2> /dev/null
+    # TCP Stuff #
+    for PORT in $FW_SERVICES_QUICK_TCP; do
+	$IPTABLES -I input_ext 1 -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport $PORT
+    done
+    # IP Stuff #
+    for PROTO in $FW_SERVICES_QUICK_IP; do
+	$IPTABLES -I input_ext 1 -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p $PROTO
+    done 
 
     # masquerading part 2
     test -z "$FW_MASQ_DEV" || {
@@ -444,6 +466,7 @@ test "$FW_QUICKMODE" = yes && {
             $IPTABLES -A FORWARD -j "$ACCEPT" -o $i
             $IPTABLES -A POSTROUTING -j MASQUERADE -t nat -o $i
 	done
+	echo 1 > /proc/sys/net/ipv4/ip_forward
 	EXTRA=" plus masquerading"
     }
 
