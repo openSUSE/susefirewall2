@@ -1011,9 +1011,9 @@ drop_broadcast()
 
 ### zones ###
 
-check_required_zones()
+parse_zones()
 {
-    local zone zones devs
+    local zone
     for zone in $FW_ZONES; do
 	case $zone in
 	    [Ii][Nn][Tt]|[Ee][Xx][Tt]|[Dd][Mm][Zz])
@@ -1021,6 +1021,11 @@ check_required_zones()
 	    *) all_zones="$all_zones $zone" ;;
 	esac
     done
+}
+
+remove_unused_zones()
+{
+    local zone zones devs
     for zone in $all_zones; do
 	eval devs="\$FW_DEV_$zone"
 	if [ -n "$devs" -o "$ipsec_chain" = $zone ]; then
@@ -1848,6 +1853,8 @@ fi
 
 message "Setting up rules from $FWCONFIG ..."
 
+parse_zones
+
 auto_detect_all_interfaces
 
 parse_interfaces
@@ -1860,7 +1867,7 @@ verify_parameters
 
 parse_ipsec
 
-check_required_zones
+remove_unused_zones
 [ "$FW_ROUTE" = 'yes' ] && forward_zones="$all_zones"
 input_zones="$all_zones"
 saved_input_zones="$input_zones" # need that for fork_to_chains
