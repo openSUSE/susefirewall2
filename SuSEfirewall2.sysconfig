@@ -488,7 +488,7 @@ FW_FORWARD=""
 # Format: space separated list of
 #    <source network>,<ip to forward to>,<protocol>,<port>[,redirect port,[destination ip]]
 #
-#  Protocol must be either tcp or udp
+# Protocol must be either tcp or udp
 #
 # Examples: - "4.0.0.0/8,10.0.0.10,tcp,80" forward all tcp request on
 #             port 80 coming from the 4.0.0.0/8 network to the
@@ -500,6 +500,9 @@ FW_FORWARD=""
 #             the network 200.200.200.0/24 trying to access the
 #             address 202.202.202.202 on port 80 will be forwarded
 #             to the internal server 10.0.0.10 on port 81
+#
+# Note: du to inconsitent iptables behaviour only port numbers are possible but
+# no service names (https://bugzilla.netfilter.org/bugzilla/show_bug.cgi?id=273)
 #
 FW_FORWARD_MASQ=""
 
