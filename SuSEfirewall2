@@ -1510,14 +1510,11 @@ test "$FW_AUTOPROTECT_SERVICES" = no || {
     done
 }
 
-DONE_ALL=no
-test "$FW_ALLOW_INCOMING_HIGHPORTS_TCP" = yes || {
-    for CHAIN in input_int input_dmz input_ext; do
-        $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -m state --state ESTABLISHED,RELATED -p tcp --dport 1024:65535 --syn
-        $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -m state --state ESTABLISHED,RELATED -p tcp --dport 1024:65535
-        $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp --dport 1024:65535
-    done
-}
+for CHAIN in input_int input_dmz input_ext; do
+    $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -m state --state ESTABLISHED,RELATED -p tcp --syn
+    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -m state --state ESTABLISHED,RELATED -p tcp
+    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp
+done
 for j in $FW_ALLOW_INCOMING_HIGHPORTS_TCP; do
         case "$j" in
             no) ;;
@@ -1527,12 +1524,12 @@ for j in $FW_ALLOW_INCOMING_HIGHPORTS_TCP; do
                     $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -p tcp --dport 1024:65535
                     $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport 1024:65535
 		done
-		DONE_ALL=yes
+		break;
                 ;;
             [Dd][Nn][Ss])
                 test -z "$NAMESERVERS" && \
                     echo 'Warning: No nameservers in /etc/resolv.conf!'
-                test "$DONE_ALL" = yes || for k in $NAMESERVERS; do
+                for k in $NAMESERVERS; do
   		    test "$k" = 127.0.0.1 || for CHAIN in input_int input_dmz input_ext; do
                         $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-DNS " -p tcp -s $k --sport 53 --dport 1024:65535
                         $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp -s $k --sport 53 --dport 1024:65535
@@ -1540,7 +1537,7 @@ for j in $FW_ALLOW_INCOMING_HIGHPORTS_TCP; do
                 done
                 ;;
             *)
-		test "$DONE_ALL" = yes || for CHAIN in input_int input_dmz input_ext; do
+		for CHAIN in input_int input_dmz input_ext; do
                     $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HIGH " -p tcp --sport $j --dport 1024:65535 --syn
                     $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HIGH " -p tcp --sport $j --dport 1024:65535
                     $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --sport $j --dport 1024:65535
@@ -1549,15 +1546,16 @@ for j in $FW_ALLOW_INCOMING_HIGHPORTS_TCP; do
         esac
 done
 
-# This sucks, we need this rule so we can receive data ... hello stealth scan
-for CHAIN in input_int input_dmz input_ext; do
-    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-ESTAB " -p tcp --dport 600:65535 '!' --syn
-    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED -p tcp --dport 600:65535 '!' --syn
-done
-for CHAIN in input_int input_dmz input_ext; do
-    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-ESTAB " -p tcp --dport 20 '!' --syn
-    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED -p tcp --dport 20 '!' --syn
-done
+# FIXME what's this good for? -- ln
+## This sucks, we need this rule so we can receive data ... hello stealth scan
+#for CHAIN in input_int input_dmz input_ext; do
+#    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-ESTAB " -p tcp --dport 600:65535 '!' --syn
+#    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED -p tcp --dport 600:65535 '!' --syn
+#done
+#for CHAIN in input_int input_dmz input_ext; do
+#    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-ESTAB " -p tcp --dport 20 '!' --syn
+#    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED -p tcp --dport 20 '!' --syn
+#done
 
 #############
 # UDP Stuff #
@@ -1607,30 +1605,38 @@ test ! -z "$FW_SERV_SQUID_CHAINS" && {
 
 # special pre-rules before the autoprotecting feature to prevent the blocking
 # of DNS resolvers
-OPEN_DNS=no
-for j in $FW_ALLOW_INCOMING_HIGHPORTS_UDP; do
-        case "$j" in
-            yes)
-		OPEN_DNS=yes
-		;;
-            [Dd][Nn][Ss])
-		OPEN_DNS=yes
-                ;;
-            *)  ;;
-        esac
+#OPEN_DNS=no
+#for j in $FW_ALLOW_INCOMING_HIGHPORTS_UDP; do
+#        case "$j" in
+#            yes)
+#		OPEN_DNS=yes
+#		;;
+#            [Dd][Nn][Ss])
+#		OPEN_DNS=yes
+#                ;;
+#            *)  ;;
+#        esac
+#done
+#test "$OPEN_DNS" = yes && {
+#   test -z "$NAMESERVERS" && \
+#       echo 'Warning: No nameservers in /etc/resolv.conf!'
+#   for k in $NAMESERVERS; do
+#       test "$k" = "127.0.0.1" && continue
+#       for CHAIN in input_int input_dmz input_ext; do
+#           $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-DNS " -p udp -s $k --sport 53 --dport 1024:65535
+## guess this has to be state NEW because the outgoing packet was not seen when
+## doing autodialing... XXX - or?
+#           $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp -s $k --sport 53 --dport 1024:65535
+#		
+#	done
+#   done
+#}
+
+# allow related incoming udp packets
+for CHAIN in input_int input_dmz input_ext; do
+    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp
+    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p udp
 done
-test "$OPEN_DNS" = yes && {
-   test -z "$NAMESERVERS" && \
-       echo 'Warning: No nameservers in /etc/resolv.conf!'
-   for k in $NAMESERVERS; do
-       test "$k" = 127.0.0.1 || for CHAIN in input_int input_dmz input_ext; do
-           $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-DNS " -p udp -s $k --sport 53 --dport 1024:65535
-# guess this has to be state NEW because the outgoing packet was not seen when
-# doing autodialing... XXX - or?
-           $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp -s $k --sport 53 --dport 1024:65535
-	done
-   done
-}
 
 # description of the code below: see TCP notes for the autoprotect feature
 test "$FW_AUTOPROTECT_SERVICES" = no || {
@@ -1654,54 +1660,50 @@ test "$FW_AUTOPROTECT_SERVICES" = no || {
     OPENED_INT=`echo "$FW_SERVICES_INT_UDP $DNS_PORT $SQUID_PORT" | $SED 's/ /|/g'`
     PROTECT_INT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_INT"`
     for PORT in $PROTECT_INT; do
-	$LDA $IPTABLES -A input_int -j LOG ${LOG}"-INint-DROP " -p udp --dport $PORT
-	$IPTABLES -A input_int -j "$DROP" -p udp --dport $PORT
+	$LDA $IPTABLES -A input_int -j LOG ${LOG}"-INint-DROP " -p udp --dport $PORT -m state --state NEW
+	$IPTABLES -A input_int -j "$DROP" -p udp --dport $PORT -m state --state NEW
     done
    }
     PROTECT=`for S in $PROTECT_DMZ $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
     OPENED_DMZ=`echo "$FW_SERVICES_DMZ_UDP $DNS_PORT $SQUID_PORT" | $SED 's/ /|/g'`
     PROTECT_DMZ=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_DMZ"`
     for PORT in $PROTECT_DMZ; do
-	$LDA $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-DROP " -p udp --dport $PORT
-	$IPTABLES -A input_dmz -j "$DROP" -p udp --dport $PORT
+	$LDA $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-DROP " -p udp --dport $PORT -m state --state NEW
+	$IPTABLES -A input_dmz -j "$DROP" -p udp --dport $PORT -m state --state NEW
     done
     PROTECT=`for S in $PROTECT_EXT $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
     OPENED_EXT=`echo "$FW_SERVICES_EXT_UDP $DNS_PORT $SQUID_PORT" | $SED 's/ /|/g'`
     PROTECT_EXT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_EXT"`
     for PORT in $PROTECT_EXT; do
-	$LDA $IPTABLES -A input_ext -j LOG ${LOG}"-INext-DROP " -p udp --dport $PORT
-	$IPTABLES -A input_ext -j "$DROP" -p udp --dport $PORT
+	$LDA $IPTABLES -A input_ext -j LOG ${LOG}"-INext-DROP " -p udp --dport $PORT -m state --state NEW
+	$IPTABLES -A input_ext -j "$DROP" -p udp --dport $PORT -m state --state NEW
     done
 }
 
-DONE_ALL=no
-test "$FW_ALLOW_INCOMING_HIGHPORTS_UDP" = yes || {
-    for CHAIN in input_int input_dmz input_ext; do
-        $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp --dport 1024:65535
-        $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p udp --dport 1024:65535
-    done
-}
+# checking "yes" in the loop allows you to log individual services plus
+# allowing all
 for j in $FW_ALLOW_INCOMING_HIGHPORTS_UDP; do
         case "$j" in
             no) ;;
             yes)
 		for CHAIN in input_int input_dmz input_ext; do
-                    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp --dport 1024:65535
-                    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport 1024:65535
+                    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --dport 1024:65535
+                    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p udp --dport 1024:65535
 		done
-		DONE_ALL=yes
+		break;
                 ;;
             [Dd][Nn][Ss])
                 ;;
             *)
-		test "$DONE_ALL" = yes || for CHAIN in input_int input_dmz input_ext; do
-                    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp --sport $j --dport 1024:65535
-                    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --sport $j --dport 1024:65535
+		for CHAIN in input_int input_dmz input_ext; do
+                    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --sport $j --dport 1024:65535
+                    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p udp --sport $j --dport 1024:65535
 		done
                 ;;
         esac
 done
 
+# FIXME: needed? -- ln
 test "$FW_MASQUERADE" = yes && {
     EXT=""; DMZ=""; INT="";
     for DEV1 in $FW_MASQ_DEV; do
