@@ -332,8 +332,6 @@ parse_logging()
     [ "$LAA" = ':' ] && LOG="$FW_LOG_LIMIT $LOG"
 }
 
-parse_logging
-
 check_ipv6()
 {
     ### ipv6 checks
@@ -1841,6 +1839,8 @@ if [ "$ACTION" = "showlog" ]; then
 fi
 
 ###############
+
+parse_logging
 
 setlock
 
