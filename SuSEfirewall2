@@ -224,6 +224,8 @@ if [ -e "$PERSFWCONFIG" ]; then
 	fi
 	if [ "$PFW_MASQ" = yes ]; then
 	    FW_MASQ_DEV="$FW_DEV_EXT"
+	else
+	    FW_MASQ_DEV=""
 	fi
 
 	FW_QUICKMODE=yes
