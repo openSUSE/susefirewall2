@@ -601,11 +601,29 @@ FW_LOG_ACCEPT_CRIT="yes"
 ## Type:	yesno
 ## Default:	no
 #
+# only change this if you know what you are doing!
+#
+# setting this to 'yes' causes _LOTS_ of log entries and may fill
+# your disk quickly. It also disables FW_LOG_LIMIT
+#
 FW_LOG_ACCEPT_ALL="no"
 
 ## Type:	string
 #
-# only change/activate this if you know what you are doing!
+# How many packets per time unit get logged for each logging rule.
+# Default is the iptables default 3/hour. Set to 'no' to disable the
+# rate limit. Setting FW_LOG_ACCEPT_ALL to 'yes' disables this
+# option as well.
+# 
+# Format: a digit and suffix /second, /minute, /hour or /day
+FW_LOG_LIMIT=""
+
+## Type:	string
+#
+# iptables logging option. Must end with --log-prefix and some prefix
+# characters
+#
+# only change this if you know what you are doing!
 FW_LOG=""
 
 ## Type:	yesno

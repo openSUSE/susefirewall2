@@ -291,9 +291,17 @@ for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
     fi
 done
 
+if [ -z "$FW_LOG_LIMIT" ]; then
+    FW_LOG_LIMIT="-m limit"
+elif [ "$FW_LOG_LIMIT" = 'no' ]; then
+    FW_LOG_LIMIT=''
+else
+    FW_LOG_LIMIT="-m limit --limit $FW_LOG_LIMIT"
+fi
+
 ### logging setup
 if [ -z "$FW_LOG" ]; then
-    LOG="--log-level warning --log-tcp-options --log-ip-options --log-prefix SFW2"
+    LOG='--log-level warning --log-tcp-options --log-ip-options --log-prefix SFW2'
 else
     LOG="$FW_LOG"
 fi
@@ -325,11 +333,13 @@ if [ "$FW_LOG_ACCEPT_ALL" != yes ]; then
 	LAAC=":"
     fi
 else 
-    LAC=''
+    LAC=':'
 fi
 
 # LDA and LDC are : if logging is disabled so check if empty
 [ -z "$LDA" -o -z "$LDC" -o -z "$LDA" -o -z "$LAA" ] || LA=:
+
+[ "$LAA" = ':' ] && LOG="$FW_LOG_LIMIT $LOG"
 
 ### jump targets
 ACCEPT="ACCEPT"
@@ -839,7 +849,7 @@ if [ "$ACTION" = "status" ]; then
     echo "###### iptables ######"
     echo
     # yes we need cat here, while read ... does no work :-(
-    for i in `cat /proc/net/ip_tables_names`; do
+    for i in `sort < /proc/net/ip_tables_names`; do
 	echo "### $i ###"
 	$IPTABLES -t $i -vnL
     done
@@ -847,7 +857,7 @@ if [ "$ACTION" = "status" ]; then
 	echo
 	echo "###### ip6tables ######"
 	echo
-	for i in `cat /proc/net/ip6_tables_names`; do
+	for i in `sort /proc/net/ip6_tables_names`; do
 	    echo "### $i ###"
 	    $IP6TABLES -t $i -vnL
 	done
@@ -1172,7 +1182,7 @@ drop_broadcast()
 	$LDA $IPTABLES $match -j LOG ${LOG}"-DROP-BCAST${zone:0:1} "
     fi
 
-    $IPTABLES $match -j "$DROP"
+    $IPTABLES $match -j DROP # no need to send icmp for broadcasts
 }
 
 ### IPsec ###
@@ -1305,6 +1315,7 @@ protect_from_internal()
 # ICMP stuff
 allow_icmp()
 {
+    local chain dev itype
     # INPUT ICMP rules
     if [ "$FW_ALLOW_FW_SOURCEQUENCH" != "no" ]; then
 	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-SOURCEQUENCH "  -p icmp --icmp-type source-quench
@@ -1312,16 +1323,16 @@ allow_icmp()
     fi
 
     if [ "$FW_ALLOW_PING_FW" = yes ]; then
-	for CHAIN in input_ext input_dmz input_int; do
-	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-PING "  -p icmp --icmp-type echo-request
-	    $IPTABLES -A $CHAIN -j "$ACCEPT" -p icmp --icmp-type echo-request
+	for chain in input_ext input_dmz input_int; do
+	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request
+	    $IPTABLES -A $chain -j "$ACCEPT" -p icmp --icmp-type echo-request
 	done
     fi
     local icmp_types="echo-reply destination-unreachable time-exceeded parameter-problem timestamp-reply address-mask-reply"
-    for TYPE in $icmp_types; do
-	for CHAIN in input_ext input_dmz input_int; do
-	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-ICMP "  -p icmp --icmp-type $TYPE
-	    $IPTABLES -A $CHAIN -j "$ACCEPT"  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $TYPE
+    for itype in $icmp_types; do
+	for chain in input_ext input_dmz input_int; do
+	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-ICMP "  -p icmp --icmp-type $itype
+	    $IPTABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
 	done
     done
     # DROP rules for input ICMP are after trusted handling (see below)
@@ -1336,28 +1347,28 @@ allow_icmp()
     fi
 
 # XXX what about other types?
-    for TYPE in fragmentation-needed network-prohibited host-prohibited communication-prohibited; do
-	$IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type $TYPE
+    for itype in fragmentation-needed network-prohibited host-prohibited communication-prohibited; do
+	$IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type $itype
     done
     $IPTABLES -A OUTPUT -j "$DROP" -p icmp --icmp-type destination-unreachable # we deny all other icmp type 3 codes
 
     # FORWARD ICMP rules
     if [ "$FW_ROUTE" = "yes" ]; then
 	if [ "$FW_ALLOW_PING_DMZ" = yes ]; then
-	    for DEV in $FW_DEV_DMZ; do
-		for CHAIN in forward_ext forward_int; do
-		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-PING "  -p icmp --icmp-type echo-request -o $DEV
-		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $DEV
+	    for dev in $FW_DEV_DMZ; do
+		for chain in forward_ext forward_int; do
+		    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request -o $dev
+		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $dev
 		done
 	    done
 	    $LAA $IPTABLES -A forward_dmz -j LOG ${LOG}"-FWDdmz-ACC-PING "  -p icmp --icmp-type echo-reply
 	    $IPTABLES -A forward_dmz -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
 	fi
 	if [ "$FW_ALLOW_PING_EXT" = yes ]; then
-	    for DEV in $FW_DEV_EXT; do
-		for CHAIN in forward_int forward_dmz; do
-		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-PING "  -p icmp --icmp-type echo-request -o $DEV
-		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $DEV
+	    for dev in $FW_DEV_EXT; do
+		for chain in forward_int forward_dmz; do
+		    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request -o $dev
+		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $dev
 		done
 	    done
 	    $LAA $IPTABLES -A forward_ext -j LOG ${LOG}"-FWDext-ACC-PING "  -p icmp --icmp-type echo-reply
@@ -1385,7 +1396,7 @@ process_trusted_nets()
 	elif check_proto_port "$proto" "$port" 'FW_TRUSTED_NETS'; then
 	    for chain in input_ext input_dmz input_int; do # trusted networks can be on any interface ...
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST " -m state --state NEW -s $net $proto $port
-		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST "-s $net $proto $port
+		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST " -s $net $proto $port
 		$IPTABLES -A $chain -j "$ACCEPT"  -m state --state NEW,ESTABLISHED,RELATED -s $net $proto $port
 	    done
 	fi
@@ -1394,14 +1405,15 @@ process_trusted_nets()
 
 drop_icmp()
 {
-    for CHAIN in input_ext input_dmz input_int; do
-	$LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-DROP-ICMP-CRIT "  -p icmp --icmp-type redirect
-	$LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-DROP-ICMP-CRIT "  -p icmp --icmp-type source-quench
-	$LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-DROP-ICMP-CRIT "  -p icmp --icmp-type timestamp-request
-	$LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-DROP-ICMP-CRIT "  -p icmp --icmp-type address-mask-request
-	$LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-DROP-ICMP-CRIT "  -p icmp --icmp-type 2
-	$LDA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-DROP-ICMP " -p icmp
-	$IPTABLES -A $CHAIN -j "$DROP" -p icmp
+    local chain
+    for chain in input_ext input_dmz input_int; do
+	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type redirect
+	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type source-quench
+	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type timestamp-request
+	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type address-mask-request
+	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmp --icmp-type 2
+	$LDA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP " -p icmp
+	$IPTABLES -A $chain -j "$DROP" -p icmp
     done
 }
 
@@ -1511,33 +1523,26 @@ auto_protect_tcp()
     done
 }
 
-allow_related_tcp()
-{
-    for CHAIN in input_int input_dmz input_ext; do
-	$LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state ESTABLISHED,RELATED -p tcp
-	$IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp
-    done
-}
-
 allow_tcp_highports()
 {
+    local j chain
     for j in $FW_ALLOW_INCOMING_HIGHPORTS_TCP; do
 	case "$j" in
 	[Dd][Nn][Ss]) warning "FW_ALLOW_INCOMING_HIGHPORTS_TCP=DNS no longer supported" ;;
 	no) ;;
 	yes)
-	    for CHAIN in input_int input_dmz input_ext; do
-		$LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -p tcp --dport 1024: --syn
-		$LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -p tcp --dport 1024:
-		$IPTABLES -A $CHAIN -j "$ACCEPT" -p tcp --dport 1024:
+	    for chain in input_int input_dmz input_ext; do
+		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiTCP " -p tcp --dport 1024: --syn
+		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiTCP " -p tcp --dport 1024:
+		$IPTABLES -A $chain -j "$ACCEPT" -p tcp --dport 1024:
 	    done
 	    break;
 	    ;;
 	*)
-	    for CHAIN in input_int input_dmz input_ext; do
-		$LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HIGH " -p tcp --sport $j --dport 1024: --syn
-		$LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HIGH " -p tcp --sport $j --dport 1024:
-		$IPTABLES -A $CHAIN -j "$ACCEPT" -p tcp --sport $j --dport 1024:
+	    for chain in input_int input_dmz input_ext; do
+		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HIGH " -p tcp --sport $j --dport 1024: --syn
+		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HIGH " -p tcp --sport $j --dport 1024:
+		$IPTABLES -A $chain -j "$ACCEPT" -p tcp --sport $j --dport 1024:
 	    done
 	    ;;
 	esac
@@ -1589,12 +1594,13 @@ allow_udp_services()
     done
 }
 
-allow_related_udp()
+allow_related()
 {
-# allow related incoming udp packets
-    for CHAIN in input_int input_dmz input_ext; do
-	$LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -p udp
-	$IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p udp
+    local proto="$1"
+    local chain
+    for chain in input_int input_dmz input_ext; do
+	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state ESTABLISHED,RELATED -p $proto
+	$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p $proto
     done
 }
 
@@ -1975,7 +1981,7 @@ if [ "$FW_AUTOPROTECT_SERVICES" != no ]; then
     auto_protect_tcp
 fi
 
-allow_related_tcp
+allow_related tcp
 
 allow_tcp_highports
 
@@ -1987,7 +1993,7 @@ if [ "$FW_AUTOPROTECT_SERVICES" != no ]; then
     auto_protect_tcp
 fi
 
-allow_related_udp
+allow_related udp
 
 allow_highports_udp
 
