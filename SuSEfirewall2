@@ -1313,7 +1313,7 @@ reject_or_drop_services()
 
 	for service in $services; do
 	    IFS=, eval set -- \$service
-	    if [ "$#" -lt 3 ]; then
+	    if [ "$#" -lt 2 ]; then
 		error "too few parameters in $var -> $service"
 		continue
 	    fi
