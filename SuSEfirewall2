@@ -47,7 +47,7 @@
 
 help() {
 cat <<EOF
-SuSEfirewall2 3.2, Copyright (C) 2004  SUSE Linux AG
+SuSEfirewall2 3.3, Copyright (C) 2004  SUSE Linux AG
 
 stateful packet filter rules generator for iptables.
 
