@@ -722,3 +722,40 @@ FW_CUSTOMRULES=""
 # Choice: "yes" or "no", if not set defaults to "no"
 #
 FW_REJECT="no"
+
+## Type:	string
+#
+# 27.)
+# Tuning your upstream a little bit via HTB (Hierarchical Token Bucket)
+# for more information about HTB see http://www.lartc.org
+#
+# If your download collapses while you have a parallel upload,
+# this parameter might be an option for you. It manages your
+# upload stream and reserves bandwidth for special packets like
+# TCP ACK packets or interactive SSH.
+# It's a list of devices and maximum bandwidth in kbit.
+# For example, the german TDSL account, provides 128kbit/s upstream
+# and 768kbit/s downstream. We can only tune the upstream.
+#
+# Example:
+# If you want to tune a 128kbit/s upstream DSL device like german TDSL set
+# the following values:
+# FW_HTB_TUNE_DEV="ppp0,125"
+# where ppp0 is your pppoe device and 125 stands for 125kbit/s upstream
+#
+# you might wonder why 125kbit/s and not 128kbit/s. Well practically you'll
+# get a better performance if you keep the value a few percent under your
+# real maximum upload bandwidth, to prevent the DSL modem from queuing traffic in
+# it's own buffers because queing is done by us now.
+# So for a 256kbit upstream
+#   FW_HTB_TUNE_DEV="ppp0,250"
+# might be a better value than "ppp0,256". There is no perfect value for a
+# special kind of modem. The perfect value depends on what kind of traffic you
+# have on your line but 5% under your maximum upstream might be a good start.
+# Everthing else is special fine tuning.
+# If you want to know more about the technical background,
+# http://tldp.org/HOWTO/ADSL-Bandwidth-Management-HOWTO/
+# is a good start
+#
+FW_HTB_TUNE_DEV=""
+

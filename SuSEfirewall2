@@ -182,6 +182,7 @@ SORT=`which sort`	   || SORT="/usr/bin/sort"
 LSOF=`which lsof`	   || LSOF="/usr/bin/lsof"
 LOGGER=`which logger`	   || LOGGER="/usr/bin/logger"
 GREP=`which grep`          || GREP="/usr/bin/grep"
+TC=`which tc`              || TC="/usr/sbin/tc"
 
 for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
     test -x $i || { echo "I need $i for running but can not find it, aborting."
@@ -236,9 +237,17 @@ function reset_rules_silent() {
 #	} > /dev/null 2> /dev/null
 }
 
+clear_qdisc_settings() {
+    for DEVICE_DATA in $FW_HTB_TUNE_DEV; do
+        IFS="," read DEV BANDWIDTH < <(echo "$DEVICE_DATA")
+        $TC qdisc del dev $DEV root 2> /dev/null
+    done
+}
+
 function reset_rules() {
 	echo -n "SuSEfirewall2: clearing rules now ..."
 	reset_rules_silent
+        clear_qdisc_settings
 	echo " done"
 }
 
@@ -273,8 +282,8 @@ tos_settings() {
 #    $IPTABLES -A OUTPUT -j TOS -m state --state NEW -t mangle -p icmp --icmp-type echo-request --set-tos Minimize-Delay # ping
 #    $IPTABLES -A OUTPUT -j TOS -t mangle -p icmp --icmp-type echo-reply   --set-tos Minimize-Delay # pong
 #    $IPTABLES -A OUTPUT -j TOS -t mangle -p icmp --set-tos Maximize-Reliability # all other ICMP
-    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 22   --set-tos Minimize-Delay # SSH in
-    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 22   --set-tos Minimize-Delay # SSH out
+#    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 22   --set-tos Minimize-Delay # SSH in
+#    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 22   --set-tos Minimize-Delay # SSH out
     $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 20   --set-tos Maximize-Throughput # FTP Data
     $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 20   --set-tos Maximize-Throughput # FTP Data
     $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 80   --set-tos Maximize-Throughput # HTTP
@@ -286,6 +295,108 @@ tos_settings() {
     $IPTABLES -A OUTPUT -j TOS -t mangle -p udp --dport 514  --set-tos Maximize-Reliability # Syslog
     #$IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p udp --set-tos Maximize-Reliability # all UDP
 }
+
+#
+# tune the upload stream a little bit
+# with DSL for example, you have the problem, that your
+# downstream collapses if your upstream is full.
+# After this tuning this should not happen anymore.
+# interactive SSH and VPN are faster too, because they
+# get some extra bandwidth besides the bulk traffic
+#
+# variabel from sysconfig:
+#   FW_HTB_TUNE_DEV="DEV1,BANDWIDTH1 DEV2,BANDWIDTH2 ..."
+#
+# any questions about this to uwe.gansert@suse.de
+#
+do_qdisc_settings() {
+    if [ -n "$FW_HTB_TUNE_DEV" ]; then
+	modprobe sch_htb 2> /dev/null
+    fi
+    clear_qdisc_settings
+    for DEVICE_DATA in $FW_HTB_TUNE_DEV; do
+        IFS="," read DEV BANDWIDTH < <(echo "$DEVICE_DATA")
+
+        # sanity check
+        if [ -n "$DEV" -a -n "$BANDWIDTH" ]; then
+            # reserve about 15% for small packets (TCP ACK),
+            # interactive SSH from and to us and DNS querys.
+            # We don't need too much bandwidth but we need it fast.
+            SMALL_PACKET_BW=$(( $BANDWIDTH / 7 ))
+            if [ "$SMALL_PACKET_BW" -eq 0 ]; then
+                echo "Warning: illegal bandwidth settings for $DEV in FW_HTB_TUNE_DEV"
+            fi
+
+            # reserve 25% for VPN traffic. Never mind if we don't have
+            # a VPN. No bandwidth will be wasted
+            VPN_BW=$(( $BANDWIDTH / 4 ))
+            if [ "$VPN_BW" -eq 0 ];then
+                echo "Warning: illegal bandwidth settings for $DEV in FW_HTB_TUNE_DEV"
+            fi
+
+            # bulk traffic
+            REST_BW=$(( ${BANDWIDTH}-${SMALL_PACKET_BW}-${VPN_BW} ))
+
+            $TC qdisc add dev $DEV root handle 1:0 htb default 20       # adding the queing discipline
+
+	    # adding the root class 1:1
+            $TC class add dev $DEV parent 1:0 classid 1:1 htb \
+                rate ${BANDWIDTH}kbit ceil ${BANDWIDTH}kbit
+
+            # class for small tcp packets 1:10
+            $TC class add dev $DEV parent 1:1 classid 1:10 htb \
+                rate ${SMALL_PACKET_BW}kbit ceil ${BANDWIDTH}kbit prio 0 quantum 3000 # and interactive SSH
+	    # class for VPN traffic       1:11
+            $TC class add dev $DEV parent 1:1 classid 1:11 htb \
+                rate ${VPN_BW}kbit ceil ${BANDWIDTH}kbit prio 1 quantum 3000
+	    # class for all the rest      1:20
+            $TC class add dev $DEV parent 1:1 classid 1:20 htb \
+                rate ${REST_BW}kbit ceil ${BANDWIDTH}kbit prio 2 quantum 3000
+	    # packets, marked with "10" to queue 1:10
+            $TC filter add dev $DEV parent 1:0 prio 0 protocol ip \
+                handle 10 fw flowid 1:10
+	    # packets, marked with "11" to queue 1:11
+            $TC filter add dev $DEV parent 1:0 prio 1 protocol ip \
+                handle 11 fw flowid 1:11
+
+	    # iptables marks small TCP packets (potentially ACK)
+	    # with 10, so "tc" will send them to queue 1:10
+            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p tcp \
+                      -m length --length :64 -j MARK --set-mark 10
+
+	    # iptables marks SSH interactive ssh traffic
+	    # with 10 too. So it gets to queue 1:10 like
+            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p tcp \
+                      -m tos --tos Minimize-Delay \
+                      -m tcp --dport 22 -j MARK --set-mark 10
+
+	    # like the rule above, but this time we are
+	    # the sshd and want to respond fast, even when
+            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p tcp \
+                      -m tos --tos Minimize-Delay \
+                      -m tcp --sport 22 -j MARK --set-mark 10 
+
+            # same like above for DNS
+            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p udp \
+                      -m udp --dport 53 -j MARK --set-mark 10
+            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p tcp \
+                      -m tcp --dport 53 -j MARK --set-mark 10
+
+	    # iptables marks VPN traffic with 11
+	    # if we don't have VPN, never mind, no bandwidth
+	    # will be wastet and if we need more, then it'll be
+	    # be "borrowed" from the other queues
+            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p 50 \
+                      -j MARK --set-mark 11
+ 
+        else
+            echo "Warning: illegal settings in FW_HTB_TUNE_DEV=\"$FW_HTB_TUNE_DEV\""
+            echo "         skipped device \"$DEV\""
+        fi
+    done
+}
+
+
 
 faulty_int() {
     test -z "$DEV" || {
@@ -398,6 +509,7 @@ test "$1" = easy -o "$1" = novice && {
 
     # Optimise your TCP/UDP connections by setting IP Options!
     tos_settings
+    do_qdisc_settings
 
     $IPTABLES -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
 
@@ -561,6 +673,7 @@ test "$FW_QUICKMODE" = yes && {
 
     # Optimise your TCP/UDP connections by setting IP Options!
     tos_settings
+    do_qdisc_settings
 
     $IPTABLES -A OUTPUT -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED
 
@@ -1678,8 +1791,8 @@ for i in $TABLES; do
 #    $IPTABLES -A $i -j TOS -m state --state NEW -t mangle -p icmp --icmp-type echo-request --set-tos Minimize-Delay # ping
 #    $IPTABLES -A $i -j TOS -t mangle -p icmp --icmp-type echo-reply   --set-tos Minimize-Delay # pong
 #    $IPTABLES -A $i -j TOS -t mangle -p icmp --set-tos Maximize-Reliability # all other ICMP
-    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 22   --set-tos Minimize-Delay # SSH in
-    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 22   --set-tos Minimize-Delay # SSH out
+#    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 22   --set-tos Minimize-Delay # SSH in
+#    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 22   --set-tos Minimize-Delay # SSH out
     $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 20   --set-tos Maximize-Throughput # FTP Data
     $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 20   --set-tos Maximize-Throughput # FTP Data
     $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 80   --set-tos Maximize-Throughput # HTTP
@@ -1697,6 +1810,9 @@ done
 
 # MSS stuff needs this?
 $IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+
+# HTB settings
+do_qdisc_settings
 
 # Log entry
 test -x "$LOGGER" && \
