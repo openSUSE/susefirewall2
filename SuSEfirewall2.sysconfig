@@ -10,7 +10,7 @@
 #
 # /etc/sysconfig/SuSEfirewall2
 #
-# for use with /sbin/SuSEfirewall2 version 3.1
+# for use with /sbin/SuSEfirewall2 version 3.2
 #
 # ------------------------------------------------------------------------     #
 # PLEASE NOTE THE FOLLOWING:
@@ -116,7 +116,7 @@
 FW_QUICKMODE="no"
 
 ## Type:	string
-## Default:	auto
+## Default:	any
 #
 # 2.)
 # Which are the interfaces that point to the internet/untrusted
@@ -127,13 +127,19 @@ FW_QUICKMODE="no"
 # Format: space separated list of interface or configuration names
 #
 # The special keyword "auto" means to use the device of the default
-# route.
+# route. "auto" cannot be mixed with other interface names.
 #
-# Examples: "eth-id-00:e0:4c:9f:61:9a", "ippp0 ippp1", "auto"
+# The special keyword "any" means that packets arriving on interfaces not
+# explicitly configured as int, ext or dmz will be considered external. Note:
+# this setting only works for packets destined for the local machine. If you
+# want forwarding or masquerading you still have to add the external interfaces
+# individually. "any" can be mixed with other interface names.
+#
+# Examples: "eth-id-00:e0:4c:9f:61:9a", "ippp0 ippp1", "auto", "any ppp0"
 #
 # Note: alias interfaces (like eth0:1) are ignored
 #
-FW_DEV_EXT="auto"
+FW_DEV_EXT="any"
 
 ## Type:	string
 #
@@ -158,7 +164,7 @@ FW_DEV_INT=""
 # Enter all the network devices here which point to the dmz/dialups.
 # A "dmz" is a special, seperated network, which is only connected
 # to the firewall, and should be reachable from the internet to
-# provide services, e.g. WWW, Mail, etc. and hence are at risk from
+# provide services, e.g. WWW, Mail, etc. and hence is at risk from
 # attacks. See /usr/share/doc/packages/SuSEfirewall2/EXAMPLES for an
 # example.
 #
@@ -470,7 +476,7 @@ FW_TRUSTED_NETS=""
 ## Default:
 #
 # 11.)
-# Specify which ports are allowed ot access unprivileged ports (>1023)
+# Specify which ports are allowed to access unprivileged ports (>1023)
 #
 # Format: yes, no or space separated list of ports
 #
