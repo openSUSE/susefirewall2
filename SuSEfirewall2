@@ -4,10 +4,11 @@
 # Copyright (C) 2000-2002 Marc Heuse <marc@suse.de>
 # Copyright (C) 2003,2004 SUSE Linux AG
 #
-# Please send feedback via http://www.suse.de/feedback
-#
+# Author:     Marc Heuse
 # Maintainer: Ludwig Nussel
 # 
+# Please send feedback via http://www.suse.de/feedback
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # version 2 as published by the Free Software Foundation.
@@ -119,6 +120,7 @@ die()
     exit $ret
 }
 
+RPCHELPER="/etc/sysconfig/scripts/SuSEfirewall2-rpcinfo"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
 PERSFWCONFIG="/etc/sysconfig/personal-firewall"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
@@ -283,7 +285,6 @@ SORT="/bin/sort"
 LOGGER="/bin/logger"
 GREP="/bin/grep"
 modinfo="/sbin/modinfo"
-rpcinfo="/usr/sbin/rpcinfo"
 
 for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
     if [ ! -x "$i" ]; then
@@ -1424,32 +1425,7 @@ drop_icmp()
 rpcservicerules()
 {
 	[ -z "$*" ] && return
-
-	$rpcinfo -p localhost | RPCSERVS="$*" $AWK \
-	'
-	BEGIN {
-		split(ENVIRON["RPCSERVS"], rpc, " ");
-		for (s in rpc)
-		{
-			serv[rpc[s]]=1;
-		}
-	}
-	NR > 1 {
-		if($5 in serv)
-		{
-			if($3 == "udp")
-				udp[$4]=1;
-			if($3 == "tcp")
-				tcp[$4]=1;
-		}
-	}
-	END {
-		for (port in udp)
-			print "-p udp --dport " port;
-		for (port in tcp)
-			print "-p tcp --dport " port;
-	}
-	'
+	$RPCHELPER "$*"
 }
 
 # parameters: int|ext|dmz REJECT|DROP INT|EXT|DMZ

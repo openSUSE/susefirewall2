@@ -1,0 +1,92 @@
+#!/usr/bin/perl -w
+# SuSEfirewall2-rpcinfo - helper script for SuSEfirewall2
+# Copyright (C) 2004 SUSE Linux AG
+#
+# Author: Ludwig Nussel
+# 
+# Please send feedback via http://www.suse.de/feedback
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# version 2 as published by the Free Software Foundation.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+# determine ports of RPC services specified on the command line and print them
+# as iptables command line parameters. Only services that are actually running
+# and are running as root are printed.
+
+use strict;
+
+if ($#ARGV < 0)
+{
+    print STDERR "Usage: $0 <service ...>\n\n";
+    exit 1;
+}
+
+my %services = map { $_ => 1 } @ARGV;
+my %udpports = ();
+my %tcpports = ();
+
+# collect registered rpc services
+open (RPCINFO, '/usr/sbin/rpcinfo -p localhost|') or die;
+<RPCINFO>; # header line
+while(<RPCINFO>)
+{
+    chomp;
+    my @line = split;
+    next if($#line < 4);
+    next unless (exists $services{$line[4]});
+    if($line[2] eq 'udp')
+    {
+	$udpports{$line[3]} = $line[4];
+    }
+    elsif($line[2] eq 'tcp')
+    {
+	$tcpports{$line[3]} = $line[4];
+    }
+}
+close RPCINFO;
+
+# @param file
+# @param hashref
+sub getportsfrom($$)
+{
+    my ($file, $href) = @_;
+    # check if the registered ports are actually used and whether they are
+    # owned by a process running as root
+    open (FILE, "<$file") or die;
+    <FILE>; # header line
+    my @ret;
+    while(<FILE>)
+    {
+	chomp;
+	my @line = split;
+	next if($line[7] != 0); # only root allowed
+	my ($addr, $port) = split(/:/, $line[1], 2);
+	$port = pack('H*', $port); # "007B" => "\x00\x7B"
+	$port = unpack('n', $port); # "\x00\x7B" => 0x007B
+	if(exists $href->{$port})
+	{
+	    push @ret, $port;
+	}
+    }
+    close FILE;
+    return @ret;
+}
+
+foreach (getportsfrom('/proc/net/udp', \%udpports))
+{
+    print "-p udp --dport $_\n";
+}
+foreach (getportsfrom('/proc/net/tcp', \%tcpports))
+{
+    print "-p tcp --dport $_\n";
+}
