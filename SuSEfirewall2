@@ -53,6 +53,7 @@ stateful packet filter rules generator for iptables.
 
 $0 start|test|debug [file FILENAME] [batch]
 $0 basic|stop|close|status|help
+$0 open ZONE TYPE services...
 $0 on|off
 
 Options:
@@ -67,6 +68,8 @@ Options:
   debug   print the iptables command to stdout instead of executing them
   log     show SuSEfirewall2 related syslog messages in a better readable format
   help    this output
+  open    open the specified services in the specified zone. You need to
+          restart SuSEfirewall2 for changes to take effect.
   on      add SuSEfirwall2 initscripts to boot process and start
   off     remove SuSEfirwall2 initscripts from boot process and stop
 
@@ -126,6 +129,7 @@ die()
 
 RPCHELPER="/etc/sysconfig/scripts/SuSEfirewall2-rpcinfo"
 SHOWLOGHELPER="/etc/sysconfig/scripts/SuSEfirewall2-showlog"
+OPENHELPER="/etc/sysconfig/scripts/SuSEfirewall2-open"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
 PERSFWCONFIG="/etc/sysconfig/personal-firewall"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
@@ -143,15 +147,17 @@ ACTION="start"
 MODE="standard"
 INITSCRIPTS="" # on|off
 needconfig=
+needlock=1
 
 case $1 in
     start|"") needconfig=1 ;;
     test) MODE="test" ;;
-    debug) MODE="debug" ;;
+    debug) MODE="debug"; needlock=0 ;;
     easy|novice|basic) ACTION="basic" ;;
     stop|halt|down|shutdown) ACTION="stop"; needconfig=1 ;;
     close) ACTION="close" ;;
-    status) ACTION="status" ;;
+    status) ACTION="status"; needlock=0 ;;
+    open) ACTION="open"; needlock=0 ;;
     log) ACTION="showlog" ;;
     help) help ;;
     off) ACTION="stop"; needconfig=1; INITSCRIPTS="off" ;;
@@ -822,7 +828,7 @@ auto_detect_all_interfaces()
 }
 
 ### Locking mechanism
-if [ "$MODE" != "debug" ]; then
+if [ "$needlock" -ne 0 ]; then
     if [ -e "$LOCKFILE" ]; then
 	read PID < $LOCKFILE
 	syslog 0 "Another SuSEfirewall2 with PID $PID found, waiting ..."
@@ -897,6 +903,12 @@ if [ "$ACTION" = "close" ]; then
 fi
 
 if [ "$ACTION" = "status" ]; then
+    if [ "$UID" != 0 ]; then
+	die 2 "You need to be root to check the status"
+    fi
+    if ! $IPTABLES -nL reject_func >/dev/null 2>&1; then
+	die 1 "SuSEfirewall2 not active"
+    fi
     echo
     echo "###### iptables ######"
     echo
@@ -917,6 +929,10 @@ if [ "$ACTION" = "status" ]; then
     die 0
 fi
 
+if [ "$ACTION" = "open" ]; then
+    exec perl -w $OPENHELPER "$@"
+    die 1 "failed to execute $OPENHELPER"
+fi
 
 auto_detect_all_interfaces
 

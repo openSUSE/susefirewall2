@@ -64,7 +64,7 @@ case "$1" in
 	;;
     status)
 	echo -n "Checking the status of SuSEfirewall2 "
-	iptables -L reject_func >/dev/null 2>&1 || rc_failed 3
+	iptables -nL reject_func >/dev/null 2>&1 || rc_failed 3
 	rc_status -v
 	;;
     *)

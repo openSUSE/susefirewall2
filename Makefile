@@ -11,6 +11,7 @@ allfiles=SuSEfirewall2_final \
 	SuSEfirewall2-autointerface.sh \
 	SuSEfirewall2-rpcinfo \
 	SuSEfirewall2-showlog \
+	SuSEfirewall2-open \
 	SuSEfirewall2-custom.sysconfig \
 	SuSEfirewall2 \
 	sysconfig-personal-firewall \
@@ -46,6 +47,7 @@ install:
 	install -m 755 SuSEfirewall2-autointerface.sh $(DESTDIR)/etc/sysconfig/scripts
 	install -m 644 SuSEfirewall2-rpcinfo $(DESTDIR)/etc/sysconfig/scripts
 	install -m 644 SuSEfirewall2-showlog $(DESTDIR)/etc/sysconfig/scripts
+	install -m 644 SuSEfirewall2-open $(DESTDIR)/etc/sysconfig/scripts
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 
 clean:
