@@ -1,7 +1,7 @@
 # Copyright (c) 2000-2002 SuSE GmbH Nuernberg, Germany.  All rights reserved.
 # Copyright (c) 2003,2004 SuSE Linux AG Nuernberg, Germany.  All rights reserved.
 #
-# Author: Marc Heuse <feedback@suse.de>, 2002
+# Author: Marc Heuse, 2002
 #
 # If you have problems getting this tool configures, please read this file
 # carefuly and take also a look into
@@ -103,28 +103,33 @@
 # 1.)
 # Should the Firewall run in quickmode?
 #
-# "Quickmode" means that only the interfaces pointing to external networks
-# are secured, and no other. all interfaces not in the list of FW_DEV_EXT
-# are allowed full network access! Additionally, masquerading is
-# automatically activated for FW_MASQ_DEV devices. and last but not least:
-# all incoming connection via external interfaces are REJECTED.
-# You will only need to configure 2.) and FW_MASQ_DEV in 6.)
-# Optionally, you may add entries to section 9a.)
+# "Quickmode" means that only the interfaces pointing to external
+# networks are secured, and no other. all interfaces not in the list
+# of FW_DEV_EXT are allowed full network access! Additionally,
+# masquerading is automatically activated for FW_MASQ_DEV devices.
+# and last but not least: all incoming connection via external
+# interfaces are REJECTED. You will only need to configure 2.) and
+# FW_MASQ_DEV in 6.) Optionally, you may add entries to section 9a.)
 #
-# Choice: "yes" or "no", if not set defaults to "no"
+# defaults to "no" if not set
 #
 FW_QUICKMODE="no"
 
 ## Type:	string
 ## Default:	auto
+#
 # 2.)
-# Which is the interface that points to the internet/untrusted networks?
+# Which are the interfaces that point to the internet/untrusted
+# networks?
 #
-# Enter all the network devices here which are untrusted.
+# Enter all untrusted network devices here
 #
-# Choice: any number of device names, separated by a space. The
-# keyword "auto" means to use the device of the default route.
-# e.g. "eth0", "ippp0 ippp1", "auto"
+# Format: space separated list of interface or configuration names
+#
+# The special keyword "auto" means to use the device of the default
+# route.
+#
+# Examples: "eth-id-00:e0:4c:9f:61:9a", "ippp0 ippp1", "auto"
 #
 # Note: alias interfaces (like eth0:1) are ignored
 #
@@ -133,33 +138,36 @@ FW_DEV_EXT="auto"
 ## Type:	string
 #
 # 3.)
-# Which is the interface that points to the internal network?
+# Which are the interfaces that point to the internal network?
 #
-# Enter all the network devices here which are trusted.
-# If you are not connected to a trusted network (e.g. you have just a
-# dialup) leave this empty.
+# Enter all trusted network interfaces here. If you are not
+# connected to a trusted network (e.g. you have just a dialup) leave
+# this empty.
 #
-# Choice: leave empty or any number of devices, seperated by a space
-# e.g. "tr0", "eth0 eth1 eth1" or ""
+# Format: space separated list of interface or configuration names
+#
+# Examples: "eth-id-00:e0:4c:9f:61:9a", "tr0", "eth0 eth1"
 #
 FW_DEV_INT=""
 
 ## Type:	string
 #
 # 4.)
-# Which is the interface that points to the dmz or dialup network?
+# Which are the interfaces that point to the dmz or dialup network?
 #
 # Enter all the network devices here which point to the dmz/dialups.
-# A "dmz" is a special, seperated network, which is only connected to the
-# firewall, and should be reachable from the internet to provide services,
-# e.g. WWW, Mail, etc. and hence are at risk from attacks.
-# See /usr/share/doc/packages/SuSEfirewall2/EXAMPLES for an example.
+# A "dmz" is a special, seperated network, which is only connected
+# to the firewall, and should be reachable from the internet to
+# provide services, e.g. WWW, Mail, etc. and hence are at risk from
+# attacks. See /usr/share/doc/packages/SuSEfirewall2/EXAMPLES for an
+# example.
 #
-# Special note: You have to configure FW_FORWARD to define the services
+# Note: You have to configure FW_FORWARD to define the services
 # which should be available to the internet and set FW_ROUTE to yes.
 #
-# Choice: leave empty or any number of devices, seperated by a space
-# e.g. "tr0", "eth0 eth1 eth1" or ""
+# Format: space separated list of interface or configuration names
+#
+# Examples: "eth-id-00:e0:4c:9f:61:9a", "tr0", "eth0 eth1"
 #
 FW_DEV_DMZ=""
 
@@ -167,20 +175,23 @@ FW_DEV_DMZ=""
 ## Default:	no
 #
 # 5.)
-# Should routing between the internet, dmz and internal network be activated?
-# REQUIRES: FW_DEV_INT or FW_DEV_DMZ
+# Should routing between the internet, dmz and internal network be
+# activated?
 #
-# You need only set this to yes, if you either want to masquerade internal
-# machines or allow access to the dmz (or internal machines, but this is not
-# a good idea). This option supersedes IP_FORWARD from
+# Set this to "yes" if you either want to masquerade internal
+# machines or allow access to the dmz (or internal machines, but
+# this is not a good idea).
+# 
+# This option overrides IP_FORWARD from
 # /etc/sysconfig/network/options
 #
 # Setting this option one alone doesn't do anything. Either activate
-# massquerading with FW_MASQUERADE below if you want to masquerade your
-# internal network to the internet, or configure FW_FORWARD to define
-# what is allowed to be forwarded!
+# masquerading with FW_MASQUERADE below if you want to masquerade
+# your internal network to the internet, or configure FW_FORWARD to
+# define what is allowed to be forwarded. You also need to define
+# internal or dmz interfaces in FW_DEV_INT or FW_DEV_DMZ.
 #
-# Choice: "yes" or "no", if not set defaults to "no"
+# defaults to "no" if not set
 #
 FW_ROUTE="no"
 
@@ -189,85 +200,92 @@ FW_ROUTE="no"
 #
 # 6.)
 # Do you want to masquerade internal networks to the outside?
-# REQUIRES: FW_DEV_INT or FW_DEV_DMZ, FW_ROUTE
 #
-# "Masquerading" means that all your internal machines which use services on
-# the internet seem to come from your firewall.
-# Please note that it is more secure to communicate via proxies to the
-# internet than masquerading. This option is required for FW_MASQ_NETS and
-# FW_FORWARD_MASQ.
+# Requires: FW_DEV_INT or FW_DEV_DMZ, FW_ROUTE, FW_MASQ_DEV
 #
-# Choice: "yes" or "no", if not set defaults to "no"
+# "Masquerading" means that all your internal machines which use
+# services on the internet seem to come from your firewall. Please
+# note that it is more secure to communicate via proxies to the
+# internet than to use masquerading.
+# 
+# This option is required for FW_MASQ_NETS and FW_FORWARD_MASQ.
+#
+# defaults to "no" if not set
 #
 FW_MASQUERADE="no"
 
 ## Type:	string
+## Default:     $FW_DEV_EXT
 #
-# You must also define on which interface(s) to masquerade on. This is
-# normally your external device(s) to the internet.
-# Most users can leave the default below.
+# 6a.)
+# You must also define on which interfaces to masquerade on. Those
+# are usually the same as the external interfaces. Most users can
+# leave the default.
 #
-# e.g. "ippp0" or "$FW_DEV_EXT"
+# Examples: "ippp0", "$FW_DEV_EXT"
+#
 FW_MASQ_DEV="$FW_DEV_EXT"
 
 ## Type:	string
+## Default:	0/0
 #
-# Which internal computers/networks are allowed to access the internet
-# directly (not via proxys on the firewall)?
-# Only these networks will be allowed access and will be masqueraded!
+# Which internal computers/networks are allowed to access the
+# internet via masquerading (not via proxys on the firewall)?
 #
-# Format: <source network>[,<destination network>,<protocol>[,port[:port]]
+# Format: space separated list of
+#  <source network>[,<destination network>,<protocol>[,port[:port]]
+#  
 #  If the protocol is icmp then port is interpreted as icmp type
 #
-# Choice: leave empty or any number of hosts/networks seperated by a space.
-# Every host/network may get a list of allowed services, otherwise everything
-# is allowed. A target network, protocol and service is appended by a comma to
-# the host/network. e.g. "10.0.0.0/8" allows the whole 10.0.0.0 network with
-# unrestricted access. "10.0.1.0/24,0/0,tcp,80 10.0.1.0/24,0/0,tcp,21" allows
-# the 10.0.1.0 network to use www/ftp to the internet.
-# "10.0.1.0/24,0/0,tcp,1024:65535 10.0.2.0/24" is OK too.
-# Set this variable to "0/0" to allow unrestricted access to the internet.
-#
-FW_MASQ_NETS=""
+# Examples: - "0/0" unrestricted access to the internet
+#           - "10.0.0.0/8" allows the whole 10.0.0.0 network with
+#             unrestricted access.
+#           - "10.0.1.0/24,0/0,tcp,80 10.0.1.0/24,0/0,tcp,21" allows
+#             the 10.0.1.0 network to use www/ftp to the internet. -
+#           - "10.0.1.0/24,0/0,tcp,1024:65535 10.0.2.0/24" the
+#             10.0.1.0/24 network is allowed to access unprivileged
+#             ports whereas 10.0.2.0/24 is granted unrestricted
+#             access.
+#           
+FW_MASQ_NETS="0/0"
 
 ## Type:	yesno
-## Default:	yes
+## Default:	no
 #
 # 7.)
 # Do you want to protect the firewall from the internal network?
-# REQUIRES: FW_DEV_INT
+# Requires: FW_DEV_INT
 #
 # If you set this to "yes", internal machines may only access services on
-# the machine you explicitly allow. They will be also affected from the
-# FW_AUTOPROTECT_SERVICES option.
-# If you set this to "no", any user can connect (and attack) any service on
-# the firewall.
+# the firewall you explicitly allow. They will be also affected from the
+# FW_AUTOPROTECT_SERVICES option. If you set this to "no", any
+# internal user can connect (and attack) any service on the
+# firewall.
 #
-# Choice: "yes" or "no", if not set defaults to "yes"
-#
-# "yes" is a good choice
-FW_PROTECT_FROM_INTERNAL="yes"
+# defaults to "yes" if not set
+# 
+FW_PROTECT_FROM_INTERNAL="no"
 
 ## Type:	yesno
-## Default:	yes
+## Default:	no
 #
 # 8.)
-# Do you want to autoprotect all running network services on the firewall?
+# Do you want to create explicit drop rules for all running network
+# services on the firewall?
 #
 # If set to "yes", all network access to services TCP and UDP on this machine
-# will be prevented (except to those which you explicitly allow, see below:
-# FW_SERVICES_{EXT,DMZ,INT}_{TCP,UDP})
+# will be explicitely prevented (except to those which you
+# explicitly allow, see below: FW_SERVICES_{EXT,DMZ,INT}_{TCP,UDP})
 #
-# Choice: "yes" or "no", if not set defaults to "yes"
+# defaults to "yes" if not set
 #
-FW_AUTOPROTECT_SERVICES="yes"
+FW_AUTOPROTECT_SERVICES="no"
 
 ## Type:	string
 #
 # 9.)
-# Which services ON THE FIREWALL should be accessible from either the internet
-# (or other untrusted networks), the dmz or internal (trusted networks)?
-# (see no.13 & 14 if you want to route traffic through the firewall) XXX
+# Which TCP services _on the firewall_ should be accessible from
+# untrusted networks?
 #
 # Enter all ports or known portnames below, seperated by a space.
 # TCP services (e.g. SMTP, WWW) must be set in FW_SERVICES_*_TCP, and
@@ -279,68 +297,112 @@ FW_AUTOPROTECT_SERVICES="yes"
 # For IP protocols (like GRE for PPTP, or OSPF for routing) you need to set
 # FW_SERVICES_*_IP with the protocol name or number (see /etc/protocols)
 #
-# Choice: leave empty or any number of ports, known portnames (from
-# /etc/services) and port ranges seperated by a space. Port ranges are
-# written like this: allow port 1 to 10 -> "1:10"
-# e.g. "", "smtp", "123 514", "3200:3299", "ftp 22 telnet 512:514"
-# For FW_SERVICES_*_IP enter the protocol name (like "igmp") or number ("2")
+# Format: space separated list of ports, port ranges or well known
+#         service names (see /etc/services)
 #
-# Common: smtp domain
+# Examples: "ssh", "123 514", "3200:3299", "ftp 22 telnet 512:514"
+#
 FW_SERVICES_EXT_TCP=""
 
 ## Type:	string
-# Common: domain
-FW_SERVICES_EXT_UDP=""	# Common: domain
+#
+# Which UDP services _on the firewall_ should be accessible from
+# untrusted networks?
+#
+# see comments for FW_SERVICES_EXT_TCP
+#
+# Example: "53"
+#
+FW_SERVICES_EXT_UDP=""
 
 ## Type:	string
-# For VPN/Routing which END at the firewall!!
+# 
+# Which UDP services _on the firewall_ should be accessible from
+# untrusted networks?
+#
+# Usually for VPN/Routing which END at the firewall
+#
+# Example: "esp"
+#
 FW_SERVICES_EXT_IP=""
 
 ## Type:        string
-# Port numbers of RPC services are dynamically assigned by the portmapper.
-# Therefore "rpcinfo -p localhost" is used to automatically determine the
-# currently assigned port for the services specified here.
-# Typical choice: mountd nfs
+#
+# Which RPC services _on the firewall_ should be accessible from
+# untrusted networks?
+#
+# Port numbers of RPC services are dynamically assigned by the
+# portmapper. Therefore "rpcinfo -p localhost" has to be used to
+# automatically determine the currently assigned port for the
+# services specified here.
+#
+# USE WITH CAUTION!
+# regular users can register rpc services and therefore could have
+# SuSEfirewall2 open arbitrary ports
+#
+# Example: "mountd nfs"
 FW_SERVICES_EXT_RPC=""
 
 ## Type:	string
 #
-# Common: smtp domain
+# see comments for FW_SERVICES_EXT_TCP
 FW_SERVICES_DMZ_TCP=""
 
 ## Type:	string
-# Common: domain
+#
+# see comments for FW_SERVICES_EXT_UDP
 FW_SERVICES_DMZ_UDP=""
 
 ## Type:	string
-# For VPN/Routing which END at the firewall!!
+#
+# see comments for FW_SERVICES_EXT_IP
 FW_SERVICES_DMZ_IP=""
 
 ## Type:        string
-# Port numbers of RPC services are dynamically assigned by the portmapper.
-# Therefore "rpcinfo -p localhost" is used to automatically determine the
-# currently assigned port for the services specified here.
-# Typical choice: mountd nfs
+#
+# see comments for FW_SERVICES_EXT_RPC
 FW_SERVICES_DMZ_RPC=""
 
 ## Type:	string
 #
-# Common: ssh smtp domain
+# see comments for FW_SERVICES_EXT_TCP
 FW_SERVICES_INT_TCP=""
 
 ## Type:	string
-# Common: domain syslog
+#
+# see comments for FW_SERVICES_EXT_UDP
 FW_SERVICES_INT_UDP=""
 
-# For VPN/Routing which END at the firewall!!
+## Type:	string
+#
+# see comments for FW_SERVICES_EXT_IP
 FW_SERVICES_INT_IP=""
 
 ## Type:        string
-# Port numbers of RPC services are dynamically assigned by the portmapper.
-# Therefore "rpcinfo -p localhost" is used to automatically determine the
-# currently assigned port for the services specified here.
-# Typical choice: mountd nfs
+#
+# see comments for FW_SERVICES_EXT_RPC
 FW_SERVICES_INT_RPC=""
+
+## Type: string
+#
+# Packets to silently drop without log message
+#
+# Format: space separated list of protocol[,port]
+# Example: "tcp,445 udp,4662"
+#
+FW_SERVICES_DROP_EXT="tcp,22"
+
+## Type: string
+## Default: tcp,113
+#
+# Packets to silently reject without log message. Common usage is
+# TCP port 113 which if dropped would cause long timeouts when
+# sending mail or connecting to IRC servers.
+#
+# Format: space separated list of protocol[,port]
+# Example: "tcp,113"
+#
+FW_SERVICES_REJECT_EXT="tcp,113"
 
 ## Type:	string
 # 9a.)
@@ -385,17 +447,19 @@ FW_SERVICES_QUICK_IP=""
 ## Type:	string
 #
 # 10.)
-# Which services should be accessible from trusted hosts/nets?
+# Which services should be accessible from 'trusted' hosts or nets?
 #
-# Define trusted hosts/networks (doesnt matter if they are internal or
-# external) and the TCP and/or UDP services they are allowed to use.
-# Please note that a trusted host/net is *not* allowed to ping the firewall
-# until you set it to allow also icmp!
+# Define trusted hosts or networks (doesn't matter whether they are internal or
+# external) and the services (tcp,udp,icmp) they are allowed to use. This can
+# be used instead of FW_SERVICES_* for further access restriction. Please note
+# that this is no replacement for authentication since IP addresses can be
+# spoofed. Also note that trusted hosts/nets are not allowed to ping the
+# firewall until you also permit icmp.
 #
-# Choice: leave FW_TRUSTED_NETS empty or any number of computers and/or
-# networks, seperated by a space. e.g. "172.20.1.1 172.20.0.0/16"
-# Optional, enter a protocol after a comma, e.g. "1.1.1.1,icmp"
-# Optional, enter a port after a protocol, e.g. "2.2.2.2,tcp,22"
+# Format: space separated list of network[,protocol[,port]]
+# in case of icmp, port means the icmp type
+#
+# Example: "172.20.1.1 172.20.0.0/16 1.1.1.1,icmp 2.2.2.2,tcp,22"
 #
 FW_TRUSTED_NETS=""
 
@@ -418,38 +482,6 @@ FW_ALLOW_INCOMING_HIGHPORTS_TCP=""
 #
 # defaults to "no" if not set (good choice)
 FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
-
-## Type:	yesno
-## Default:	yes
-#
-# 12.)
-# Are you running some of the services below?
-# They need special attention - otherwise they won´t work!
-#
-# Set services you are running to "yes", all others to "no",
-# if not set defaults to "no"
-# If you want to offer the below services to your DMZ as well,
-# (and not just internally), set the switches below to "dmz",
-# if you even want to offer to the world as well, set to "ext"
-# instead of "yes" (NOT RECOMMENDED FOR SECURITY REASONS!)
-#
-FW_SERVICE_AUTODETECT="yes"	# Autodetect the services below when starting
-
-## Type:	yesno
-## Default:	no
-# if you use dhclient to get an ip address you have to set this to "yes" !
-FW_SERVICE_DHCLIENT="no"
-
-## Type:	yesno
-## Default:	no
-# set to "yes" if this server is a DHCP server
-FW_SERVICE_DHCPD="no"
-
-## Type:	yesno
-## Default:	no
-# set to "yes" if this server is running a samba server. You still have to 
-# open the tcp port 139 to allow remote access to SAMBA.
-FW_SERVICE_SAMBA="no"
 
 ## Type:	string
 #
@@ -521,21 +553,25 @@ FW_FORWARD_MASQ=""		# Beware to use this!
 ## Type:	string
 #
 # 15.)
-# Which accesses to services should be redirected to a localport on the
-# firewall machine?
+# Which accesses to services should be redirected to a localport on
+# the firewall machine?
 #
-# This can be used to force all internal users to surf via your squid proxy,
-# or transparently redirect incoming webtraffic to a secure webserver.
+# This option can be used to force all internal users to surf via
+# your squid proxy, or transparently redirect incoming webtraffic to
+# a secure webserver.
 # 
-# Choice: leave empty or use the following explained syntax of redirecting
-# rules, seperated by a space.
-# A redirecting rule consists of 1) source IP/net, 2) destination IP/net,
-# 3) protocol (tcp or udp) 3) original destination port and 4) local port to
-# redirect the traffic to, seperated by a colon. e.g.:
-# "10.0.0.0/8,0/0,tcp,80,3128 0/0,172.20.1.1,tcp,80,8080"
-# Please note that as 2) destination, you may add '!' in front of the IP/net
-# to specify everything EXCEPT this IP/net.
+# Format: list of <source network>[,<destination network>,<protocol>[,dport[:lport]]
+# Where protocol is either tcp or udp. dport is the original
+# destination port and lport the port on the local machine to
+# redirect the traffic to
 #
+# An exclamation mark in front of source or destination network
+# means everything EXCEPT the specified network
+#
+# Example: "10.0.0.0/8,0/0,tcp,80,3128 0/0,172.20.1.1,tcp,80,8080"
+#
+# Please note that you still have to open the local port in
+# FW_SERVICES_* or FW_TRUSTED_NETS to actually permit access
 FW_REDIRECT=""
 
 ## Type:	yesno
@@ -607,6 +643,9 @@ FW_KERNEL_SECURITY="yes"
 #
 FW_ANTISPOOF="no"
 
+## Type:	yesno
+## Default:	no
+#
 # 18.)
 # Keep the routing set on, if the firewall rules are unloaded?
 # REQUIRES: FW_ROUTE
@@ -629,22 +668,31 @@ FW_STOP_KEEP_ROUTING_STATE="no"
 ## Default:	yes
 #
 # 19.)
-# Allow (or don't) ICMP echo pings on either the firewall or the dmz from
-# the internet? The internet option is for allowing the DMZ and the internal
-# network to ping the internet.
-# REQUIRES: FW_ROUTE for FW_ALLOW_PING_DMZ and FW_ALLOW_PING_EXT
+# Allow the firewall to reply to icmp echo requests
 #
-# Choice: "yes" or "no", defaults to "no" if not set
+# defaults to "no" if not set
 #
 FW_ALLOW_PING_FW="yes"
 
 ## Type:	yesno
 ## Default:	no
 #
+# 19a.)
+# Allow hosts in the dmz to be pinged by internal and external hosts
+# REQUIRES: FW_ROUTE
+#
+# defaults to "no" if not set
+#
 FW_ALLOW_PING_DMZ="no"
 
 ## Type:	yesno
 ## Default:	no
+#
+# 19b.)
+# Allow external hosts to be pinged from internal or dmz hosts
+# REQUIRES: FW_ROUTE
+#
+# defaults to "no" if not set
 #
 FW_ALLOW_PING_EXT="no"
 
@@ -665,13 +713,15 @@ FW_ALLOW_PING_EXT="no"
 #
 # 20.)
 # Allow (or don't) ICMP time-to-live-exceeded to be send from your firewall.
-# This is used for traceroutes to your firewall (or traceroute like tools).
+# This is used for traceroutes (or traceroute like tools) through your
+# firewall.
 #
-# Please note that the unix traceroute only works if you say "yes" to
-# FW_ALLOW_INCOMING_HIGHPORTS_UDP, and windows traceroutes only if you say
-# additionally "yes" to FW_ALLOW_PING_FW
+# Please note that setting this option is not sufficient if your firewall is
+# the destination of the traceroute. The Un*x traceroute only works if you also
+# open about 100 UDP ports starting from 33434. Windows(TM) traceroutes needs
+# FW_ALLOW_PING_FW set to "yes"
 #
-# Choice: "yes" or "no", if not set defaults to "no"
+# defaults to "no" if not set
 #
 FW_ALLOW_FW_TRACEROUTE="yes"
 
@@ -684,7 +734,7 @@ FW_ALLOW_FW_TRACEROUTE="yes"
 # If set to yes, the firewall will notice when connection is choking, however
 # this opens yourself to a denial of service attack. Choose your poison.
 #
-# Choice: "yes" or "no", if not set defaults to "yes"
+# defaults to "yes" if not set
 #
 FW_ALLOW_FW_SOURCEQUENCH="yes"
 
