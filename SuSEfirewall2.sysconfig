@@ -298,8 +298,8 @@ FW_SERVICES_EXT_IP=""
 # services specified here.
 #
 # USE WITH CAUTION!
-# regular users can register rpc services and therefore could have
-# SuSEfirewall2 open arbitrary ports
+# regular users can register rpc services and therefore may be able
+# to have SuSEfirewall2 open arbitrary ports
 #
 # Example: "mountd nfs"
 FW_SERVICES_EXT_RPC=""
@@ -348,8 +348,12 @@ FW_SERVICES_INT_RPC=""
 #
 # Packets to silently drop without log message
 #
-# Format: space separated list of net,protocol[,port]
+# Format: space separated list of net,protocol[,port][,sport]
 # Example: "0/0,tcp,445 0/0,udp,4662"
+#
+# The special value _rpc_ is recognized as protocol and means that dport is
+# interpreted as rpc service name. See FW_SERVICES_EXT_RPC for
+# details.
 #
 FW_SERVICES_DROP_EXT=""
 
@@ -360,10 +364,29 @@ FW_SERVICES_DROP_EXT=""
 # TCP port 113 which if dropped would cause long timeouts when
 # sending mail or connecting to IRC servers.
 #
-# Format: space separated list of net,protocol[,port]
+# Format: space separated list of net,protocol[,dport][,sport]
 # Example: "0/0,tcp,113"
 #
+# The special value _rpc_ is recognized as protocol and means that dport is
+# interpreted as rpc service name. See FW_SERVICES_EXT_RPC for
+# details.
+#
 FW_SERVICES_REJECT_EXT="0/0,tcp,113"
+
+## Type: string
+## Default: 0/0,tcp,113
+#
+# Services to allow. This is a more generic form of FW_SERVICES_{IP,UDP,TCP}
+# and more specific than FW_TRUSTED_NETS
+#
+# Format: space separated list of net,protocol[,dport][,sport]
+# Example: "0/0,tcp,22"
+#
+# The special value _rpc_ is recognized as protocol and means that dport is
+# interpreted as rpc service name. See FW_SERVICES_EXT_RPC for
+# details.
+#
+FW_SERVICES_ACCEPT_EXT=""
 
 ## Type:	string
 #

@@ -400,20 +400,53 @@ function setproc()
 }
 
 # parameters: protocol port variable
-# check whether $1 and $2 are a valid protocol/port combination and sets global
-# variables $proto, $port and $sport in iptables syntax
-# $2 is used for logging
+# check whether $1 and $2/$3 are a valid protocol/port combination and sets global
+# variables $proto, $port ($rport) and $sport ($rsport) in iptables syntax
+# $4 is used for logging
 # returns 1 on error, the content of $proto and $port is undefined then
 check_proto_port()
 {
     proto="$1"
     port="$2"
-    sport=""
-    local var="$3"
+    sport="$3"
+    local var="$4"
     case "$proto" in
 	'')   error "proto must not be empty in ${var}"; return 1; ;;
-	tcp|udp)  [ -n "$port" ] && { sport="--sport $port"; port="--dport $port"; }; ;;
-	icmp) [ -n "$port" ] && { sport="--icmp-type $port"; port="$sport"; }; ;;
+	_rpc_) # cannot check ports here
+	    ;;
+	tcp|udp)
+	    if [ -n "$port" ]; then
+		rport="--sport $port"
+		port="--dport $port"
+	    else
+		port=''
+		rport=''
+	    fi
+	    if [ -n "$sport" ]; then
+		rsport="--dport $sport"
+		sport="--sport $sport"
+	    else
+		sport=''
+		rsport=''
+	    fi
+
+	    ;;
+	icmp)
+	    if [ -n "$port" ]; then
+		port="--icmp-type $port"
+		rport="$port"
+	    else
+		port=''
+		rport=''
+	    fi
+	    if [ -n "$sport" ]; then
+		sport="--icmp-type $sport"
+		rsport="$sport"
+	    else
+		sport=''
+		rsport=''
+	    fi
+	;;
 	*)
 	    if [ -n "$port" ]; then
 		error "port is only valid with tcp, udp or icmp in ${var}"
@@ -1236,7 +1269,7 @@ process_trusted_nets()
 	    error "Too many arguments in FW_TRUSTED_NETS -> $nets"
 	elif [ -z "$net" ]; then
 	    error "network parameter of FW_TRUSTED_NETS is empty -> $nets"
-	elif check_proto_port "$proto" "$port" 'FW_TRUSTED_NETS'; then
+	elif check_proto_port "$proto" "$port" "" 'FW_TRUSTED_NETS'; then
 	    for chain in $input_zones; do # trusted networks can be on any interface ...
 		chain=input_$chain
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST " -m state --state NEW -s $net $proto $port
@@ -1253,8 +1286,14 @@ process_trusted_nets()
 # parameters: names of rpc services, e.g. ypbind mountd
 rpcservicerules()
 {
-	[ -z "$1" ] && return
-	$PERL "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@"
+    local chain="$1"
+    shift
+    [ -z "$1" ] && return
+    $PERL "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" | while read ARG; do
+	$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " -m state --state NEW $ARG
+	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
+	$IPTABLES -A $chain -j "$ACCEPT" $ARG
+    done
 }
 
 # parameters: REJECT|DROP
@@ -1274,7 +1313,7 @@ reject_or_drop_services()
 
 	for service in $services; do
 	    IFS=, eval set -- \$service
-	    if [ "$#" -ne 3 ]; then
+	    if [ "$#" -lt 3 ]; then
 		error "too few parameters in $var -> $service"
 		continue
 	    fi
@@ -1286,10 +1325,50 @@ reject_or_drop_services()
 		[0-9]*.*.*.*) iptables="$IPTABLES" ;;
 	    esac
 
-	    if check_proto_port "$2" "$3" "$var"; then
+	    if [ "$2" = "_rpc_" ]; then
+		rpcservicerules $chain $service
+	    elif check_proto_port "$2" "$3" "$4" "$var"; then
 		for iptables in $iptables; do
 		    $LDA $iptables -A $chain -s $net $proto $port -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
 		    $iptables -A $chain -s $net $proto $port -m state --state NEW -j "$target"
+		done
+	    fi
+	done
+    done
+}
+
+accept_services()
+{
+    local var
+    local services target service proto net
+    local iptables zone chain
+
+    for zone in $input_zones; do
+	chain=input_$zone
+	var="FW_SERVICES_ACCEPT_`cibiz $zone`"
+	eval services="\"\$$var\""
+
+	for service in $services; do
+	    IFS=, eval set -- \$service
+	    if [ "$#" -lt 3 ]; then
+		error "too few parameters in $var -> $service"
+		continue
+	    fi
+
+	    net="${1:-0/0}"
+	    iptables="$IPTABLES $IP6TABLES"
+	    case "$net" in
+		*:*) iptables="$IP6TABLES" ;;
+		[0-9]*.*.*.*) iptables="$IPTABLES" ;;
+	    esac
+
+	    if [ "$2" = "_rpc_" ]; then
+		rpcservicerules $chain $service
+	    elif check_proto_port "$2" "$3" "$4" "$var"; then
+		for iptables in $iptables; do
+		    $LAC $iptables -A $chain -s $net $proto $port $sport -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-ACC "
+		    $LAA $iptables -A $chain -s $net $proto $port $sport -j LOG ${LOG}"-`rulelog $chain`-ACC "
+		    $iptables -A $chain -s $net $proto $port $sport -j ACCEPT
 		done
 	    fi
 	done
@@ -1330,11 +1409,7 @@ allow_rpc_services()
     for zone in $input_zones; do
 	chain=input_$zone
 	eval ports="\$FW_SERVICES_`cibiz $zone`_RPC"
-	rpcservicerules $ports | while read ARG; do
-	    $LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " -m state --state NEW $ARG
-	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
-	    $IPTABLES -A $chain -j "$ACCEPT" $ARG
-	done
+	rpcservicerules $chain $ports
     done
 }
 
@@ -1505,7 +1580,7 @@ forwarding_rules()
 	proto="$3"
 	port="$4"
 	flags="$5"
-	sport=""
+	rport=""
 
 	case "$flags" in
 	    "") ;;
@@ -1518,7 +1593,7 @@ forwarding_rules()
 		;;
 	esac
 
-	if [ -n "$proto" ] && ! check_proto_port "$proto" "$port" "FW_FORWARD"; then
+	if [ -n "$proto" ] && ! check_proto_port "$proto" "$port" '' "FW_FORWARD"; then
 	    net1=""
 	fi
 
@@ -1528,7 +1603,7 @@ forwarding_rules()
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args
 		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args
 		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args
-		$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $sport $more_args
+		$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $more_args
 	    done
 	fi
      done
@@ -1544,13 +1619,13 @@ masquerading_rules()
 	net2="$2"
 	proto="$3"
 	port="$4"
-	sport=""
+	rport=""
 
 	if [ -n "$5" ]; then
    	    error "Too many arguments in FW_MASQ_NETS -> $nets"
 	elif [ -z "$net1" ]; then
 	    error "source network must not be empty in FW_MASQ_NETS -> $nets"
-	elif [ -z "$proto" -a -z "$port" ] || check_proto_port "$proto" "$port" 'FW_MASQ_NETS'; then
+	elif [ -z "$proto" -a -z "$port" ] || check_proto_port "$proto" "$port" '' 'FW_MASQ_NETS'; then
 	    net1=${net1/\!/\! }
 	    net2=${net2/\!/\! }
 	    snet2=""
@@ -1565,8 +1640,8 @@ masquerading_rules()
 		    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-MASQ "  -s $net1 $net2 $proto $port -o $dev
 		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 $net2 $proto $port -o $dev
 		    # we need to allow the replies as well
-		    $LAA $IPTABLES -A $chain -d $net1 $snet2 $proto $sport -i $dev -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-MASQ " -m state --state ESTABLISHED,RELATED
-		    $IPTABLES -A $chain -d $net1 $snet2 $proto $sport -i $dev -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+		    $LAA $IPTABLES -A $chain -d $net1 $snet2 $proto $rport -i $dev -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-MASQ " -m state --state ESTABLISHED,RELATED
+		    $IPTABLES -A $chain -d $net1 $snet2 $proto $rport -i $dev -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
 	        done
 		$IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $net1 $net2 $proto $port -o $dev
 	    done
@@ -1813,6 +1888,8 @@ allow_ip_services
 allow_tcp_services
 
 allow_rpc_services
+
+accept_services
 
 reject_or_drop_services DROP
 

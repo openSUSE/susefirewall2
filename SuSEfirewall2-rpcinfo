@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 # SuSEfirewall2-rpcinfo - helper script for SuSEfirewall2
 # Copyright (C) 2004 SUSE Linux AG
+# Copyright (C) 2005 SUSE Linux Products GmbH
 #
 # Author: Ludwig Nussel
 # 
@@ -24,6 +25,7 @@
 # and are running as root are printed.
 
 use strict;
+#use Data::Dumper;
 
 if ($#ARGV < 0)
 {
@@ -31,7 +33,36 @@ if ($#ARGV < 0)
     exit 1;
 }
 
-my %services = map { $_ => 1 } @ARGV;
+# {
+#           'ypbind' => [
+#                        {
+#                          'udp' => [
+#                                     979
+#                                   ],
+#                          'tcp' => [
+#                                     982
+#                                   ],
+#                          'sport' => '666:777',
+#                          'net' => '10.10.0.1/32'
+#                        },
+# }
+my %services;
+foreach my $service (@ARGV)
+{
+    my @a = split(/,/,$service);
+    if( $#a == 0)
+    {
+	push @{$services{$service}}, {};
+    }
+    elsif ($#a >= 2 && $a[1] eq '_rpc_')
+    {
+	my %h = ();
+	$h{'net'} = $a[0] if($a[0] && length($a[0]));
+	$h{'sport'} = $a[3] if($a[3] && length($a[3]));
+	push @{$services{$a[2]}}, \%h;
+    }
+}
+
 my %udpports = ();
 my %tcpports = ();
 
@@ -57,14 +88,14 @@ close RPCINFO;
 
 # @param file
 # @param hashref
-sub getportsfrom($$)
+sub getportsfor($$)
 {
-    my ($file, $href) = @_;
+    my ($proto, $href) = @_;
     # check if the registered ports are actually used and whether they are
     # owned by a process running as root
-    open (FILE, "<$file") or die;
+    open (FILE, '<', "/proc/net/$proto") or die;
     <FILE>; # header line
-    my @ret;
+    my $ret = 0;
     while(<FILE>)
     {
 	chomp;
@@ -75,25 +106,43 @@ sub getportsfrom($$)
 	$port = unpack('n', $port); # "\x00\x7B" => 0x007B
 	if(exists $href->{$port})
 	{
-	    push @ret, $port;
+	    ++$ret;
+	    foreach my $h (@{$services{$href->{$port}}})
+	    {
+		push @{$h->{$proto}}, $port;
+	    }
 	}
     }
     close FILE;
 
     # always also add portmapper
-    if(scalar @ret > 0 && !exists $services{'portmapper'})
+    if($ret && !exists $services{'portmapper'})
     {
-	push @ret, '111';
+	push @{$services{'portmapper'}}, { tcp => [111], udp => [111] };
     }
-
-    return @ret;
 }
 
-foreach (getportsfrom('/proc/net/udp', \%udpports))
+getportsfor('udp', \%udpports);
+getportsfor('tcp', \%tcpports);
+
+#print Dumper(\%services);
+
+foreach my $l (values %services)
 {
-    print "-p udp --dport $_\n";
-}
-foreach (getportsfrom('/proc/net/tcp', \%tcpports))
-{
-    print "-p tcp --dport $_\n";
+    foreach my $h (@$l)
+    {
+	foreach my $proto (('udp', 'tcp'))
+	{
+	    if(exists($h->{$proto}))
+	    {
+		foreach my $port (@{$h->{$proto}})
+		{
+		    print "-p $proto --dport $port";
+		    print " --sport ".$h->{'sport'} if exists $h->{'sport'};
+		    print " -s ".$h->{'net'} if exists $h->{'net'};
+		    print "\n";
+		}
+	    }
+	}
+    }
 }
