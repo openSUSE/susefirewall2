@@ -240,7 +240,7 @@ FW_MASQ_NETS="0/0"
 #
 # defaults to "yes" if not set
 # 
-FW_PROTECT_FROM_INTERNAL="no"
+FW_PROTECT_FROM_INT="no"
 
 ## Type:	string
 #
@@ -524,7 +524,7 @@ FW_LOG_DROP_CRIT=""
 # whether all dropped packets should be logged
 #
 # Note: for broadcasts to be logged you also need to set
-# FW_IGNORE_FW_BROADCAST to 'no'
+# FW_IGNORE_FW_BROADCAST_* to 'no'
 #
 # defaults to "no" if not set
 #
@@ -589,10 +589,6 @@ FW_LOG=""
 # Tip: Set this to "no" until you have verified that you have got a
 # configuration which works for you. Then set this to "yes" and keep it
 # if everything still works. (It should!) ;-)
-#
-# Warning! This is for expert users only that know what rp_filter is
-# for. Do not disable FW_KERNEL_SECURITY, otherwise you won't have
-# any spoof protection!
 #
 # Choice: "yes" or "no", if not set defaults to "yes"
 #
@@ -693,33 +689,60 @@ FW_ALLOW_FW_TRACEROUTE="yes"
 #
 FW_ALLOW_FW_SOURCEQUENCH="yes"
 
-## Type:	string(yes,no,int,ext,dmz)
-## Default:	int
+## Type:	string(yes,no)
 #
 # 22.)
 # Allow IP Broadcasts?
 #
-# If set to yes, the firewall will not filter broadcasts by default.
-# This is needed e.g. for Netbios/Samba, RIP, OSPF where the broadcast
-# option is used.
-# If you do not want to allow them however ignore the annoying log entries,
-# set FW_IGNORE_FW_BROADCAST to yes.
+# Whether the firewall allows broadcasts packets.
+# Broadcasts are used for e.g. for Netbios/Samba, RIP, OSPF and Games.
 #
-# Format: "yes" or "no", any combination of "int", "ext" and "dmz" and/or list
-#         of udp ports
+# If you want to drop broadcasts however ignore the annoying log entries, set
+# FW_IGNORE_FW_BROADCAST_* to yes.
 #
-# Example: "int 631"
+# Note that if you allow specifc ports here it just means that broadcast
+# packets for that port are not dropped. You still need to set
+# FW_SERVICES_*_UDP to actually allow the packets to reach the applications.
 #
-# set defaults to "no" if not set
+# Format: "yes", "no" or list of udp ports
 #
-FW_ALLOW_FW_BROADCAST="int"
+# Example: "631 137"
+#
+# defaults to "no" if not set
+#
+FW_ALLOW_FW_BROADCAST_EXT=""
 
-## Type:	string(yes,no,int,ext,dmz)
-## Default:	ext
+## Type:	string
 #
-# set to yes to suppress log messages for dropped broadcast packets
+# see comments for FW_ALLOW_FW_BROADCAST_EXT
+FW_ALLOW_FW_BROADCAST_INT=""
+
+## Type:	string
 #
-FW_IGNORE_FW_BROADCAST="no"
+# see comments for FW_ALLOW_FW_BROADCAST_EXT
+FW_ALLOW_FW_BROADCAST_DMZ=""
+
+## Type:	string(yes,no)
+#
+# Suppress logging of dropped broadcast packets. Useful if you don't allow
+# broadcasts on a LAN interface.
+#
+# Format: "yes", "no" or list of udp ports
+#
+# Example: "631 137"
+#
+# defaults to "no" if not set
+FW_IGNORE_FW_BROADCAST_EXT="yes"
+
+## Type:	string
+#
+# see comments for FW_IGNORE_FW_BROADCAST_EXT
+FW_IGNORE_FW_BROADCAST_INT=""
+
+## Type:	string
+#
+# see comments for FW_IGNORE_FW_BROADCAST_EXT
+FW_IGNORE_FW_BROADCAST_DMZ=""
 
 ## Type:	yesno
 ## Default:	no
@@ -804,18 +827,22 @@ FW_HTB_TUNE_DEV=""
 # 28.)
 # What to do with IPv6 Packets?
 #
-# ip6tables is currently not stateful so it's not possible to implement the
-# same features as for IPv4. We currently offer three choices:
+# On older kernels ip6tables was not stateful so it's not possible to implement
+# the same features as for IPv4 on such machines. For these there are three
+# choices:
 # 
 # - no: do not set any IPv6 rules at all. Your Host will allow any IPv6
 #   traffic unless you setup your own rules.
 #
-# - drop: drop all IPv6 packets. This is the default.
+# - drop: drop all IPv6 packets. This is the default if stateful matching is
+#   not available.
 #
 # - reject: reject all IPv6 packets
 #
 # Disallowing IPv6 packets may lead to long timeouts when connecting to IPv6
 # Adresses. See FW_IPv6_REJECT_OUTGOING to avoid this.
+#
+# Leave empty to automatically detect whether your kernel supports stateful matching.
 #
 FW_IPv6=""
 
@@ -845,6 +872,6 @@ FW_IPv6_REJECT_OUTGOING="yes"
 #   FW_IPSEC_TRUST="int"
 #   FW_SERVICES_INT_IP="esp"
 #   FW_SERVICES_EXT_UDP="isakmp"
-#   FW_PROTECT_FROM_INTERNAL="no"
+#   FW_PROTECT_FROM_INT="no"
 #
 FW_IPSEC_TRUST="no"

@@ -6,6 +6,7 @@ SCRIPTS=SuSEfirewall2-batch \
 	SuSEfirewall2-open \
 	SuSEfirewall2-showlog \
 	SuSEfirewall2-rpcinfo \
+	SuSEfirewall2-bashhash \
 	SuSEfirewall2-autointerface.sh 
 
 DESTDIR=
