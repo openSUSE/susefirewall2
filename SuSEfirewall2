@@ -298,18 +298,38 @@ else
     LOG="$FW_LOG"
 fi
 
-if [ "$FW_LOG_DROP_CRIT" = no ]; then
-    LDC=":"
-fi
-if [ "$FW_LOG_ACCEPT_CRIT" = no ]; then
-    LAC=":"
-fi
+LDC=''  # log drop critical
+LDA=''  # log drop all
+LDAC='' # log drop all or critical
+LAC=''  # log accept critical
+LAA=''  # log accept all
+LAAC='' # log accept all or critical
+LA=''   # log any
+
+# 'critical' will be unset if 'all' is set since 'critical' might be a special case of 'all'.
+
 if [ "$FW_LOG_DROP_ALL" != yes ]; then
     LDA=":"
+    if [ "$FW_LOG_DROP_CRIT" = no ]; then
+	LDC=":"
+	LDAC=":"
+    fi
+else
+    LDC=':'
 fi
+
 if [ "$FW_LOG_ACCEPT_ALL" != yes ]; then
     LAA=":"
+    if [ "$FW_LOG_ACCEPT_CRIT" = no ]; then
+	LAC=":"
+	LAAC=":"
+    fi
+else 
+    LAC=''
 fi
+
+# LDA and LDC are : if logging is disabled so check if empty
+[ -z "$LDA" -o -z "$LDC" -o -z "$LDA" -o -z "$LAA" ] || LA=:
 
 ### jump targets
 ACCEPT="ACCEPT"
@@ -431,24 +451,6 @@ function load_module()
     done
 }
 
-# run $@ if either FW_LOG_DROP_ALL or FW_LOG_DROP_CRIT is set
-function logAorC()
-{
-    # LDA and LDC are : if logging is disabled so check if empty
-    if [ -z "$LDA" -o -z "$LDC" ]; then
-	"$@"
-    fi
-}
-
-# run $@ if any log option is set
-function logAny()
-{
-    # LDA and LDC are : if logging is disabled so check if empty
-    if [ -z "$LDA" -o -z "$LDC" -o -z "$LDA" -o -z "$LAA" ]; then
-	"$@"
-    fi
-}
-
 function rulelog()
 {
     rule=$1
@@ -477,7 +479,7 @@ function set_basic_rules()
     $IPTABLES -F OUTPUT
     $IPTABLES -F FORWARD
     $IPTABLES -P INPUT "$DROP_JUMP"
-    $IPTABLES -P OUTPUT "$ACCEPT"
+    $IPTABLES -P OUTPUT "$DROP_JUMP"
     $IPTABLES -P FORWARD "$DROP_JUMP"
     $IPTABLES -F
     $IPTABLES -X
@@ -1008,13 +1010,13 @@ verify_parameters()
 {
     if [ "$FW_ROUTE" = no ]; then
 	if [ "$FW_MASQUERADE" = yes ]; then
-	    warning 'FW_ROUTE needs to be set to yes, for masquerading to work!'
+	    warning 'FW_ROUTE needs to be set to yes for masquerading to work!'
 	fi
 	if [ "$FW_ALLOW_CLASS_ROUTING" = yes ]; then
-	    warning 'FW_ROUTE needs to be set to yes, so that the FW_ALLOW_CLASS_ROUTING works!'
+	    warning 'FW_ROUTE needs to be set to yes for FW_ALLOW_CLASS_ROUTING to work!'
 	fi
 	if [ "$FW_ALLOW_PING_DMZ" = yes -o "$FW_ALLOW_PING_EXT" = yes ]; then
-	    warning 'FW_ROUTE needs to be set to yes, so that the FW_ALLOW_PING_EXT and/or FW_ALLOW_PING_DMZ works!'
+	    warning 'FW_ROUTE needs to be set to yes for FW_ALLOW_PING_EXT and/or FW_ALLOW_PING_DMZ to work!'
 	fi
     fi
 
@@ -1055,7 +1057,7 @@ verify_masq_nets()
 	case "$1" in
 	    10.*|172.1[6789].*|172.2[0-9].*|172.3[01].*|192.168.*) ;;
 	    *) warning "The network $net1 you want to masquerade is not from a private network " \
-		    'e.g. 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16 - change this!'
+		    'like 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16'
 	esac
 
 	DEV_MASQ_NET="$DEV_MASQ_NET $net1"
@@ -1099,26 +1101,6 @@ set_proc_stuff()
     fi
 }
 
-# Little helper: convert setting to chains list
-serv_to_chains()
-{
-    case "$1" in
-	yes|int) echo "input_int" ;;
-	dmz) echo "input_int input_dmz" ;;
-	ext) echo "input_int input_dmz input_ext" ;;
-    esac
-}
-# Little helper: convert setting to interfaces
-serv_to_devs()
-{
-	if test "$1" = "yes" -o "$1" = "int"; then RC="$FW_DEV_INT";
-	elif test "$1" = "dmz"; then RC="$FW_DEV_INT $FW_DEV_DMZ";
-	elif test "$1" = "ext"; then RC="$FW_DEV_INT $FW_DEV_DMZ $FW_DEV_EXT";
-	else RC=""
-	fi
-	echo $RC
-}
-
 # Make input/forward chains
 create_chains()
 {
@@ -1133,12 +1115,12 @@ antispoof_generic()
 {
     # Anti Spoofing rules - not interface dependent #
     if [ "$FW_ANTISPOOF" = yes ]; then
-	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -s 127.0.0.0/8
-	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -d 127.0.0.0/8
+	$LDAC $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -s 127.0.0.0/8
+	$LDAC $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -d 127.0.0.0/8
 	$IPTABLES -A INPUT -j "$DROP" -s 127.0.0.0/8
 	$IPTABLES -A INPUT -j "$DROP" -d 127.0.0.0/8
 	for SPOOF in $DEV_INT $DEV_EXT $DEV_DMZ; do
-	    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -s $SPOOF
+	    $LDAC $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -s $SPOOF
 	    $IPTABLES -A INPUT -j "$DROP" -s $SPOOF
 	done
     fi
@@ -1195,7 +1177,7 @@ drop_broadcast()
 
 ### IPsec ###
 
-ipsec_handling()
+allow_ipsec()
 {
     ipsec_chain=""
     case "$FW_IPSEC_TRUST" in
@@ -1234,13 +1216,21 @@ fork_to_chains()
 finish_chains()
 {
     # anything which is now not in the input_* chains is evil
-    logAorC $IPTABLES -A INPUT -j LOG ${LOG}"-IN-ILL-TARGET " 
+    $LDAC $IPTABLES -A INPUT -j LOG ${LOG}"-IN-ILL-TARGET " 
     $IPTABLES -A INPUT -j "$DROP"
 
     if [ "$FW_ROUTE" = yes ]; then
-	logAorC $IPTABLES -A FORWARD -j LOG ${LOG}"-FWD-ILL-ROUTING "
+	$LDAC $IPTABLES -A FORWARD -j LOG ${LOG}"-FWD-ILL-ROUTING "
 	$IPTABLES -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
     fi
+
+    # MSS stuff needs this?
+    if [ "$FW_ROUTE" = yes ]; then
+	$IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+    fi
+
+    $IPTABLES -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
+    $IPTABLES -A OUTPUT -j LOG ${LOG}"-$i-ERROR " 
 }
 
 # anti ip spoofing rules
@@ -1257,6 +1247,7 @@ antispoof_per_interface()
 	    $IPTABLES -A input_int -i $DEV -d $IP -j "$DROP"
 	done
     done
+    # anti spoof internal
     for SPOOF in $DEV_EXT_NET $DEV_DMZ_NET; do
 	# special case for internal ipsec devices that have the same ip as the
 	# external device
@@ -1267,18 +1258,23 @@ antispoof_per_interface()
 	    fi
 	done
 
-	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_int -j LOG ${LOG}"-INint-DROP-ANTISPOOF " -s $SPOOF
-	test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_int -j LOG ${LOG}"-FWDint-DROP-ANTISPOOF " -s $SPOOF
+	$LDC $IPTABLES -A input_int -j LOG ${LOG}"-INint-DROP-ANTISPOOF " -s $SPOOF
 	$IPTABLES -A input_int -j "$DROP" -s $SPOOF
-	test "$FW_ROUTE" = yes && $IPTABLES -A forward_int -j "$DROP" -s $SPOOF
+	if [ "$FW_ROUTE" = yes ]; then
+	    $LDC $IPTABLES -A forward_int -j LOG ${LOG}"-FWDint-DROP-ANTISPOOF " -s $SPOOF
+	    $IPTABLES -A forward_int -j "$DROP" -s $SPOOF
+	fi
     done
+    # anti spoof dmz
     for SPOOF in $DEV_EXT_NET $DEV_INT_NET; do
-	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-DROP-ANTISPOOF " -s $SPOOF
-	test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_dmz -j LOG ${LOG}"-FWDdmz-DROP-ANTISPOOF " -s $SPOOF
+	$LDC $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-DROP-ANTISPOOF " -s $SPOOF
 	$IPTABLES -A input_dmz -j "$DROP" -s $SPOOF
-	test "$FW_ROUTE" = yes && $IPTABLES -A forward_dmz -j "$DROP" -s $SPOOF
+	if [ "$FW_ROUTE" = yes ]; then
+	    $LDC $IPTABLES -A forward_dmz -j LOG ${LOG}"-FWDdmz-DROP-ANTISPOOF " -s $SPOOF
+	    $IPTABLES -A forward_dmz -j "$DROP" -s $SPOOF
+	fi
     done
-    # those devices must not be 0/0!
+    # anti spoof external
     for SPOOF in $DEV_INT_NET $DEV_DMZ_NET $DEV_MASQ_NET; do
 	# special case for internal ipsec devices that have the same ip as the
 	# external device
@@ -1288,10 +1284,12 @@ antispoof_per_interface()
 		continue 2
 	    fi
 	done
-	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_ext -j LOG ${LOG}"-INext-DROP-ANTISPOOF " -s $SPOOF
-	test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_ext -j LOG ${LOG}"-FWDext-DROP-ANTISPOOF " -s $SPOOF
+	$LDC $IPTABLES -A input_ext -j LOG ${LOG}"-INext-DROP-ANTISPOOF " -s $SPOOF
 	$IPTABLES -A input_ext -j "$DROP" -s $SPOOF
-	test "$FW_ROUTE" = yes && $IPTABLES -A forward_ext -j "$DROP" -s $SPOOF
+	if [ "$FW_ROUTE" = yes ]; then
+	    $LDC $IPTABLES -A forward_ext -j LOG ${LOG}"-FWDext-DROP-ANTISPOOF " -s $SPOOF
+	    $IPTABLES -A forward_ext -j "$DROP" -s $SPOOF
+	fi
     done
 }
 
@@ -1304,8 +1302,8 @@ protect_from_internal()
     $IPTABLES -A input_int -j "$ACCEPT"
 }
 
-# ICMP Stuff (special) #
-icmp_special_treatment()
+# ICMP stuff
+allow_icmp()
 {
     # INPUT ICMP rules
     if [ "$FW_ALLOW_FW_SOURCEQUENCH" != "no" ]; then
@@ -1329,7 +1327,7 @@ icmp_special_treatment()
     # DROP rules for input ICMP are after trusted handling (see below)
 
     # OUTPUT ICMP rules
-    logAny $IPTABLES -A OUTPUT -j LOG ${LOG}"-OUT-TRACERT-ATTEMPT "  -p icmp --icmp-type time-exceeded
+    $LA $IPTABLES -A OUTPUT -j LOG ${LOG}"-OUT-TRACERT-ATTEMPT "  -p icmp --icmp-type time-exceeded
     if [ "$FW_ALLOW_FW_TRACEROUTE" = "yes" ]; then
 	$IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type time-exceeded
 	$IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type port-unreachable
@@ -1386,7 +1384,8 @@ process_trusted_nets()
 	    error "network parameter of FW_TRUSTED_NETS is empty -> $nets"
 	elif check_proto_port "$proto" "$port" 'FW_TRUSTED_NETS'; then
 	    for chain in input_ext input_dmz input_int; do # trusted networks can be on any interface ...
-		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST " -m state --state NEW -s $net $proto $port
+		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST " -m state --state NEW -s $net $proto $port
+		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST "-s $net $proto $port
 		$IPTABLES -A $chain -j "$ACCEPT"  -m state --state NEW,ESTABLISHED,RELATED -s $net $proto $port
 	    done
 	fi
@@ -1403,44 +1402,6 @@ drop_icmp()
 	$LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-DROP-ICMP-CRIT "  -p icmp --icmp-type 2
 	$LDA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-DROP-ICMP " -p icmp
 	$IPTABLES -A $CHAIN -j "$DROP" -p icmp
-    done
-}
-
-# IP Stuff #
-process_ip_services()
-{
-    local PROTO
-    for PROTO in $FW_SERVICES_EXT_IP; do
-	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-IP " -p $PROTO
-	$IPTABLES -A input_ext -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p $PROTO
-    done
-    for PROTO in $FW_SERVICES_DMZ_IP; do
-	$LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-ACC-IP " -p $PROTO
-	$IPTABLES -A input_dmz -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p $PROTO
-    done
-    for PROTO in $FW_SERVICES_INT_IP; do
-	$LAA $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-IP " -p $PROTO
-	$IPTABLES -A input_int -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p $PROTO
-    done
-}
-
-# TCP Stuff #
-process_tcp_services()
-{
-    for PORT in $FW_SERVICES_EXT_TCP; do
-	$LAC $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-TCP " -p tcp --dport $PORT --syn
-	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-TCP " -p tcp --dport $PORT
-	$IPTABLES -A input_ext -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport $PORT
-    done
-    for PORT in $FW_SERVICES_DMZ_TCP; do
-	$LAC $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-ACC-TCP " -p tcp --dport $PORT --syn
-	$LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-ACC-TCP " -p tcp --dport $PORT
-	$IPTABLES -A input_dmz -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport $PORT
-    done
-    for PORT in $FW_SERVICES_INT_TCP; do
-	$LAC $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-TCP " -p tcp --dport $PORT --syn
-	$LAA $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-TCP " -p tcp --dport $PORT
-	$IPTABLES -A input_int -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport $PORT
     done
 }
 
@@ -1477,26 +1438,6 @@ rpcservicerules()
 			print "-p tcp --dport " port;
 	}
 	'
-}
-
-# RPC stuff #
-process_rpc_services()
-{
-    rpcservicerules "$FW_SERVICES_EXT_RPC" | while read ARG; do
-	$LAC $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-RPC " -m state --state NEW $ARG
-	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-RPC " -m state --state ESTABLISHED,RELATED $ARG
-	$IPTABLES -A input_ext -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED $ARG
-    done
-    rpcservicerules "$FW_SERVICES_DMZ_RPC" | while read ARG; do
-	$LAC $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-ACC-RPC " -m state --state NEW $ARG
-	$LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-ACC-RPC " -m state --state ESTABLISHED,RELATED $ARG
-	$IPTABLES -A input_dmz -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED $ARG
-    done
-    rpcservicerules "$FW_SERVICES_INT_RPC" | while read ARG; do
-	$LAC $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-RPC " -m state --state NEW $ARG
-	$LAA $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-RPC " -m state --state ESTABLISHED,RELATED $ARG
-	$IPTABLES -A input_int -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED $ARG
-    done
 }
 
 # parameters: int|ext|dmz REJECT|DROP INT|EXT|DMZ
@@ -1550,7 +1491,7 @@ auto_protect_tcp()
     OPENED_INT=`echo "$FW_SERVICES_INT_TCP" | $SED 's/ /|/g'`
     PROTECT_INT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_INT"`
     for PORT in $PROTECT_INT; do
-	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_int -j LOG ${LOG}"-INint-DROP " -p tcp --dport $PORT --syn
+	$LDAC $IPTABLES -A input_int -j LOG ${LOG}"-INint-DROP " -p tcp --dport $PORT --syn
 	$IPTABLES -A input_int -j "$DROP" -p tcp --dport $PORT --syn
     done
    }
@@ -1558,14 +1499,14 @@ auto_protect_tcp()
     OPENED_DMZ=`echo "$FW_SERVICES_DMZ_TCP" | $SED 's/ /|/g'`
     PROTECT_DMZ=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_DMZ"`
     for PORT in $PROTECT_DMZ; do
-	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-DROP " -p tcp --dport $PORT --syn
+	$LDAC $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-DROP " -p tcp --dport $PORT --syn
 	$IPTABLES -A input_dmz -j "$DROP" -p tcp --dport $PORT --syn
     done
     PROTECT=`for S in $PROTECT_EXT $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
     OPENED_EXT=`echo "$FW_SERVICES_EXT_TCP" | $SED 's/ /|/g'`
     PROTECT_EXT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_EXT"`
     for PORT in $PROTECT_EXT; do
-	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_ext -j LOG ${LOG}"-INext-DROP " -p tcp --dport $PORT --syn
+	$LDAC $IPTABLES -A input_ext -j LOG ${LOG}"-INext-DROP " -p tcp --dport $PORT --syn
 	$IPTABLES -A input_ext -j "$DROP" -p tcp --dport $PORT --syn
     done
 }
@@ -1586,20 +1527,53 @@ allow_tcp_highports()
 	no) ;;
 	yes)
 	    for CHAIN in input_int input_dmz input_ext; do
-		$LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -p tcp --dport 1024: -m state --state NEW
-		$LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -p tcp --dport 1024: -m state --state ESTABLISHED,RELATED
-		$IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport 1024:
+		$LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -p tcp --dport 1024: --syn
+		$LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiTCP " -p tcp --dport 1024:
+		$IPTABLES -A $CHAIN -j "$ACCEPT" -p tcp --dport 1024:
 	    done
 	    break;
 	    ;;
 	*)
 	    for CHAIN in input_int input_dmz input_ext; do
-		$LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HIGH " -p tcp --sport $j --dport 1024: -m state --state NEW
-		$LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HIGH " -p tcp --sport $j --dport 1024: -m state --state ESTABLISHED,RELATED
-		$IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --sport $j --dport 1024:
+		$LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HIGH " -p tcp --sport $j --dport 1024: --syn
+		$LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HIGH " -p tcp --sport $j --dport 1024:
+		$IPTABLES -A $CHAIN -j "$ACCEPT" -p tcp --sport $j --dport 1024:
 	    done
 	    ;;
 	esac
+    done
+}
+
+allow_rpc_services()
+{
+    local chain="input_$1"
+    shift
+    rpcservicerules $* | while read ARG; do
+	$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " -m state --state NEW $ARG
+	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
+	$IPTABLES -A $chain -j "$ACCEPT" $ARG
+    done
+}
+
+allow_ip_services()
+{
+    local chain="input_$1"
+    shift
+    for PROTO in $*; do
+	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-IP " -p $PROTO
+	$IPTABLES -A $chain -j "$ACCEPT" -p $PROTO
+    done
+}
+
+allow_tcp_services()
+{
+    local port
+    local chain="input_$1"
+    shift
+    for port in $*; do
+	$LAC $IPTABLES -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port --syn
+	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port
+	$IPTABLES -A input_ext -j "$ACCEPT" -p tcp --dport $port
     done
 }
 
@@ -1611,7 +1585,7 @@ allow_udp_services()
     shift
     for port in $*; do
 	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-UDP " -p udp --dport $port
-	$IPTABLES -A input_ext -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport $port
+	$IPTABLES -A input_ext -j "$ACCEPT" -p udp --dport $port
     done
 }
 
@@ -1680,14 +1654,16 @@ allow_highports_udp()
 	    no) ;;
 	    yes)
 		for CHAIN in input_int input_dmz input_ext; do
-		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --dport 1024:
+		    $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --dport 1024:
+		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp --dport 1024:
 		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p udp --dport 1024:
 		done
 		break;
 		;;
 	    *)
 		for CHAIN in input_int input_dmz input_ext; do
-		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --sport $j --dport 1024:
+		    $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --sport $j --dport 1024:
+		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp --sport $j --dport 1024:
 		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p udp --sport $j --dport 1024:
 		done
 		;;
@@ -1876,9 +1852,9 @@ forward_masquerading_rules()
 		$IPTABLES -A PREROUTING -j DNAT -t nat $proto $net1 $lip $port1 --to-destination ${net2}${port2} -i $dev
 	    done
 	    for chain in forward_ext forward_dmz forward_int; do
-		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ "  $proto $net1 -d $net2 $dport2 -m state --state NEW
-		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ "  $proto $net1 -d $net2 $dport2
-		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED $proto $net1 -d $net2 $dport2
+		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1 -d $net2 $dport2 -m state --state NEW
+		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1 -d $net2 $dport2
+		$IPTABLES -A $chain -j "$ACCEPT" $proto $net1 -d $net2 $dport2
 	    done
 	fi
     done
@@ -1900,11 +1876,22 @@ drop_all()
 		$IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p icmp --icmp-type $TYPE
 	    done
 	    $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p udp
-	    $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV "  -m state --state INVALID
 	fi
 	# log anything else
 	$LDA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT "
 	$IPTABLES -A $chain -j "$DROP"
+    done
+}
+
+# hard drop rule for invalid
+drop_invalid()
+{
+    local chain
+    local chains="input_ext input_dmz input_int"
+    [ "$FW_ROUTE" = yes ] && chains="$chains forward_ext forward_dmz forward_int"
+    for chain in $chains; do
+	$LDAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
+	$IPTABLES -A $chain -j DROP -m state --state INVALID
     done
 }
 
@@ -1938,22 +1925,23 @@ antispoof_generic
 # HOOK
 fw_custom_after_antispoofing
 
+protect_from_internal
+
 parse_broadcast
 
 drop_broadcast ext
 drop_broadcast int
 drop_broadcast dmz
 
-ipsec_handling
-fork_to_chains
+allow_ipsec
 
-finish_chains
+fork_to_chains
 
 antispoof_per_interface
 
-protect_from_internal
+drop_invalid
 
-icmp_special_treatment
+allow_icmp
 
 # HOOK
 fw_custom_before_port_handling
@@ -1963,11 +1951,17 @@ process_trusted_nets
 # ICMP drop rules must be here to allow trusted rules for ICMP
 drop_icmp
 
-process_ip_services
+allow_ip_services ext $FW_SERVICES_EXT_IP
+allow_ip_services int $FW_SERVICES_INT_IP
+allow_ip_services dmz $FW_SERVICES_DMZ_IP
 
-process_tcp_services
+allow_tcp_services ext $FW_SERVICES_EXT_TCP
+allow_tcp_services int $FW_SERVICES_INT_TCP
+allow_tcp_services dmz $FW_SERVICES_DMZ_TCP
 
-process_rpc_services
+allow_rpc_services ext $FW_SERVICES_EXT_RPC
+allow_rpc_services int $FW_SERVICES_INT_RPC
+allow_rpc_services dmz $FW_SERVICES_DMZ_RPC
 
 reject_or_drop_services int DROP INT
 reject_or_drop_services ext DROP EXT
@@ -2025,16 +2019,10 @@ fw_custom_before_denyall
 
 drop_all
 
+finish_chains
+
 # Optimisation Rules
 apply_tos_settings
-
-$IPTABLES -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
-$IPTABLES -A OUTPUT -j LOG ${LOG}"-$i-ERROR " 
-
-# MSS stuff needs this?
-if [ "$FW_ROUTE" = yes ]; then
-    $IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
-fi
 
 if [ -n "$USE_IPTABLES_BATCH" ]; then
     iptables-batch "$iptables_batchfile"
