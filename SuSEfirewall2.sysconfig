@@ -903,6 +903,7 @@ FW_IPSEC_TRUST=""
 #
 # Example:
 #   FW_ZONES="wlan"
+#   FW_DEV_wlan="wlan0"
 #   FW_SERVICES_wlan_TCP="80"
 #   FW_ALLOW_FW_BROADCAST_wlan="yes"
 #
