@@ -7,19 +7,18 @@
 #
 ### BEGIN INIT INFO
 # Provides: SuSEfirewall2_init
-# Required-Start:
-# X-UnitedLinux-Should-Start: setserial
+# Required-Start: $local_fs boot.localnet
 # Required-Stop: 
-# X-UnitedLinux-Should-Stop: $network
-# Default-Start: 2 3 4 5
-# Default-Stop: 0 1 2 6
+# Should-Stop: $network
+# Default-Start: B
+# Default-Stop:
 # Short-Description: SuSEfirewall2 phase 1
 # Description: SuSEfirewall2_init does some basic setup and is the
-#	phase 1 of 3 of the SuSEfirewall initialization
+#	phase 1 of 2 of the SuSEfirewall initialization
 ### END INIT INFO
-# X-SuSE-Dep-Only
 
 SUSEFWALL="/sbin/SuSEfirewall2"
+BOOTLOCKFILE="/var/lock/SuSEfirewall2.booting"
 
 test -x $SUSEFWALL || exit 5
 test -r /etc/sysconfig/SuSEfirewall2 || exit 6
@@ -31,34 +30,30 @@ rc_reset
 case "$1" in
     start)
 	echo -n "Starting Firewall Initialization "
-	echo -n '(phase 1 of 3) '
-	( $SUSEFWALL close ) > /dev/null 2>&1
+	echo -n '(phase 1 of 2) '
+	$SUSEFWALL --bootlock -q close
 	rc_status -v
 	;;
     stop)
-	#echo -e "$0 is not for stopping SuSEfirewall2 - use \"SuSEfirewall2 stop\" or the SuSEfirewall2_setup script."
+	rc_failed 3
+	rc_status -v
 	;;
     restart|force-reload)
 	$0 start
-	rc_status
+	rc_status -v
 	;;
     try-restart|reload)
-	($0 status) >/dev/null 2>&1 || exit 7
-	$0 start
-	rc_status
-	;;
-    restart2)
-	# the restart2 argument is used by yast2 to not open any ports
-	# while the filter rules are being rewritten.
-	RLVL=`/sbin/runlevel | sed 's/. //'`
-	if [ ! -e /etc/init.d/rc${RLVL}.d/S??SuSEfirewall2_init ]; then
-		$SUSEFWALL stop > /dev/null 2>&1
+	if ($0 status) >/dev/null 2>&1; then
+	    $0 start
+	else
+	    rc_failed 7
 	fi
-	$SUSEFWALL start > /dev/null 2>&1
+	rc_status -v
 	;;
     status)
 	echo "Checking the status of the Firewall "
-	$SUSEFWALL status || rc_failed 3
+	iptables -nL reject_func >/dev/null 2>&1 || rc_failed 3
+	rc_status -v
 	;;
     *)
 	echo "Usage: $0 {start|stop|status|restart|reload|force-reload}"

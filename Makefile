@@ -12,7 +12,7 @@ SCRIPTS=SuSEfirewall2-batch \
 
 DESTDIR=
 
-allfiles=SuSEfirewall2_final \
+allfiles= \
 	SuSEfirewall2_init \
 	SuSEfirewall2_setup \
 	$(SCRIPTS) \
@@ -44,7 +44,6 @@ install:
 	install -m 755 SuSEfirewall2 $(DESTDIR)/sbin
 	install -m 755 SuSEfirewall2_init $(DESTDIR)/etc/init.d
 	install -m 755 SuSEfirewall2_setup $(DESTDIR)/etc/init.d
-	install -m 755 SuSEfirewall2_final $(DESTDIR)/etc/init.d
 	rm -f $(DESTDIR)/sbin/rcSuSEfirewall2
 	ln -s /etc/init.d/SuSEfirewall2_setup $(DESTDIR)/sbin/rcSuSEfirewall2
 	for i in $(SCRIPTS); do \

@@ -97,22 +97,36 @@ cleanup()
 }
 trap cleanup EXIT
 
+quiet=''
 syslog()
 {
-    local pri="-p auth.info"
-    [ "$1" -ne 0 ] && pri="-p auth.err"
+    local pri="-p auth.err"
+    local dashs='-s'
+    if [ "$1" = '0' ]; then
+	pri="-p auth.info"
+	if [ -n "$quiet" ]; then
+	    dashs=''
+	fi
+    elif [ "$1" = '-1' ]; then
+	pri="-p auth.warn"
+    fi
     shift
-    logger -s $pri -t SuSEfirewall2 "$*"
+    logger $dashs $pri -t SuSEfirewall2 "$*"
+}
+
+message()
+{
+    syslog 0 "$*"
 }
 
 warning()
 {
-    syslog 0 "Warning:" "$*"
+    syslog -1 "Warning:" "$*"
 }
 
 error()
 {
-    syslog 0 "Error:" "$*"
+    syslog -2 "Error:" "$*"
 }
 
 die()
@@ -136,6 +150,7 @@ SCRIPTSDIR="/etc/sysconfig/scripts"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
 PERSFWCONFIG="/etc/sysconfig/personal-firewall"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
+BOOTLOCKFILE="/var/lock/SuSEfirewall2.booting"
 FW_CUSTOMRULES=""
 
 USE_IPTABLES_BATCH=""
@@ -151,8 +166,9 @@ MODE="standard"
 INITSCRIPTS="" # on|off
 needconfig=
 needlock=1
+create_bootlock=0
 
-getopttmp=`getopt -o h --long help,scriptsdir:,batch,file:,debug,test \
+getopttmp=`getopt -o hq --long help,scriptsdir:,batch,file:,debug,test,bootlock,quiet \
      -n 'SuSEfirewall2' -- "$@"`
 
 [ $? != 0 ] && die 1 "getopt error"
@@ -166,7 +182,9 @@ while true ; do
                 --scriptsdir) SCRIPTSDIR="$2" ; shift 2 ;;
                 --test) MODE="test" ; shift ;;
                 --debug) MODE="debug"; needlock=0 ; shift ;;
+                --bootlock) create_bootlock=1 ; shift ;;
                 -h|--help) help ; shift ;;
+                -q|--quiet) quiet=1 ; shift ;;
                 --) shift ; break ;;
                 *) die 1 "getopt error"; ;;
         esac
@@ -578,12 +596,12 @@ handle_initscripts()
     local i
     case "$INITSCRIPTS" in
 	on)
-	    for i in SuSEfirewall2_init SuSEfirewall2_setup SuSEfirewall2_final; do
+	    for i in SuSEfirewall2_init SuSEfirewall2_setup; do
 		/sbin/insserv -f $i
 	    done
 	    ;;
 	off)
-	    for i in SuSEfirewall2_final SuSEfirewall2_setup SuSEfirewall2_init; do
+	    for i in SuSEfirewall2_setup SuSEfirewall2_init; do
 		/sbin/insserv -r -f $i
 	    done
 	    ;;
@@ -595,7 +613,9 @@ getdevinfo()
 {
     local dev=`getcfg-interface "$1"`
 
-    if [ "$?" -ne 0 -o -z "$dev" -o ! -e /proc/sys/net/ipv4/conf/"$dev" ]; then
+    if [ "$?" -ne 0 -o -z "$dev" \
+	-o  \( ! -e /proc/sys/net/ipv4/conf/"$dev" \
+	-a ! -e /proc/sys/net/ipv6/conf/"$dev" \)  ]; then
 	return 1
     fi
 
@@ -657,16 +677,19 @@ setlock()
 {
     ### Locking mechanism
     if [ "$needlock" -ne 0 ]; then
+	if [ -e "$BOOTLOCKFILE" ]; then
+	    die 0 "$BOOTLOCKFILE exists which means system boot in progress, exit." 
+	fi
 	if [ -e "$LOCKFILE" ]; then
 	    read PID < $LOCKFILE
-	    syslog 0 "Another SuSEfirewall2 with PID $PID found, waiting ..."
+	    message "Another SuSEfirewall2 with PID $PID found, waiting ..."
 	    i=0
 	    while [ -e "$LOCKFILE" -a "$i" -lt 15 ]; do
 		sleep 2
 		i=$(( i + 1 ))
 	    done
 	    if [ -e "$LOCKFILE" ]; then
-		syslog 0 "Lockfile is still there, ignoring it ..."
+		message "Lockfile is still there, ignoring it ..."
 		kill -TERM $PID
 		sleep 2
 		kill -KILL $PID
@@ -676,6 +699,9 @@ setlock()
 	removeonexit "$LOCKFILE"
 	set -o noclobber
 	echo "$$" > $LOCKFILE || exit 1
+	if [ "$create_bootlock" -eq 1 ]; then
+	    touch "$BOOTLOCKFILE"
+	fi
 	set +o noclobber
     fi
 }
@@ -737,7 +763,7 @@ load_customrules()
 	    die 1 "Firewall customary rules file can not be read from $FW_CUSTOMRULES"
 	fi
 	. "$FW_CUSTOMRULES"
-	syslog 0 "Firewall customary rules loaded from $FW_CUSTOMRULES"
+	message "Firewall customary rules loaded from $FW_CUSTOMRULES"
     fi
 }
 
@@ -766,7 +792,7 @@ verify_parameters()
     fi
 
     if [ "$FW_MASQUERADE" = no ]; then
-	[ -n "$FW_MASQ_NETS" ] && warning 'FW_MASQ_NETS needs FW_MASQUERADE set to yes to work!'
+	[ -n "$FW_MASQ_NETS" -a "$FW_MASQ_NETS" != "0/0" ] && warning 'FW_MASQ_NETS needs FW_MASQUERADE set to yes to work!'
 	[ -n "$FW_FORWARD_MASQ" ] && warning 'FW_FORWARD_MASQ needs FW_MASQUERADE set to yes to work!'
     fi
 }
@@ -1727,6 +1753,8 @@ fi
 
 ### main mode ###
 
+message "Setting up rules from $FWCONFIG ..."
+
 auto_detect_all_interfaces
 
 parse_interfaces
@@ -1833,6 +1861,6 @@ fi
 handle_initscripts
 
 # END #
-die 0 "Firewall rules successfully set from $FWCONFIG"
+die 0 "Firewall rules successfully set"
 
 # vim: sw=4

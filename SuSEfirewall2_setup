@@ -7,22 +7,29 @@
 #
 ### BEGIN INIT INFO
 # Provides: SuSEfirewall2_setup
-# Required-Start: SuSEfirewall2_init $network $local_fs
-# X-UnitedLinux-Should-Start: route dhclient named
+# Required-Start: boot.SuSEfirewall2 $network $local_fs
+# Should-Start: $ALL
 # Required-Stop: $local_fs
 # X-UnitedLinux-Should-Stop: 
 # Default-Start: 3 4 5
 # Default-Stop: 0 1 2 6
 # Short-Description: SuSEfirewall2 phase 2
 # Description: SuSEfirewall2_setup does some basic setup and is the
-#	phase 2 of 3 of the SuSEfirewall initialization.
+#	phase 2 of 2 of the SuSEfirewall initialization.
 ### END INIT INFO
 # X-SuSE-Dep-Only
 
 SUSEFWALL="/sbin/SuSEfirewall2"
+BOOTLOCKFILE="/var/lock/SuSEfirewall2.booting"
 
 test -x $SUSEFWALL || exit 5
-test -r /etc/sysconfig/SuSEfirewall2 || exit 6
+
+bootlinkisset()
+{
+	local l
+	l=`/sbin/runlevel | (read A B && echo $A)`
+	test -e /etc/init.d/rc$l.d/S??SuSEfirewall2_setup
+}
 
 . /etc/rc.status
 rc_reset
@@ -30,37 +37,38 @@ rc_reset
 case "$1" in
     start)
 	echo -n "Starting Firewall Initialization "
-	echo -n '(phase 2 of 3) '
-	$SUSEFWALL start
+	echo -n '(phase 2 of 2) '
+	rm -f "$BOOTLOCKFILE"
+	$SUSEFWALL -q start
 	rc_status -v
 	;;
     stop)
 	echo -n "Shutting down the Firewall "
-	test "$FW_STOP_KEEP_ROUTING_STATE" = "yes" || echo -n "(and disabling routing) "
-	$SUSEFWALL stop > /dev/null 2>&1
-	rc_status -v
+	if [ -z "$REDIRECT" ]; then
+		$SUSEFWALL -q stop
+		rc_status -v
+	else
+		rc_status -s
+	fi
 	;;
     restart|force-reload)
 	$0 start
-	rc_status
+	rc_status -v
 	;;
     try-restart|reload)
-	($0 status) >/dev/null 2>&1 || exit 7
-	$0 start
-	rc_status
-	;;
-    restart2)
-	# the restart2 argument is used by yast2 to not open any ports
-	# while the filter rules are being rewritten.
-	RLVL=`/sbin/runlevel | sed 's/. //'`
-	if [ ! -e /etc/init.d/rc${RLVL}.d/S??SuSEfirewall2_setup ]; then
-		$SUSEFWALL stop > /dev/null 2>&1
+	if ($0 status) >/dev/null 2>&1; then
+	    $0 start
+	else
+	    rc_failed 7
 	fi
-	$SUSEFWALL start > /dev/null 2>&1
+	rc_status -v
 	;;
     long-status)
 	echo "Checking the status of SuSEfirewall2 "
-	$SUSEFWALL status || rc_failed 3
+	if ! $SUSEFWALL status; then
+		rc_failed 3
+		rc_status -v
+	fi
 	;;
     status)
 	echo -n "Checking the status of SuSEfirewall2 "
