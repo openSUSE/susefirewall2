@@ -218,7 +218,7 @@ if [ -e "$PERSFWCONFIG" ]; then
 
 	# we have an interface, unless only "masq" is stated. Use the default route iface.
 	if [ "$PFW_HAVE_IFACE" = "" ]; then
-	    FW_DEV_EXT=`/sbin/ip route show | $AWK '/^default / { print $5 ;} { next; }'`
+	    FW_DEV_EXT=`/sbin/ip route show | /bin/awk '/^default / { print $5 ;} { next; }'`
 	else
 	    FW_DEV_EXT="$REJECT_ALL_INCOMING_CONNECTIONS"
 	fi
