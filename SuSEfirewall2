@@ -1351,7 +1351,7 @@ finish_chains()
 	fi
 
 	$iptables -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
-	$iptables -A OUTPUT -j LOG ${LOG}"-$i-ERROR " 
+	$iptables -A OUTPUT -j LOG ${LOG}"-OUT-ERROR " 
     done
 }
 
