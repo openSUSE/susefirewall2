@@ -633,9 +633,9 @@ for NET in $FW_MASQ_NETS ; do
     # skip 0/0
     test "$DEV_IP" = "0/0" && continue
 
-    PART1=${DEV_IP#/*#}
+    PART1=${DEV_IP%%/*}
     #`echo $DEV_IP | $AWK -F/ '{print $1}'`
-    PART2=${DEV_IP#*/#}
+    PART2=${DEV_IP#*/}
     #`echo $DEV_IP | $AWK -F/ '{print $2}'`
     test '!' -z "$PART2" && test "$PART2" -lt 16 && {
         echo "$PART1" | $GREP -Eq '^10\.|^172\.1' || {
