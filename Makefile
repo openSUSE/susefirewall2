@@ -47,8 +47,8 @@ install:
 	rm -f $(DESTDIR)/sbin/rcSuSEfirewall2
 	ln -s /etc/init.d/SuSEfirewall2_setup $(DESTDIR)/sbin/rcSuSEfirewall2
 	for i in $(SCRIPTS); do \
-		install -m 644 $$i $(DESTDIR)/etc/sysconfig/scripts \
-	done \
+		install -m 644 $$i $(DESTDIR)/etc/sysconfig/scripts; \
+	done
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 
 clean:
