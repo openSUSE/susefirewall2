@@ -278,6 +278,10 @@ DROP="DROP"
 REJECT="reject_func"
 [ "$FW_REJECT" = yes ] && DROP="reject_func"
 
+# fwmarks
+
+mark_redir=1
+
 ### zones
 
 int_zones="int"
@@ -1497,6 +1501,7 @@ allow_highports_udp()
 redirect_rules()
 {
     local chain nets net1 net2 proto port1 port2
+    local redirectinstalled
     for nets in $FW_REDIRECT; do
 	IFS=, eval set -- \$nets
 
@@ -1515,15 +1520,21 @@ redirect_rules()
 	else
 	    net1=${net1/\!/\! }
 	    net2=${net2/\!/\! }
+	    $IPTABLES -A PREROUTING -t mangle -j MARK  -p $proto -s $net1 -d $net2 --dport $port1 --set-mark $mark_redir
 	    $IPTABLES -A PREROUTING -t nat -j REDIRECT -p $proto -s $net1 -d $net2 --dport $port1 --to-ports $port2
-## doesn't make sense here since drop rules are already installed
-#	    for chain in input_ext input_dmz input_int; do
-#		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REDIR " -s $net1 -p $proto --dport $port2 -m state --state NEW
-#		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REDIR " -s $net1 -p $proto --dport $port2
-#		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p $proto -s $net1 --dport $port2
-#	    done
+	    redirectinstalled=1
 	fi
     done
+
+    if [ -n "$redirectinstalled" ]; then
+	for chain in $input_all_zones; do
+	    chain=input_$chain
+	    $LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REDIR " -m mark --mark $mark_redir -m state --state NEW
+	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REDIR " -m mark --mark $mark_redir -m state --state NEW,ESTABLISHED,RELATED
+	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -m mark --mark $mark_redir
+	done
+    fi
+
 }
 
 # parameters: zone interfaces
