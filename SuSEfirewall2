@@ -174,6 +174,9 @@ alias which='type -p'
 IPTABLES=`which iptables`  || IPTABLES="/usr/sbin/iptables"
 #IPTABLES="echo iptables "                                 # For debugging only
 DEBUG="echo iptables "
+IP6TABLES=`which ip6tables`  || IP6TABLES="/usr/sbin/iptables"
+#IPTABLES="echo ip6tables "                                 # For debugging only
+DEBUG6="echo ip6tables "
 AWK=`which awk`            || AWK="/usr/bin/awk"
 SED=`which sed`            || SED="/usr/bin/sed"
 IFCONFIG=`which ifconfig`  || IFCONFIG="/sbin/ifconfig"
@@ -183,6 +186,7 @@ LSOF=`which lsof`	   || LSOF="/usr/bin/lsof"
 LOGGER=`which logger`	   || LOGGER="/usr/bin/logger"
 GREP=`which grep`          || GREP="/usr/bin/grep"
 TC=`which tc`              || TC="/usr/sbin/tc"
+modinfo=`which modinfo`    || modinfo="/sbin/modinfo"
 
 for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
     test -x $i || { echo "I need $i for running but can not find it, aborting."
@@ -202,11 +206,37 @@ test "$NEED_LSOF" = yes -a '!' -x "$LSOF" && {
     exit 1 ; }
 test -x "$IPTABLES" -o "$IPTABLES" = "echo iptables " || \
     echo "Warning: Can not find iptables - debug function? (\"$IPTABLES\")"
+test -x "$IP6TABLES" -o "$IP6TABLES" = "echo ip6tables " || \
+    echo "Warning: Can not find ip6tables - debug function? (\"$IP6TABLES\")"
 
 ACCEPT="ACCEPT"
 DROP="DROP"
 REJECT="reject_func"
 test "$FW_REJECT" = yes && DROP="reject_func"
+
+case "$FW_IPv6_REJECT_OUTGOING" in
+	yes) : ;;
+	no) : ;;
+	*) FW_IPv6_REJECT_OUTGOING="yes" ;;
+esac
+
+DROP6="DROP"
+case "$FW_IPv6" in
+	drop) DROP6="DROP" ;;
+	reject) DROP6="reject_func" ;;
+	no) DROP6=""; IP6TABLES=":" ;;
+esac
+
+if ! $modinfo ip6t_REJECT >/dev/null 2>&1; then
+	if [ "$DROP6" = "reject_func" ]; then
+	    echo "Warning: Kernel lacks support for IPv6 REJECT target! Using DROP instead."
+	    DROP6="DROP"
+	fi
+	if [ "$FW_IPv6_REJECT_OUTGOING" = "yes" ]; then
+	    echo "It's not possible to reject outgoing packets. Expect Timeouts."
+	    FW_IPv6_REJECT_OUTGOING="no"
+	fi
+fi
 
 #############
 #           #
@@ -229,11 +259,24 @@ function reset_rules_silent() {
 	$IPTABLES -t nat -X
 	$IPTABLES -t mangle -F
 	$IPTABLES -t mangle -X
+
+	$IP6TABLES -F INPUT
+	$IP6TABLES -F OUTPUT
+	$IP6TABLES -F FORWARD
+	$IP6TABLES -P INPUT ACCEPT
+	$IP6TABLES -P OUTPUT ACCEPT
+	$IP6TABLES -P FORWARD ACCEPT
+	$IP6TABLES -F
+	$IP6TABLES -X
+	$IP6TABLES -t mangle -F
+	$IP6TABLES -t mangle -X
+
 #	{ rmmod ipt_TCPMSS ipt_TOS ipt_MASQUERADE ipt_LOG ipt_state \
 #	   ipt_MARK ipt_MIRROR ipt_REDIRECT ipt_limit ipt_mac ipt_mark \
 #	   ipt_multiport ipt_owner ipt_tcpmss ipt_tos ipt_unclean ip_queue \
 #	   ip_nat_ftp ip_conntrack_ftp ipt_REJECT iptable_mangle iptable_nat \
-#	   iptable_filter ip_queue ip_conntrack iptable_filter ip_tables
+#	   iptable_filter ip_queue ip_conntrack iptable_filter ip_tables \
+#          ip6t_REJECT ip6table_mangle ip6table_filter
 #	} > /dev/null 2> /dev/null
 }
 
@@ -255,12 +298,13 @@ function set_basic_rules() {
     { rmmod ipfwadm; rmmod ipchains
       modprobe ip_tables; modprobe ip_conntrack; modprobe ip_conntrack_ftp
       modprobe ip_nat_ftp
+      modprobe ip6table_filter ip6table_mangle
     } > /dev/null 2>&1
+    test "$DROP" = ACCEPT && DROP_JUMP="ACCEPT"
+    test "$DROP" = ACCEPT || DROP_JUMP="DROP"
     $IPTABLES -F INPUT
     $IPTABLES -F OUTPUT
     $IPTABLES -F FORWARD             2> /dev/null
-    test "$DROP" = ACCEPT && DROP_JUMP="ACCEPT"
-    test "$DROP" = ACCEPT || DROP_JUMP="DROP"
     $IPTABLES -P INPUT "$DROP_JUMP"
     $IPTABLES -P OUTPUT "$ACCEPT"
     $IPTABLES -P FORWARD "$DROP_JUMP"     2> /dev/null
@@ -275,6 +319,44 @@ function set_basic_rules() {
     $IPTABLES -A reject_func -p tcp -j REJECT --reject-with tcp-reset
     $IPTABLES -A reject_func -p udp -j REJECT --reject-with icmp-port-unreachable
     $IPTABLES -A reject_func        -j REJECT --reject-with icmp-proto-unreachable
+
+    test "$DROP6" = ACCEPT && DROP6_JUMP="ACCEPT"
+    test "$DROP6" = ACCEPT || DROP6_JUMP="DROP"
+    $IP6TABLES -F INPUT
+    $IP6TABLES -F OUTPUT
+    $IP6TABLES -F FORWARD             2> /dev/null
+    $IP6TABLES -P INPUT "$DROP6_JUMP"
+    $IP6TABLES -P OUTPUT "$ACCEPT"
+    $IP6TABLES -P FORWARD "$DROP6_JUMP"     2> /dev/null
+    $IP6TABLES -F
+    $IP6TABLES -X
+    # Special REJECT function #
+    $IP6TABLES -t mangle -F
+    $IP6TABLES -t mangle -X
+    $IP6TABLES -N reject_func
+    $IP6TABLES -A reject_func -p tcp -j REJECT --reject-with tcp-reset
+    $IP6TABLES -A reject_func -p udp -j REJECT --reject-with port-unreach
+    $IP6TABLES -A reject_func        -j REJECT --reject-with addr-unreach # know anything better?
+
+    $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo
+    $IP6TABLES -A OUTPUT -j "$ACCEPT" -o lo
+
+    test -z "$LOG" && \
+    	LOG="--log-level warning --log-tcp-options --log-ip-options --log-prefix SuSE-FW"
+    # No state matching with IPv6 yet
+    #$LAA $IP6TABLES -A INPUT -m state --state ESTABLISHED,RELATED -j LOG ${LOG}"-ACC-ALL "
+    #$IP6TABLES -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+    #$LAA $IP6TABLES -A OUTPUT -m state --state NEW,ESTABLISHED,RELATED -j LOG ${LOG}"-ACC-ALL "
+    #$IP6TABLES -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
+
+    # Drop all until IPv6 is really supported
+    test -z "$LDC" -o -z "$LDA" && $IP6TABLES -A INPUT -j LOG ${LOG}"-IN-IPv6_PROHIB "
+    $IP6TABLES -A INPUT -j "$DROP"
+
+    if [ "$FW_IPv6_REJECT_OUTGOING" = "yes" ]; then
+	test -z "$LDC" -o -z "$LDA" && $IP6TABLES -A OUTPUT -j LOG ${LOG}"-OUT-IPv6_PROHIB "
+	$IP6TABLES -A OUTPUT -j reject_func
+    fi
 }
 
 tos_settings() {
@@ -476,6 +558,9 @@ set +o noclobber
 test -e /etc/resolv.conf && NAMESERVERS=`$AWK '/^nameserver/ {print $2}' /etc/resolv.conf| \
     $GREP -iv yast 2> /dev/null`
 
+# Do we have a kernel with IPv6 enabled?
+$IP6TABLES -nvL >/dev/null 2>&1 || IP6TABLES=:
+
 ##########################
 #                        #
 # Parse the Command line #
@@ -534,6 +619,7 @@ Warning: SuSEfirewall2 is running in TEST MODE, no packet filtering is done!
 }
 test "$1" = debug && {
     IPTABLES="$DEBUG"
+    IP6TABLES="$DEBUG6"
 }
 test "$1" = stop -o "$1" = halt -o "$1" = down -o "$1" = shutdown && {
     echo -n "Removing filter rules "

@@ -759,3 +759,34 @@ FW_REJECT="no"
 #
 FW_HTB_TUNE_DEV=""
 
+## Type:	list(no,drop,reject)
+## Default:	drop
+#
+# 28.)
+# What to do with IPv6 Packets?
+#
+# ip6tables is currently not stateful so it's not possible to implement the
+# same features as for IPv4. We currently offer three choices:
+# 
+# - no: do not set any IPv6 rules at all. Your Host will allow any IPv6
+#   traffic unless you setup your own rules.
+#
+# - drop: drop all IPv6 packets. This is the default.
+#
+# - reject: reject all IPv6 packets
+#
+# Disallowing IPv6 packets may lead to long timeouts when connecting to IPv6
+# Adresses. See FW_IPv6_REJECT_OUTGOING to avoid this.
+#
+FW_IPv6=""
+
+## Type:	yesno
+## Default:	yes
+#
+# 28a.)
+# Reject outgoing IPv6 Packets?
+#
+# Set to yes to avoid timeouts because of dropped IPv6 Packets. This Option
+# does only make sense with FW_IPv6 != no
+#
+FW_IPv6_REJECT_OUTGOING="yes"
