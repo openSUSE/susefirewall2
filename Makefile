@@ -39,6 +39,8 @@ install:
 	install -m 755 SuSEfirewall2_setup $(DESTDIR)/etc/init.d
 	install -m 755 SuSEfirewall2_final $(DESTDIR)/etc/init.d
 	ln -s /etc/init.d/SuSEfirewall2_setup $(DESTDIR)/sbin/rcSuSEfirewall2
+	install -m 755 SuSEfirewall2-autointerface.sh $(DESTDIR)/etc/sysconfig/scripts
+	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 
 clean:
 	rm -f $(ARCHIVE)
