@@ -1014,6 +1014,13 @@ drop_broadcast()
 check_required_zones()
 {
     local zone zones devs
+    for zone in $FW_ZONES; do
+	case $zone in
+	    [Ii][Nn][Tt]|[Ee][Xx][Tt]|[Dd][Mm][Zz])
+		error "FW_ZONES=$zone ignored" ;;
+	    *) all_zones="$all_zones $zone" ;;
+	esac
+    done
     for zone in $all_zones; do
 	eval devs="\$FW_DEV_$zone"
 	if [ -n "$devs" -o "$ipsec_chain" = $zone ]; then
@@ -1603,7 +1610,7 @@ forwarding_rules()
 	esac
 
 	if [ -n "$proto" ] && ! check_proto_port "$proto" "$port" '' "FW_FORWARD"; then
-	    net1=""
+	    continue
 	fi
 
 	if [ -n "$net1" -a -n "$net2" ]; then
@@ -1614,6 +1621,8 @@ forwarding_rules()
 		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args
 		$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $more_args
 	    done
+	else
+	    error "too few parameters in FW_FORWARD -> $nets"
 	fi
      done
 }
