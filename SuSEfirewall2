@@ -1153,8 +1153,8 @@ test "$FW_AUTOPROTECT_SERVICES" = no || {
 DONE_ALL=no
 test "$FW_ALLOW_INCOMING_HIGHPORTS_TCP" = yes || {
     for CHAIN in input_int input_dmz input_ext; do
-        $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --dport 1024:65535 --syn
-        $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --dport 1024:65535
+        $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -m state --state ESTABLISHED,RELATED -p tcp --dport 1024:65535 --syn
+        $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -m state --state ESTABLISHED,RELATED -p tcp --dport 1024:65535
         $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp --dport 1024:65535
     done
 }
