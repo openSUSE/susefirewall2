@@ -399,19 +399,19 @@ function setproc()
 
 # parameters: protocol port variable
 # check whether $1 and $2 are a valid protocol/port combination and sets global
-# variables $proto and $port in iptables syntax
+# variables $proto, $port and $sport in iptables syntax
 # $2 is used for logging
 # returns 1 on error, the content of $proto and $port is undefined then
 check_proto_port()
 {
     proto="$1"
     port="$2"
+    sport=""
     local var="$3"
     case "$proto" in
 	'')   error "proto must not be empty in ${var}"; return 1; ;;
-	tcp)  [ -n "$port" ] && port="--dport $port"; ;;
-	udp)  [ -n "$port" ] && port="--dport $port"; ;;
-	icmp) [ -n "$port" ] && port="--icmp-type $port" ;;
+	tcp|udp)  [ -n "$port" ] && { sport="--sport $port"; port="--dport $port"; }; ;;
+	icmp) [ -n "$port" ] && { sport="--icmp-type $port"; port="$sport"; }; ;;
 	*)
 	    if [ -n "$port" ]; then
 		error "port is only valid with tcp, udp or icmp in ${var}"
@@ -1258,49 +1258,40 @@ allow_icmp()
 	    $IP6TABLES -A $chain -j "$ACCEPT" -p icmpv6 --icmpv6-type $itype
 	done
     done
+}
+
+allow_forward_icmp_echo()
+{
+    [ "$FW_ROUTE" != "yes" ] && return
+
+    local zone chain var val
 
     # FORWARD ICMP rules
-    # FIXME hardcoded flow directio
-    if [ "$FW_ROUTE" = "yes" ]; then
-	if [ "$FW_ALLOW_PING_DMZ" = yes ]; then
-	    for zone in $forward_dmz_zones; do
-		eval devs="\$FW_DEV_$zone"
-		for dev in $devs; do
-		    for chain in $forward_ext_zones $forward_int_zones; do
-			chain=forward_$chain
-			$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request -o $dev
-			$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $dev
-			$LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request -o $dev
-			$IP6TABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmpv6 --icmpv6-type echo-request -o $dev
-		    done
-		done
-		chain=forward_$zone
-		$LAA $IPTABLES -A $chan -j LOG ${LOG}"-FWDdmz-ACC-PING "  -p icmp --icmp-type echo-reply
-		$IPTABLES -A $chan -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
-		$LAA $IP6TABLES -A $chan -j LOG ${LOG}"-FWDdmz-ACC-PING "  -p icmpv6 --icmpv6-type echo-reply
-		$IP6TABLES -A $chan -j "$ACCEPT"  -m state --state ESTABLISHED -p icmpv6 --icmpv6-type echo-reply
+    for zone in $forward_all_zones; do
+	var="FW_ALLOW_PING_`cibiz $zone`"
+	eval val="\"\$$var\""
+
+	[ "$val" != yes ] && continue
+
+	eval devs="\$FW_DEV_$zone"
+
+	for dev in $devs; do
+	    for chain in $forward_all_zones; do
+		[ "$chain" = "$zone" ] && continue
+
+		chain=forward_$chain
+		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request -o $dev
+		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $dev
+		$LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request -o $dev
+		$IP6TABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmpv6 --icmpv6-type echo-request -o $dev
 	    done
-	fi
-	if [ "$FW_ALLOW_PING_EXT" = yes ]; then
-	    for zone in $forward_ext_zones; do
-		eval devs="\$FW_DEV_$zone"
-		for dev in $devs; do
-		    for chain in $forward_int_zones $forward_dmz_zones; do
-			chain=forward_$chain
-			$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request -o $dev
-			$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $dev
-			$LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request -o $dev
-			$IP6TABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmpv6 --icmpv6-type echo-request -o $dev
-		    done
-		done
-		chain=forward_$zone
-		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-FWDext-ACC-PING "  -p icmp --icmp-type echo-reply
-		$IPTABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
-		$LAA $IP6TABLES -A $chain -j LOG ${LOG}"-FWDext-ACC-PING "  -p icmpv6 --icmpv6-type echo-reply
-		$IP6TABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED -p icmpv6 --icmpv6-type echo-reply
-	    done
-	fi
-    fi
+	done
+	chain=forward_$zone
+	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-reply
+	$IPTABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
+	$LAA $IP6TABLES -A $chan -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-reply
+	$IP6TABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED -p icmpv6 --icmpv6-type echo-reply
+    done
     # drop rule for forwarding chains are at the end of the forwarding rules
 }
 
@@ -1560,7 +1551,7 @@ allow_class_routing()
     done
 }
 
-forward_icmp()
+allow_related_forward_icmp()
 {
     local chain itype
 
@@ -1588,6 +1579,7 @@ forwarding_rules()
 	proto="$3"
 	port="$4"
 	flags="$5"
+	sport=""
 
 	case "$flags" in
 	    "") ;;
@@ -1610,6 +1602,7 @@ forwarding_rules()
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args
 		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args
 		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args
+		$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $sport $more_args
 	    done
 	fi
      done
@@ -1625,7 +1618,7 @@ masquerading_rules()
 	net2="$2"
 	proto="$3"
 	port="$4"
-	sport="$port"
+	sport=""
 
 	if [ -n "$5" ]; then
    	    error "Too many arguments in FW_MASQ_NETS -> $nets"
@@ -1638,11 +1631,6 @@ masquerading_rules()
 	    if [ -n "$net2" ]; then
 		snet2="-s $net2"
 		net2="-d $net2"
-	    fi
-	    if [ -n "$port" ]; then
-		sport="--sport $sport"
-	    else
-		sport=""
 	    fi
 
 	    for dev in $FW_MASQ_DEV; do
@@ -1891,6 +1879,8 @@ fork_to_chains
 
 allow_icmp
 
+allow_forward_icmp_echo
+
 # HOOK
 fw_custom_before_port_handling
 
@@ -1919,7 +1909,7 @@ redirect_rules
 
 if [ "$FW_ROUTE" = yes ]; then
 
-    forward_icmp
+    allow_related_forward_icmp
 
     allow_class_routing
 
