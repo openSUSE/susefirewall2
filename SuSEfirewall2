@@ -1263,11 +1263,9 @@ esac
 
 IPSEC_MATCH=
 if [ -n "$ipsec_chain" ]; then
-    [ -z "$FW_IPSEC_MARK" ] && FW_IPSEC_MARK="0x1701d"
-    IPSEC_MATCH="-m mark --mark $FW_IPSEC_MARK"
+    IPSEC_MATCH="-m policy --dir in --pol ipsec --proto esp"
     $IPTABLES -A INPUT -j "input_$ipsec_chain" $IPSEC_MATCH
     $IPTABLES -A FORWARD -j "forward_$ipsec_chain" $IPSEC_MATCH
-    $IPTABLES -A INPUT -t mangle -p esp -j MARK --set-mark "$FW_IPSEC_MARK"
 fi
 
 #####################################

@@ -838,13 +838,3 @@ FW_IPv6_REJECT_OUTGOING="yes"
 #   FW_PROTECT_FROM_INTERNAL="no"
 #
 FW_IPSEC_TRUST="no"
-
-## Type:	string
-#
-# 29a.)
-# fwmark used for IPsec packets
-#
-# Default is 0x1701d. You normally don't need to change that unless you use
-# your own mark rules which use the same number already
-#
-FW_IPSEC_MARK=""
