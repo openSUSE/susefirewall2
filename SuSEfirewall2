@@ -1329,8 +1329,8 @@ reject_or_drop_services()
 		rpcservicerules $chain $service
 	    elif check_proto_port "$2" "$3" "$4" "$var"; then
 		for iptables in $iptables; do
-		    $LDA $iptables -A $chain -s $net $proto $port -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
-		    $iptables -A $chain -s $net $proto $port -m state --state NEW -j "$target"
+		    $LDA $iptables -A $chain -s $net $proto $port $sport -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
+		    $iptables -A $chain -s $net $proto $port $sport -m state --state NEW -j "$target"
 		done
 	    fi
 	done
