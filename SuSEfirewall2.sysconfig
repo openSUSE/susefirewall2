@@ -557,7 +557,7 @@ FW_LOG_ACCEPT_ALL="no"
 ## Type:	string
 #
 # only change/activate this if you know what you are doing!
-FW_LOG="--log-level warning --log-tcp-options --log-ip-option --log-prefix SuSE-FW"
+FW_LOG=""
 
 ## Type:	yesno
 ## Default:	yes

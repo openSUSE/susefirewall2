@@ -321,7 +321,7 @@ FW_LOG_ACCEPT_CRIT="yes"
 FW_LOG_ACCEPT_ALL="no"
 #
 # only change/activate this if you know what you are doing!
-FW_LOG="--log-level warning --log-tcp-options --log-ip-option --log-prefix SuSE-FW"
+FW_LOG=""
 
 #
 # 17.)
