@@ -338,8 +338,9 @@ input_zones=
 
 #### constants
 
-safe_icmp_replies="echo-reply destination-unreachable time-exceeded parameter-problem timestamp-reply address-mask-reply protocol-unreachable"
-safe_icmpv6_replies="echo-reply destination-unreachable time-exceeded parameter-problem"
+safe_icmp_replies="echo-reply destination-unreachable time-exceeded parameter-problem timestamp-reply address-mask-reply protocol-unreachable redirect"
+safe_icmpv6_replies="echo-reply destination-unreachable packet-too-big time-exceeded parameter-problem"
+stateless_icmpv6_types="router-solicitation router-advertisement neighbour-solicitation neighbour-advertisement redirect"
 
 ###############
 
@@ -613,6 +614,16 @@ function set_basic_rules()
 
     # workaround for ip6tables without state matching
     if [ "$IP6TABLES_HAVE_STATE" != 1 ]; then
+	for itype in $stateless_icmpv6_types $safe_icmpv6_replies; do
+	    $LAA $IP6TABLES -A INPUT -j LOG ${LOG}"-IN-ACC-ICMP " -p icmpv6 --icmpv6-type $itype
+	    $IP6TABLES -A INPUT -j "$ACCEPT" -p icmpv6 --icmpv6-type $itype
+	done
+	if [ "$FW_ALLOW_PING_FW" = yes ]; then
+	    $LAA $IP6TABLES -A INPUT -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request
+	    $IP6TABLES -A INPUT -j "$ACCEPT" -p icmpv6 --icmpv6-type echo-request
+	fi
+	$LAA $IP6TABLES -A INPUT -p tcp --tcp-flags ACK ACK -j LOG ${LOG}"-IN-ACC-TCP "
+	$IP6TABLES -A INPUT -p tcp --tcp-flags ACK ACK -j "$ACCEPT"
 	# Drop all until IPv6 is really supported
 	$LDA $IP6TABLES -A INPUT -j LOG ${LOG}"-IN-IPv6_PROHIB "
 	if [ "$FW_IPv6" = "drop" -o "$IP6TABLES_HAVE_REJECT" != 1 ]; then
@@ -620,6 +631,8 @@ function set_basic_rules()
 	else
 	    $IP6TABLES -A INPUT -j "$REJECT"
 	fi
+	$IP6TABLES -A OUTPUT -p icmpv6 -j "$ACCEPT"
+	$IP6TABLES -A OUTPUT -p tcp -j "$ACCEPT"
 	if [ "$IP6TABLES_HAVE_REJECT" != 1 -o "$FW_IPv6_REJECT_OUTGOING" = "no" ]; then
 	    $IP6TABLES -A OUTPUT -j "$DROP"
 	else
@@ -877,18 +890,12 @@ verify_masq_nets()
 #################################
 set_proc_stuff()
 {
-    setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts 
-# test "$FW_ALLOW_PING_FW" = yes || setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_all  # XXX
-    setproc 1 /proc/sys/net/ipv4/tcp_syncookies 
-    setproc 1 /proc/sys/net/ipv4/ip_always_defrag  # XXX not there?
-    setproc 0 /proc/sys/net/ipv4/tcp_ecn 
-    for i in /proc/sys/net/ipv4/conf/*; do
-	setproc 0 $i/accept_redirects 
-	setproc 0 $i/accept_source_route 
-	setproc 1 $i/rp_filter 
-	#setproc 0 $i/mc_forwarding test -w says ok but its ro
-    done
     if [ "$FW_KERNEL_SECURITY" != no ]; then
+	setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts 
+# test "$FW_ALLOW_PING_FW" = yes || setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_all  # XXX
+	setproc 1 /proc/sys/net/ipv4/tcp_syncookies 
+	setproc 1 /proc/sys/net/ipv4/ip_always_defrag  # XXX not there?
+	setproc 0 /proc/sys/net/ipv4/tcp_ecn 
 	setproc 1 /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses 
 	setproc 5 /proc/sys/net/ipv4/icmp_echoreply_rate 
 	setproc 5 /proc/sys/net/ipv4/icmp_destunreach_rate 
@@ -903,6 +910,9 @@ set_proc_stuff()
 	    [ "$FW_ROUTE" != yes ] && setproc 0 $i/forwarding
 	    setproc 0 $i/proxy_arp 
 	    setproc 1 $i/secure_redirects 
+	    #setproc 0 $i/accept_redirects # let kernel decide this
+	    setproc 0 $i/accept_source_route 
+	    setproc 1 $i/rp_filter 
 	done
 	setproc 1 /proc/sys/net/ipv4/route/flush
     fi
@@ -1181,8 +1191,8 @@ allow_icmp()
     done
     # DROP rules for input ICMP are after trusted handling (see below)
     
-    # state matching for these seems to be broken
-    icmp_types="router-solicitation router-advertisement neighbour-solicitation neighbour-advertisement"
+    # state matching for these does not work
+    icmp_types="$stateless_icmpv6_types"
     for itype in $icmp_types; do
 	for chain in $input_zones; do
 	    chain=input_$chain
