@@ -1,0 +1,10 @@
+#!/bin/sh
+echo "Warning: This UNINSTALL script will wipe all traces of SuSEfirewall2
+from your system, maybe even backup files of the config if they are in
+/etc/sysconfig/ - you have got 5 seconds to press Control-C ..."
+sleep 5
+rm -f /sbin/SuSEfirewall2 /etc/sysconfig/SuSEfirewall2*
+rm -f /etc/rc.d/rc*.d/SuSEfirewall2_* /etc/rc.d/SuSEfirewall2_*
+rm -rf /usr/share/doc/packages/SuSEfirewall2
+rm -rf /tmp/.sfw$$
+echo SuSEfirewall2 was removed from your system.

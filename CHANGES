@@ -1,0 +1,184 @@
+v3.1	31.08.02
+	* Speeeeed increase. Runs approx. 20% faster now as I removed lots
+	  of unnecessary execs
+	* Fixed a small bug in accepting related and established sessions
+	* Fixed a bug in FW_FORWARD_MASQ - demasquerading decision was too
+	  global and superseded any other rule for the same port
+
+v3.0	06.08.02
+	* Added 1.) FW_QUICKMODE which will replace SuSE-personalfirewall.
+	  If set to yes, it will act similar to the personalfirewall
+	  tool and only react to FW_DEV_EXT and FW_MASQ_DEV options.
+	* Fixed a bug where FW_FORWARD would not work with icmp types
+	* Added option 26.) FW_REJECT to send reject packets for disallowed
+	  packets.
+	* Added all those many patches of Kurt Garloff & other SuSE team
+	  members, to make it SuSE 8.0, lsb, init-style, yast2 and
+	  United Linux compliant.
+	  MOST IMPORTANT CHANGE: The config is now in
+	  /etc/sysconfig/SuSEfirewall2 and there is no START_FW2 option
+	  anymore - if there is a link in the runlevel directory, it will
+	  start!
+	  REJECTED PATCH LIST:	SuSEfirewall2-2.1.keep_route.diff
+				SuSEfirewall2-2.1.no-rmmod.diff
+				SuSEfirewall2-2.1.newrc.diff
+	  keep_route would result in an insecure system after
+	  "SuSEfirewall stop", no-rmmod was an old work-around for a kernel
+	  bug in 2.4.0 to 2.4.4 and newrc would not allow SuSEfirewall2 to
+	  run on old SuSE or non-SuSE systems.
+
+v2.2	12.02.02	GAMMA
+	* Added "easy" mode which rejects all incoming connections.
+	  You do not need to config firewall2.rc.config for this.
+	* Added "force" paramter to load rules even if START_FW2 is not "yes"
+	* Added support to define a target IP address to FW_FORWARD_MASQ
+	  which is needed if you want to reverse masquerade several web
+	  servers or similar.
+	* Added a small patch to the _final init script which will be skipped
+	  if the the autoprotecting feature is disabled - so only reason why
+	  the _final script exists ...
+	* Ensuring english language during the script running for parsing
+	* Small beautifications
+	* FW_STOP_KEEP_ROUTING_STATE was ignored. fixed (thanks to joerg@schueler-maroldt.de)
+	* The ports and protocols in the ipsec example in EXAMPLES were
+	  missing. (thanks to ulmer@uta-leasing.de)
+
+v2.1	08.12.01	GAMMA
+	* Added '!' support to FW_REDIRECT (thanks to rkooijman@inergy.nl)
+	* FW_ALLOW_*_HIGH_PORT change: related connections are now always
+	  allowed. Therefore changed the default of the options.
+	* Added patch from <ervee@moskovic.org> for better log output. thanks!
+
+v2.0	11.11.01	GAMMA
+	* Fixed a typo which created problems for some ADSL users
+	* Added runlevel fixes by Kurt Garloff <garloff@suse.de>
+
+v1.9	03.11.01	GAMMA
+	* v1.8 somehow fucked up while packaging, no changes
+
+v1.8	28.10.01	GAMMA
+	* Fixed private network detection fro FW_MASQ_NETS
+
+v1.7	28.08.01	GAMMA	(-> SuSE 7.3)
+	* The INSTALL tool did not install the EXAMPLES file, fixed. (thanks
+	  to ingo.kley@web.de)
+	* Fixed a bug in FW_FORWARD_MASQ when target ports were ranges.
+	  (thanks to Rene@Hoppe-Online.de and christos@teacat.net)
+	* Fixed some bugs in the documentation.
+	* When stopping SuSEfirewall2, all modules are now removed.
+
+v1.6	26.07.01	GAMMA
+	* Added error checking for FW_MASQ_NETS because I got too many reports
+	  of users who told me that the filter rules blocked sites without a
+	  reason just because they set 192.168.0.0/8 instead of 192.168.0.0/24
+	  This wastes too much of my time ...
+	* Added an additional EXAMPLE with an ipsec setup, also wrote an FAQ
+	  section about that.
+
+v1.5	21.07.01	GAMMA
+	* Fixed a typo in firewall.rc.config which resulted in an error for
+	  logging. thanks to Lutz.Jaenicke@aet.TU-Cottbus.DE
+
+v1.4	21.07.01	GAMMA
+	* Added FW_SERVICE_SQUID to support special squid UDP ports (where
+	  one of them is dynamic ...)
+	* Fixed a long, long bug which resulted in timeouts for the first
+	  DNS lookup which triggered autodialing
+	* Changed firewall.rc.config format to be yast compliant
+       --- the following fixes were done by Kurt for the v1.3 rpm release:
+	* rcfirewall2 points now to SuSEfirewall_setup
+	* Many, many spelling fixes!
+
+v1.3	14.07.01	FINAL	-> FIRST OFFICIAL RELEASE
+	* Fixed a bug in autoprotecting ports to externals (thanks to
+	  sielaff@chem.tu-berlin.de and D.Markwardt@tu-bs.de)
+	* Added special log message if internals try to access the external
+	  IPs of the firewall
+	* Added missing /sbin/rcSuSEfirewall2 link (thanks to
+	  wolfgang.hoefler@hwo.at)
+
+v1.2	01.07.01	GAMMA
+	* Fixed 5 small bugs in logging functions (which resulted in
+	  "unknown option --syn" messages in special occasions)
+	* Added the new option FW_IGNORE_FW_BROADCAST in addition to
+	  FW_ALLOW_FW_BROADCAST if broadcasts should not be allowed but
+	  ignored to prevent the annoying log entries
+
+v1.1	23.06.01	GAMMA
+	* Fixed a small bug in FW_TRUSTED_NETS
+	* People with German/French etc. language sets for root could not
+	  run this script because the output of ifconfig etc. is different.
+	  I hope I could fix this.
+	* Fixed the backup function of /etc/ip-up in INSTALL
+	* Added a mss iptables rule which seems to be needed for adsl
+	* Support for weird lsof binaries :-)
+	* Fixed some minor things in ip-up
+
+v1.0	11.06.01	GAMMA
+	-> believe it or not - v1.0 is ready to go and should work
+	   perfectly for everyone! :-)
+	* Added the new ip-up script which supports
+		SuSE-personalfirewall, SuSEfirewall(1) and SuSEfirewall2
+	* Added a patch by <martin.schulz@videotron.ca>, which fixes some
+	  error checking - thanks!
+	* Added loading of a kernel module which is necessary for active ftp
+	  (thanks to christian.ernst@informatik.fh-hamburg.de)
+	* Added support for devices with no broadcast address (e.g. ipsec stuff)
+	* Autoprotecting mode supports ipv6 global bindings (:::1) now
+	* Fixed a bug in the UDP autoprotecting mode support
+	* Removed TOS stuff for ICMP - resulted in no ping packets being
+	  sent. Seems to be a kernel bug :-( netfilter still sucks ...
+	* Updated the documentation
+	* Added bootp config support for interfaces
+	* Added a small README and a converted EXAMPLES file
+
+v0.9	06.05.01	BETA
+	* Rewrote the TOS stuff. Routed packets were not affected and I
+	  made another setup error. duh
+	* Allowing NEW connections to high ports (FW_ALLOW_INCOMING_HIGHPORTS)
+	  This seems to be needed to get the behaviour people expect :-(
+
+v0.7	29.04.01	BETA
+	* Fixed a small bug in INSTALL (thanks to cognac@toppoint.de)
+	* Fixed two references for the old firewall.rc.config file (thanks to
+	  denecke@fh-muenster.de)
+	* Beware that iptables does *not* support aliases, wildcards etc.!
+	  However I implemented some tricks so you can supply e.g.
+	  FW_DEV_EXT="eth0 eth0:1" and everything still works
+
+v0.6	09.04.01	BETA
+	* Fixed TOS setting - I got it completely wrong ;-)) thanks to
+	  <marco.ahrendt@adconsys.de>
+	* Fixed erroneous description of FW_REDIRECT in firewall2.rc.config
+
+v0.5	14.03.01	ALPHA
+	* Fixed FW_SERVICE_DNS for bind-9.1 with ipv6 support, also several
+	  instances of bind are now allowed (for split-brain DNS)
+	* When FW_PROTECT_FROM_INTERNAL was set to no, FW_AUTOPROTECT_SERVICES
+	  would protect against internal and vice versa. fixed.
+
+v0.4	06.03.01	ALPHA
+	* Changed the START_FW variable to START_FW2 so you can have
+	  installed both SuSEfirewall(1) and SuSEfirewall2 in parallel
+	  without problems
+	* Fixed a bug in INSTALL where the K99 stop script was incorrectly
+	  symlinked.
+	* Fixed a bug in the masquerading. should work now.
+	  (thanks to jboonen@worldonline.nl)
+	* Fixed dumb warnings and typos
+	* Fixed a bug in FW_FORWARD for tcp and udp
+	  (for both bug reports thanks to christian.esser@gmx.de>
+
+v0.3	28.02.01	ALPHA
+	* Tested most stuff and it works for me. Now lets do some alpha
+	  testing with the users ;-)
+
+v0.2	28.02.01	unreleased
+	* Added STATE support - lets hope it works
+	* Small typo fixes
+	* Rewrote firewall.rc.config for SuSEfirewall2
+
+v0.1	27.02.01	unreleased
+	* Completely rewrote SuSEfirewall2 with the basics from SuSEfirewall(1)
+
+v0.0	26.02.01	started!

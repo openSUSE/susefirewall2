@@ -1,0 +1,1606 @@
+#!/bin/sh
+#
+#####################################################
+# Firewall Script v3.1 by Marc Heuse <marc@suse.de> #
+#####################################################
+VER="v3.1"
+#
+# For all those fellow experts out there: yes I know that this is NOT a 
+# firewall setup but a simple (no, not simple, it tries actually to be
+# clever) packet filter. But if we would call this "SuSEpacketfilter",
+# only a few user would install it, hence general security would be bad.
+#
+###########################################################################
+#                                                                         #
+# The configuration file for this firewall script is                      #
+# /etc/sysconfig/SuSEfirewall2                                            #
+#                                                                         #
+# Please make only modifications to this script if you know what you      #
+# are doing! A small explanation of the setup can be found in             #
+# /usr/share/doc/packages/SuSEfirewall2/README                            #
+#                                                                         #
+# For new-user help concerning configuring this firewall, take a look at  #
+# the configuration file /etc/sysconfig/SuSEfirewall2 - it tells          #
+# you all                                                                 #
+# (if not: sorry, but configuring a packet filter/screening router is NOT #
+# trivial - you must know what you are doing and what it actually does!)  #
+#                                                                         #
+###########################################################################
+
+help() {
+    echo -e "
+SuSEfirewall2 $VER (c)2002 by Marc Heuse <marc@suse.de> http://www.suse.de/~marc
+Smart and tight packet filter rules generator for 2.4 kernels using iptables.
+
+$0 start|test|debug [file FILENAME] [force]
+$0 stop|close|status|help
+
+Options:
+  start	  generate and load the firewall filter rules from 
+          /etc/sysconfig/SuSEfirewall2
+  stop    unload all filter rules
+  close   no incoming network traffic except bootp+ping (for boot security)
+  easy    set easy filter rules which rejects all incoming access
+  test    generate and load the filter rules but do not drop any packet but log
+          to syslog anything which *would* be denied
+  status  print the output of \"iptables -L -nv\"
+  debug   print the iptables command to stdout instead of executing them
+  help    this output
+
+  file FILENAME  same as \"start\" but load alternate config file FILENAME
+
+Calling $0 without any option is the same as the \"start\" option.
+The \"file FILENAME\" option my be used with the start, test and debug options.\n"
+#old#  force   force starting (does not check /etc/rc.config for START_FW2=yes)
+    exit 0
+}
+
+FWCONFIG="/etc/sysconfig/SuSEfirewall2"
+LOCKFILE="/var/lock/SuSEfirewall2.pid"
+FW_CUSTOMRULES=""
+
+test "$1" = "-h" -o "$1" = help && help
+test -z "$2" -a "$1" = file && help
+test -z "$3" -a "$2" = file && help
+test -z "$4" -a "$3" = file && help
+test "$1" = file && FWCONFIG="$2"
+test "$2" = file && FWCONFIG="$3"
+test "$3" = file && FWCONFIG="$4"
+
+test -e /etc/rc.config && . /etc/rc.config
+
+test -z "$1" -o "$1" = easy -o "$1" = novice -o "$1" = force -o "$1" = file -o "$1" = stop -o "$1" = start -o "$1" = test -o "$1" = debug && {
+    test -e /etc/sysconfig/network/config && . /etc/sysconfig/network/config
+
+    test -e "$FWCONFIG" -o "$1" = easy || { 
+        echo "SuSEfirewall2: Can not find $FWCONFIG, aborting ..."
+        exit 1
+    }
+    test "$1" = easy || . $FWCONFIG
+
+#    test "$START_FW2" = yes -o "$1" = easy -o "$1" = stop -o "$1" = status \
+#          -o "$1" = close -o "$1" = force -o "$2" = force -o "$3" = force \
+#          -o "$4" = force || {
+#        echo -e "
+#SuSEfirewall2 is not activated yet. If you want to force loading the rules, add
+#the command line option \"force\". To configure SuSEfirewall2, edit
+#/etc/rc.config.d/firewall2.rc.config & set START_FW2 in /etc/rc.config to \"yes\".
+#"
+#        exit 1
+#    }
+
+    test -z "$FW_DEV_WORLD" -a -z "$FW_AUTOPROTECT_GLOBAL_SERVICES" -a -z "$FW_LOG_DENY_CRIT" || {
+        echo -e "Error: This is SuSEfirewall2, $FWCONFIG is for the old SuSEfirewall/firewals package."
+        exit 1
+    }
+}
+
+test "$1" = force && shift
+test "$1" = file && { shift; shift; }
+test "$1" = force && shift
+
+#######################
+#                     #
+# Definitions - fixed #
+#                     #
+#######################
+export LC_CTYPE=en_US
+export LANGUAGE=english
+export RC_LANG=en_US
+export LANG=en_US
+export RC_LC_ALL=en_US
+export RC_LC_MESSAGES=""
+export LC_ALL=en_US
+export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
+alias which='type -p'
+IPTABLES=`which iptables`  || IPTABLES="/usr/sbin/iptables"
+#IPTABLES="echo iptables "                                 # For debugging only
+DEBUG="echo iptables "
+AWK=`which awk`            || AWK="/usr/bin/awk"
+SED=`which sed`            || SED="/usr/bin/sed"
+IFCONFIG=`which ifconfig`  || IFCONFIG="/sbin/ifconfig"
+NETSTAT=`which netstat`    || NETSTAT="/bin/netstat"
+SORT=`which sort`	   || SORT="/usr/bin/sort"
+LSOF=`which lsof`	   || LSOF="/usr/bin/lsof"
+LOGGER=`which logger`	   || LOGGER="/usr/bin/logger"
+GREP=`which grep`          || GREP="/usr/bin/grep"
+
+for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
+    test -x $i || { echo "I need $i for running but can not find it, aborting."
+                    exit 1 ; }
+done
+
+test -z `uname -r | $GREP -E '^2\.[345]' 2> /dev/null` && {
+    echo 'This script is for Linux 2.4 kernels only!'
+    exit 1
+}
+
+NEED_LSOF=no
+test "$FW_SERVICE_DNS" = yes && NEED_LSOF=yes
+test "$FW_SERVICE_SQUID" = yes && NEED_LSOF=yes
+test "$NEED_LSOF" = yes -a '!' -x "$LSOF" && { 
+    echo "I need $LSOF for running but can not find it, aborting."
+    exit 1 ; }
+test -x "$IPTABLES" -o "$IPTABLES" = "echo iptables " || \
+    echo "Warning: Can not find iptables - debug function? (\"$IPTABLES\")"
+
+ACCEPT="ACCEPT"
+DROP="DROP"
+REJECT="reject_func"
+test "$FW_REJECT" = yes && DROP="reject_func"
+
+#############
+#           #
+# Functions #
+#           #
+#############
+function reset_rules_silent() {
+	test "$FW_STOP_KEEP_ROUTING_STATE" = "yes" || {
+	    echo 0 > /proc/sys/net/ipv4/ip_forward
+	} > /dev/null 2>&1
+	$IPTABLES -F INPUT
+	$IPTABLES -F OUTPUT
+	$IPTABLES -F FORWARD
+	$IPTABLES -P INPUT ACCEPT
+	$IPTABLES -P OUTPUT ACCEPT
+	$IPTABLES -P FORWARD ACCEPT
+	$IPTABLES -F
+	$IPTABLES -X
+	$IPTABLES -t nat -F
+	$IPTABLES -t nat -X
+	$IPTABLES -t mangle -F
+	$IPTABLES -t mangle -X
+	{ rmmod ipt_TCPMSS ipt_TOS ipt_MASQUERADE ipt_LOG ipt_state \
+	   ipt_MARK ipt_MIRROR ipt_REDIRECT ipt_limit ipt_mac ipt_mark \
+	   ipt_multiport ipt_owner ipt_tcpmss ipt_tos ipt_unclean ip_queue \
+	   ip_nat_ftp ip_conntrack_ftp ipt_REJECT iptable_mangle iptable_nat \
+	   iptable_filter ip_queue ip_conntrack iptable_filter ip_tables
+	} > /dev/null 2> /dev/null
+}
+
+function reset_rules() {
+	echo -n "SuSEfirewall2: clearing rules now ..."
+	reset_rules_silent
+	echo " done"
+}
+
+function set_basic_rules() {
+    { rmmod ipfwadm; rmmod ipchains
+      modprobe ip_tables; modprobe ip_conntrack; modprobe ip_conntrack_ftp
+      modprobe ip_nat_ftp
+    } > /dev/null 2>&1
+    $IPTABLES -F INPUT
+    $IPTABLES -F OUTPUT
+    $IPTABLES -F FORWARD             2> /dev/null
+    test "$DROP" = ACCEPT && DROP_JUMP="ACCEPT"
+    test "$DROP" = ACCEPT || DROP_JUMP="DROP"
+    $IPTABLES -P INPUT "$DROP_JUMP"
+    $IPTABLES -P OUTPUT "$ACCEPT"
+    $IPTABLES -P FORWARD "$DROP_JUMP"     2> /dev/null
+    $IPTABLES -F
+    $IPTABLES -X
+    # Special REJECT function #
+    $IPTABLES -t nat -F
+    $IPTABLES -t nat -X
+    $IPTABLES -t mangle -F
+    $IPTABLES -t mangle -X
+    $IPTABLES -N reject_func
+    $IPTABLES -A reject_func -p tcp -j REJECT --reject-with tcp-reset
+    $IPTABLES -A reject_func -p udp -j REJECT --reject-with icmp-port-unreachable
+    $IPTABLES -A reject_func        -j REJECT --reject-with icmp-proto-unreachable
+}
+
+tos_settings() {
+#mangle TOS with icmp does not seem to work. the 2.4 firewall still sucks
+#    $IPTABLES -A OUTPUT -j TOS -m state --state NEW -t mangle -p icmp --icmp-type echo-request --set-tos Minimize-Delay # ping
+#    $IPTABLES -A OUTPUT -j TOS -t mangle -p icmp --icmp-type echo-reply   --set-tos Minimize-Delay # pong
+#    $IPTABLES -A OUTPUT -j TOS -t mangle -p icmp --set-tos Maximize-Reliability # all other ICMP
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 22   --set-tos Minimize-Delay # SSH in
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 22   --set-tos Minimize-Delay # SSH out
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 20   --set-tos Maximize-Throughput # FTP Data
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 20   --set-tos Maximize-Throughput # FTP Data
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 80   --set-tos Maximize-Throughput # HTTP
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 80   --set-tos Maximize-Throughput # HTTP
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 53   --set-tos Minimize-Delay # DNS
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p udp --dport 53   --set-tos Minimize-Delay # DNS
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p udp --dport 161  --set-tos Maximize-Reliability # SNMP
+    $IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p udp --dport 162  --set-tos Maximize-Reliability # SNMP Trap
+    $IPTABLES -A OUTPUT -j TOS -t mangle -p udp --dport 514  --set-tos Maximize-Reliability # Syslog
+    #$IPTABLES -A OUTPUT -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p udp --set-tos Maximize-Reliability # all UDP
+}
+
+faulty_int() {
+    test -z "$DEV" || {
+	case "$DEV" in
+	    *ppp*) ;;
+	    *) echo "Warning: interface $DEV is not active."
+		 ;;
+	esac
+    }
+}
+
+function check_srv() {
+    RLVL=`/sbin/runlevel | sed 's/^. //'`
+    test -L /etc/init.d/rc${RLVL}.d/S??$1 && return 0
+    return 1
+}
+
+# Provide empty functions for transparent hook support for customised rules
+fw_custom_before_antispoofing() { true; }
+fw_custom_before_port_handling() { true; }
+fw_custom_before_masq() { true; }
+fw_custom_before_denyall() { true; }
+
+#####################
+#                   #
+# Locking mechanism #
+#                   #
+#####################
+test -e "$LOCKFILE" && {
+    PID=`cat $LOCKFILE`
+    $LOGGER -p kern.info -t SuSEfirewall2 "Another SuSEfirewall2 with PID $PID found, waiting ..."
+    I=0
+    LOCK=1
+    while [ "$LOCK" = 1 ]; do
+	sleep 2
+	test -e "$LOCKFILE" || LOCK=0
+	I=$(( $I + 1 ))
+	test "$I" = 15 && LOCK=0
+    done
+    test -e "$LOCKFILE" && {
+	$LOGGER -p kern.info -t SuSEfirewall2 "Lockfile is still there, ignoring it ..."
+	kill -TERM $PID
+	sleep 2
+	kill -KILL $PID
+	rm -f "$LOCKFILE"
+    }
+}
+trap "rm -f $LOCKFILE" 0 1 2 3 13 15
+set -o noclobber
+echo "$$" > $LOCKFILE || exit 1
+set +o noclobber
+
+# Set NAMESERVER variable
+test -e /etc/resolv.conf && NAMESERVERS=`$AWK '/^nameserver/ {print $2}' /etc/resolv.conf| \
+    $GREP -iv yast 2> /dev/null`
+
+##########################
+#                        #
+# Parse the Command line #
+#                        #
+##########################
+test "$1" = easy -o "$1" = novice && {
+    # Reset the filter rules
+    set_basic_rules
+
+    # Setting filter rules
+    # 1. allow anything on localhost interface
+    $IPTABLES -A INPUT -j "$ACCEPT" -i lo
+    # 2. allow anything which is esablished or related
+    $IPTABLES -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+    # 3. allow dhcp replies from servers
+    $IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
+    # 4. allow echo requests
+    $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
+
+    # Special DNS hack to prevent timeouts
+    test -n "$NAMESERVERS" && for k in $NAMESERVERS; do
+        test "$k" = 127.0.0.1 || \
+            $IPTABLES -A INPUT -j "$ACCEPT" -m state --state NEW -p udp -s $k --sport 53 --dport 1024:65535
+    done
+
+    # log incoming tcp connection requests
+    $IPTABLES -A INPUT -j LOG -p tcp --syn --log-level warning --log-tcp-options --log-ip-options --log-prefix "SuSE-FW-DROP-NEW-CONNECT "
+    # reject anything else
+    $IPTABLES -A INPUT -j "$REJECT"
+
+    # Optimise your TCP/UDP connections by setting IP Options!
+    tos_settings
+
+    $IPTABLES -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
+
+# Log entry
+    test -x "$LOGGER" && \
+        $LOGGER -p kern.info -t SuSEfirewall2 "Firewall rules successfully set in EASY mode"
+    exit 0
+}
+
+test "$1" = test && {
+    DROP="ACCEPT"
+    REJECT="ACCEPT"
+    FW_LOG_DROP_ALL=yes
+    FW_LOG_DROP_CRIT=yes
+    FW_LOG_ACCEPT_ALL=no
+    FW_LOG_ACCEPT_CRIT=no
+    echo -e '
+Warning: SuSEfirewall2 is running in TEST MODE, no packet filtering is done!
+\007'
+    test -x "$LOGGER" && \
+	$LOGGER -p kern.info -t SuSEfirewall2 "Firewall set in TEST mode."
+}
+test "$1" = debug && {
+    IPTABLES="$DEBUG"
+}
+test "$1" = stop -o "$1" = halt -o "$1" = down -o "$1" = shutdown && {
+    echo -n "Removing filter rules "
+    test "$FW_STOP_KEEP_ROUTING_STATE" = "yes" && echo "..."
+    test "$FW_STOP_KEEP_ROUTING_STATE" = "yes" || \
+	echo "and disabling IP forwarding ..."
+    { rmmod ipfwadm; rmmod ipchains; rmmod ip_tables; } > /dev/null 2>&1
+    reset_rules
+    # Log entry
+    test -x "$LOGGER" && \
+	$LOGGER -p kern.info -t SuSEfirewall2 "Firewall rules unloaded."
+    exit 0
+}
+test "$1" = close && {
+    set_basic_rules
+    { echo 0 > /proc/sys/net/ipv4/ip_forward 2> /dev/null ; } > /dev/null 2>&1
+    $IPTABLES -A INPUT -j ACCEPT -p udp --sport 67 -d 255.255.255.255/32 --dport 68
+    $IPTABLES -A INPUT -j ACCEPT -p icmp --icmp-type echo-request
+    $IPTABLES -A INPUT -j ACCEPT -i lo
+    $IPTABLES -A INPUT -j "$REJECT"
+    test -x "$LOGGER" && \
+	$LOGGER -p kern.info -t SuSEfirewall2 "Firewall rules set to CLOSE all network traffic."
+    exit 0
+}
+test "$1" = status && {
+    $IPTABLES -L -nv
+    $IPTABLES -t nat -L -nv
+    $IPTABLES -t mangle -L -nv
+    exit 0
+}
+test "$1" = check && {
+#   test -x /usr/sbin/openports -a -x /usr/sbin/ip && {
+#    for i in 20 53 2000; do
+#	/usr/sbin/openports 1.1.1.1 $i
+#    done
+#   } | $GREP -Ev "^| denied " | $SORT -u
+#    exit 0
+    echo "The option \"check\" is no longer supported with SuSEfirewall2 because this functionality does not work with iptables :-("
+    exit 1
+}
+test "$1" = start -o "$1" = test -o -z "$1" -o "$1" = debug || {
+    echo -e "Error: unknown option $1. Try \"$0 help\"."
+    exit 1
+}
+
+###################
+# Important check #
+###################
+test -z "$FW_DEV_EXT" && {
+    echo -e "The Firewall script needs to know the external (internet) interface.
+Set FW_DEV_EXT in $FWCONFIG"
+    reset_rules
+    exit 1
+}
+
+#####################################################################
+#                                                                   #
+# If FW_QUICKMODE is set to yes, we only have to set                #
+# some very basic rules. This is done here and then we exit gracely #
+#                                                                   #
+#####################################################################
+test "$FW_QUICKMODE" = yes && {
+    # Reset the filter rules
+    set_basic_rules
+
+    # Setting filter rules
+    # 1. allow anything on localhost interface
+    $IPTABLES -A INPUT -j "$ACCEPT" -i lo
+    # 2. allow anything which is esablished or related
+    $IPTABLES -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+    # 3. allow dhcp replies from servers
+    $IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
+    # 4. allow echo requests
+    $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
+
+    # Special DNS hack to prevent timeouts
+    test -n "$NAMESERVERS" && for k in $NAMESERVERS; do
+        test "$k" = 127.0.0.1 || \
+            $IPTABLES -A INPUT -j "$ACCEPT" -m state --state NEW -p udp -s $k --sport 53 --dport 1024:65535
+    done
+
+    # log incoming tcp connection requests
+    $IPTABLES -A INPUT -j LOG -p tcp --syn --log-level warning --log-tcp-options --log-ip-options --log-prefix "SuSE-FW-DROP-NEW-CONNECT "
+
+    # masquerading part 1
+    test -z "$FW_MASQ_DEV" || {
+	echo 1 > /proc/sys/net/ipv4/ip_forward
+	$IPTABLES -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED -p udp --dport 61000:65095
+        $IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+    }
+
+    # no reject everything which is entering through insecure interfaces
+    for i in $FW_DEV_EXT; do
+	$IPTABLES -A INPUT -i $i -j "$REJECT"
+	$IPTABLES -A FORWARD -i $i -j "$REJECT"
+    done
+
+    # masquerading part 2
+    test -z "$FW_MASQ_DEV" || {
+	for i in $FW_MASQ_DEV; do
+            $IPTABLES -A FORWARD -j "$ACCEPT" -o $i
+            $IPTABLES -A POSTROUTING -j MASQUERADE -t nat -o $i
+	done
+	EXTRA=" plus masquerading"
+    }
+
+    # sadly we now have to open the rules :-(
+    $IPTABLES -A INPUT -j "$ACCEPT"
+#not sure if I should allow all routing ... hmmm better leaving this disabled
+#$IPTABLES -A FORWARD -j "$ACCEPT"
+
+    # Optimise your TCP/UDP connections by setting IP Options!
+    tos_settings
+
+    $IPTABLES -A OUTPUT -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED
+
+# Log entry
+    test -x "$LOGGER" && \
+        $LOGGER -p kern.info -t SuSEfirewall2 "Firewall rules successfully set in QUICKMODE for device(s) \"$FW_DEV_EXT\"$EXTRA"
+    exit 0
+}
+
+#######################
+#                     #
+# Dynamic Definitions #
+#                     #
+#######################
+echo " $FW_DEV_EXT $FW_DEV_DMZ $FW_DEV_INT " | $GREP -q ipsec && FW_DEV_IPSEC=yes
+test "$FW_MASQUERADE" = yes -a "$FW_ROUTE" = no && \
+    echo 'Warning FW_ROUTE needs to be set to yes, so that the masquerading works!'
+test "$FW_ALLOW_CLASS_ROUTING" = yes -a "$FW_ROUTE" = no && \
+    echo 'Warning FW_ROUTE needs to be set to yes, so that the FW_ALLOW_CLASS_ROUTING works!'
+test "$FW_ROUTE" = no -a "$FW_ALLOW_PING_DMZ" = yes -o "FW_ROUTE" = no -a "$FW_ALLOW_PING_EXT" = yes && \
+    echo 'Warning FW_ROUTE needs to be set to yes, so that the FW_ALLOW_PING_EXT and/or FW_ALLOW_PING_DMZ works!'
+test -z "$FW_MASQ_NETS" || {
+    test "$FW_MASQUERADE" = no && \
+        echo 'Warning FW_MASQ_NETS needs FW_MASQUERADE set to yes to work!'
+}
+test -z "$FW_FORWARD_MASQ" || {
+    test "$FW_MASQUERADE" = no && \
+        echo 'Warning FW_FORWARD_MASQ needs FW_MASQUERADE set to yes to work!'
+}
+test "$FW_SERVICE_AUTODETECT" = no -a "$FW_ALLOW_INCOMING_HIGHPORTS_UDP" '!=' yes -a "$FW_SERVICE_DNS" = yes && \
+    echo 'FW_ALLOW_INCOMING_HIGHPORTS_UDP should be set to yes, if you are running a DNS server!'
+
+test "$FW_SERVICE_AUTODETECT" = yes && {
+    test "$FW_SERVICE_DNS" = no -a '!' "$START_NAMED" = no && check_srv named && {
+	echo -e 'Warning: detected activated named, enabling FW_SERVICE_DNS!
+You still have to allow tcp/udp port 53 on internal, dmz and/or external.'
+	FW_SERVICE_DNS=yes
+	FW_ALLOW_INCOMING_HIGHPORTS_UDP=yes
+    }
+    test "$FW_SERVICE_SQUID" = no -a '!' "$START_SQUID" = no && check_srv squid && {
+	echo -e 'Warning: detected activated squid, enabling FW_SERVICE_SQUID!
+You still have to allow tcp port 3128 on internal, dmz and/or external.'
+	FW_SERVICE_SQUID=yes
+    }
+    test "$FW_SERVICE_DHCPD" = no -a '!' "$START_DHCPD" = no && check_srv dhcpd && {
+	echo    'Warning: detected activated dhcpd, enabling FW_SERVICE_DHCPD!'
+	FW_SERVICE_DHCPD=yes
+    }
+    test "$FW_SERVICE_SAMBA" = no -a '!' "$START_SMB" = no && check_srv smb && {
+	echo -e 'Warning: detected activated samba, enabling FW_SERVICE_SMB!
+You still have to allow tcp port 139 on internal, dmz and/or external.'
+	FW_SERVICE_SAMBA=yes
+    }
+    test "$FW_SERVICE_DHCLIENT" = no && {
+	test "$IFCONFIG_0" = dhcpclient -o "$IFCONFIG_1" = dhcpclient \
+	    -o "$IFCONFIG_0" = bootp -o "$IFCONFIG_1" = bootp && {
+	echo 'Warning: detected BOOTP/DHCLIENT usage for interfaces in /etc/sysconfig/network/config, enabling FW_SERVICE_DHCLIENT!'
+	    FW_SERVICE_DHCLIENT=yes
+	}
+    }
+}
+
+NEW_FW_DEV_INT=""
+for DEV in $FW_DEV_INT ; do
+    DEV_TMP=`$IFCONFIG $DEV 2>/dev/null`
+    DEV_IP=${DEV_TMP/*addr:/}
+    DEV_IP=${DEV_IP/ */}
+    DEV_MASK=${DEV_TMP/*ask:/}
+    DEV_MASK=${DEV_MASK/ */}
+    DEV_BCAST=${DEV_TMP/*cast:/}
+    DEV_BCAST=${DEV_BCAST/ */}
+    #DEV_IP="`$IFCONFIG $DEV  2>/dev/null|$AWK '/inet addr:/ {print $2}'|$SED 's/addr://'`"
+    #DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $4}'|$SED 's/Mask://'`
+    #DEV_BCAST=`$IFCONFIG $DEV 2>/dev/null|$AWK '/cast:/ {print $3}'|$SED 's/.*cast://'`
+    #test -z "$DEV_MASK" && DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $3}'|$SED 's/Mask://'`
+    if [ "$DEV_IP" = "" ]; then
+	faulty_int
+    else
+        test -z "$DEV_INT" || DEV_INT="$DEV_INT $DEV_IP"
+        test -z "$DEV_INT" && DEV_INT="$DEV_IP"
+        test -z "$DEV_INT_NET" || DEV_INT_NET="$DEV_INT_NET $DEV_IP/$DEV_MASK"
+        test -z "$DEV_INT_NET" && DEV_INT_NET="$DEV_IP/$DEV_MASK"
+        test -z "$DEV_INT_BCAST" || DEV_INT_BCAST="$DEV_INT_BCAST $DEV_BCAST"
+        test -z "$DEV_INT_BCAST" && DEV_INT_BCAST="$DEV_BCAST"
+        test -z `echo "$DEV"|$GREP -E ':|!|\*'` && NEW_FW_DEV_INT="$NEW_FW_DEV_INT $DEV"
+    fi
+done
+FW_DEV_INT="$NEW_FW_DEV_INT"
+NEW_FW_DEV_DMZ=""
+for DEV in $FW_DEV_DMZ ; do
+    DEV_TMP=`$IFCONFIG $DEV 2>/dev/null`
+    DEV_IP=${DEV_TMP/*addr:/}
+    DEV_IP=${DEV_IP/ */}
+    DEV_MASK=${DEV_TMP/*ask:/}
+    DEV_MASK=${DEV_MASK/ */}
+    DEV_BCAST=${DEV_TMP/*cast:/}
+    DEV_BCAST=${DEV_BCAST/ */}
+    #DEV_IP="`$IFCONFIG $DEV  2>/dev/null|$AWK '/inet addr:/ {print $2}'|$SED 's/addr://'`"
+    #DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $4}'|$SED 's/Mask://'`
+    #DEV_BCAST=`$IFCONFIG $DEV 2>/dev/null|$AWK '/cast:/ {print $3}'|$SED 's/.*cast://'`
+    #test -z "$DEV_MASK" && DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $3}'|$SED 's/Mask://'`
+    if [ "$DEV_IP" = "" ]; then
+         faulty_int
+    else
+        test -z "$DEV_DMZ" || DEV_DMZ="$DEV_DMZ $DEV_IP"
+        test -z "$DEV_DMZ" && DEV_DMZ="$DEV_IP"
+        test -z "$DEV_DMZ_NET" || DEV_DMZ_NET="$DEV_DMZ_NET $DEV_IP/$DEV_MASK"
+        test -z "$DEV_DMZ_NET" && DEV_DMZ_NET="$DEV_IP/$DEV_MASK"
+        test -z "$DEV_DMZ_BCAST" || DEV_DMZ_BCAST="$DEV_DMZ_BCAST $DEV_BCAST"
+        test -z "$DEV_DMZ_BCAST" && DEV_DMZ_BCAST="$DEV_BCAST"
+        test -z `echo "$DEV"|$GREP -E ':|!|\*'` && NEW_FW_DEV_DMZ="$NEW_FW_DEV_DMZ $DEV"
+    fi
+done
+FW_DEV_DMZ="$NEW_FW_DEV_DMZ"
+NEW_FW_DEV_EXT=""
+for DEV in $FW_DEV_EXT ; do
+    DEV_TMP=`$IFCONFIG $DEV 2>/dev/null`
+    DEV_IP=${DEV_TMP/*addr:/}
+    DEV_IP=${DEV_IP/ */}
+    DEV_MASK=${DEV_TMP/*ask:/}
+    DEV_MASK=${DEV_MASK/ */}
+    DEV_BCAST=${DEV_TMP/*cast:/}
+    DEV_BCAST=${DEV_BCAST/ */}
+    #DEV_IP="`$IFCONFIG $DEV  2>/dev/null|$AWK '/inet addr:/ {print $2}'|$SED 's/addr://'`"
+    #DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $4}'|$SED 's/Mask://'`
+    #DEV_BCAST=`$IFCONFIG $DEV 2>/dev/null|$AWK '/cast:/ {print $3}'|$SED 's/.*cast://'`
+    #test -z "$DEV_MASK" && DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $3}'|$SED 's/Mask://'`
+    if [ "$DEV_IP" = "" ]; then
+         faulty_int
+    else
+        test -z "$DEV_EXT" || DEV_EXT="$DEV_EXT $DEV_IP"
+        test -z "$DEV_EXT" && DEV_EXT="$DEV_IP"
+        test -z "$DEV_EXT_NET" || DEV_EXT_NET="$DEV_EXT_NET $DEV_IP/$DEV_MASK"
+        test -z "$DEV_EXT_NET" && DEV_EXT_NET="$DEV_IP/$DEV_MASK"
+        test -z "$DEV_EXT_BCAST" || DEV_EXT_BCAST="$DEV_EXT_BCAST $DEV_BCAST"
+        test -z "$DEV_EXT_BCAST" && DEV_EXT_BCAST="$DEV_BCAST"
+        test -z `echo "$DEV"|$GREP -E ':|!|\*'` && NEW_FW_DEV_EXT="$DEV $NEW_FW_DEV_EXT"
+    fi
+done
+FW_DEV_EXT="$NEW_FW_DEV_EXT"
+NEW_FW_MASQ_DEV=""
+for DEV in $FW_MASQ_DEV; do
+    test -z `echo "$DEV"|$GREP -E ':|!|\*'` && NEW_FW_MASQ_DEV="$DEV $NEW_FW_MASQ_DEV"
+done
+FW_MASQ_DEV="$NEW_FW_MASQ_DEV"
+
+# warn user if device to masquerade is  from a non private network,
+# add the net to DEV_MASQ_NET which is used for anti-spoof later.
+# 0/0 has to be skipped here, otherwise the spoof rules would block
+# anything
+for NET in $FW_MASQ_NETS ; do
+    DEV_IP=${NET/,*/}
+    #`echo $NET | $AWK -F, '{print $1}'`
+    # skip 0/0
+    test "$DEV_IP" = "0/0" && continue
+
+    PART1=${DEV_IP#/*#}
+    #`echo $DEV_IP | $AWK -F/ '{print $1}'`
+    PART2=${DEV_IP#*/#}
+    #`echo $DEV_IP | $AWK -F/ '{print $2}'`
+    test '!' -z "$PART2" && test "$PART2" -lt 16 && {
+        echo "$PART1" | $GREP -Eq '^10\.|^172\.1' || {
+	    echo "Warning: Netmask of $DEV_IP might be wrong, ensure that it is correct."
+            echo "         Normal is /16 or /24 or smaller."
+        }
+    }
+    echo "$PART1" | $GREP -Eq '^10\.|^172\.1[6789]\.|^172\.2[0-9]\.|^172\.3[01]\.|^192\.168\.' || {
+        echo "Warning: The network $DEV_IP you want to masquerade is not from a private network"
+        echo '         e.g. 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16 - change this!'
+    }
+    test -z "$DEV_MASQ_NET" || DEV_MASQ_NET="$DEV_MASQ_NET $DEV_IP"
+    test -z "$DEV_MASQ_NET" && DEV_MASQ_NET="$DEV_IP"
+done
+
+test -e /etc/resolv.conf || echo "Warning: /etc/resolv.conf not found"
+test "$FW_SERVICE_DNS" = yes -o "$START_NAMED" = yes && DNS_PORT=`$LSOF -i -n -P | \
+    $AWK -F: '/^named .* UDP / {print $2}'| $GREP -vw 53 | $SORT -un`
+test "$FW_SERVICE_SQUID" = yes -o "$START_SQUID" = yes && SQUID_PORT=`$LSOF -i -n -P | \
+    $AWK -F: '/^squid .* UDP/ {print $2}'| $SORT -un`
+
+# Logging setup
+LOG="--log-level warning --log-tcp-options --log-ip-options --log-prefix SuSE-FW"
+test -z "$FW_LOG" || LOG="$FW_LOG"
+test "$FW_LOG_DROP_CRIT" = no -o "$FW_LOG_DROP_ALL" = yes && LDC=":"
+test "$FW_LOG_ACCEPT_CRIT" = no -o "$FW_LOG_ACCEPT_ALL" = yes && LAC=":"
+test "$FW_LOG_DROP_ALL" = yes || LDA=":"	# it might look weird - a ":"
+test "$FW_LOG_ACCEPT_ALL" = yes || LAA=":"	# disables logging of this type
+
+#####################
+#                   #
+# Load custom rules #
+#                   #
+#####################
+test -z "$FW_CUSTOMRULES" || {
+    test -r "$FW_CUSTOMRULES" || {
+        echo "Error: Can not read custom rules file: $FW_CUSTOMRULES"
+        test -x "$LOGGER" && \
+            $LOGGER -p kern.error -t SuSEfirewall2 "Firewall customary rules file can not be read: $FW_CUSTOMRULES"
+        exit -1
+    }
+    . "$FW_CUSTOMRULES"
+    test -x "$LOGGER" && \
+        $LOGGER -p kern.info -t SuSEfirewall2 "Firewall customary rules loaded from $FW_CUSTOMRULES"
+}
+
+########################
+# Should I really run? #
+########################
+INTERFACE_OK=`echo "$DEV_EXT $DEV_INT $DEV_DMZ" | $SED 's/ //g'`
+test -z "$INTERFACE_OK" && { echo 'No external interface active! Exiting ...'
+    reset_rules ; exit 0 ; }
+# prevent errors due to missing interfaces
+INTERFACE_OK=`echo "$DEV_EXT" | $SED 's/ //g'`
+test -z "$INTERFACE_OK" && { DEV_EXT=""; DEV_EXT_NET=""; }
+INTERFACE_OK=`echo "$DEV_DMZ" | $SED 's/ //g'`
+test -z "$INTERFACE_OK" && { DEV_DMZ=""; DEV_DMZ_NET=""; }
+INTERFACE_OK=`echo "$DEV_INT" | $SED 's/ //g'`
+test -z "$INTERFACE_OK" && { DEV_INT=""; DEV_INT_NET=""; }
+test '!' -f /proc/sys/net/ipv4/ip_forward -a "$FW_ROUTE" = yes && \
+    echo 'Warning: kernel seems not to have ip_forwarding support!'
+
+############################################
+#                                          #
+# Now we begin to set the filter rules ... #
+#                                          #
+############################################
+# Set default rules + flush #
+#############################
+set_basic_rules
+
+#################################
+# Turn on routing if configured #
+#################################
+test "$FW_ROUTE" = yes || { echo 0 >/proc/sys/net/ipv4/ip_forward 2>/dev/null ; } >/dev/null 2>&1
+test "$FW_ROUTE" = yes && echo 1 > /proc/sys/net/ipv4/ip_forward
+
+#################################
+# Configuring more kernel stuff #
+#################################
+{
+ echo 1 > /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts 2> /dev/null
+# test "$FW_ALLOW_PING_FW" = yes || echo 1 > /proc/sys/net/ipv4/icmp_echo_ignore_all 2> /dev/null # XXX
+ echo 1 > /proc/sys/net/ipv4/tcp_syncookies 2> /dev/null
+ echo 1 > /proc/sys/net/ipv4/ip_always_defrag 2> /dev/null # XXX not there?
+ echo 0 > /proc/sys/net/ipv4/tcp_ecn 2> /dev/null
+ echo 16384 > /proc/sys/net/ipv4/ip_conntrack_max
+ for i in /proc/sys/net/ipv4/conf/*; do
+     echo 0 > $i/accept_redirects 2> /dev/null
+     echo 0 > $i/accept_source_route 2> /dev/null
+     test -z "$FW_DEV_IPSEC" && echo 1 > $i/rp_filter 2> /dev/null
+     echo 0 > $i/mc_forwarding 2> /dev/null
+ done
+ test "$FW_KERNEL_SECURITY" = no || {
+    echo 1 > /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses 2> /dev/null
+    echo 5 > /proc/sys/net/ipv4/icmp_echoreply_rate 2> /dev/null
+    echo 5 > /proc/sys/net/ipv4/icmp_destunreach_rate 2> /dev/null
+    echo 5 > /proc/sys/net/ipv4/icmp_paramprob_rate 2> /dev/null
+    echo 6 > /proc/sys/net/ipv4/icmp_timeexceed_rate 2> /dev/null
+    echo 20 > /proc/sys/net/ipv4/ipfrag_time 2> /dev/null
+    echo 1 > /proc/sys/net/ipv4/igmp_max_memberships 2> /dev/null
+    echo "1024 29999" > /proc/sys/net/ipv4/ip_local_port_range 2> /dev/null
+    for i in /proc/sys/net/ipv4/conf/*; do
+        echo 1 > $i/log_martians 2> /dev/null
+	echo 0 > $i/bootp_relay 2> /dev/null
+	test "$FW_ROUTE" = yes || { echo 0 > $i/forwarding ; } > /dev/null 2>&1
+	echo 0 > $i/proxy_arp 2> /dev/null
+	echo 1 > $i/secure_redirects 2> /dev/null
+    done
+    echo 1 > /proc/sys/net/ipv4/route/flush
+ }
+} > /dev/null 2>&1
+
+########################################
+# Allow looping on localhost interface #
+########################################
+$IPTABLES -A INPUT  -j "$ACCEPT" -i lo
+$IPTABLES -A OUTPUT -j "$ACCEPT" -o lo
+
+######################
+# Allow DHCP replies #
+######################
+test "$FW_SERVICE_DHCLIENT" = yes && {
+    $LAA $IPTABLES -A INPUT -j LOG ${LOG}"-ACCEPT " -p udp --sport 67 -d 255.255.255.255/32 --dport 68
+    $IPTABLES -A INPUT -j "$ACCEPT"  -m state --state ESTABLISHED -p udp --sport 67 -d 255.255.255.255/32 --dport 68
+}
+test "$FW_SERVICE_DHCPD" = yes && {
+    $LAA $IPTABLES -A INPUT -j LOG ${LOG}"-ACCEPT " -p udp --sport 68 -d 255.255.255.255/32 --dport 67
+    $IPTABLES -A INPUT -j "$ACCEPT"  -m state --state NEW,ESTABLISHED -p udp --sport 68 -d 255.255.255.255/32 --dport 67
+}
+
+#########################
+# Special SAMBA support #
+#########################
+test "$FW_SERVICE_SAMBA" = yes && { # baah, these samba rules look evil!
+    $LAA $IPTABLES -A INPUT -j LOG ${LOG}"-ACCEPT " -p udp --dport 137:138
+    $IPTABLES -A INPUT -j "$ACCEPT"  -m state --state NEW,ESTABLISHED,RELATED -p udp --dport 137:138
+}
+
+###################################################
+# Customary hook: fw_custom_before_antispoofing() #
+###################################################
+fw_custom_before_antispoofing
+
+#################################################
+# Anti Spoofing rules - not interface dependent #
+#################################################
+test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-ANTI-SPOOFING "  -s 127.0.0.0/8
+test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-ANTI-SPOOFING "  -d 127.0.0.0/8
+$IPTABLES -A INPUT -j "$DROP" -s 127.0.0.0/8
+$IPTABLES -A INPUT -j "$DROP" -d 127.0.0.0/8
+for SPOOF in $DEV_INT $DEV_EXT $DEV_DMZ; do
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-ANTI-SPOOFING "  -s $SPOOF
+    $IPTABLES -A INPUT -j "$DROP" -s $SPOOF
+done
+# some people have wrong routing setups, so ...
+test "$FW_ROUTE" = yes && for DEV in $FW_DEV_INT $FW_DEV_EXT $FW_DEV_DMZ; do
+    $IPTABLES -A FORWARD -j "$ACCEPT" -i $DEV -o $DEV
+done
+
+#####################################
+# Rule split up - forking to chains #
+#####################################
+for TARGET in input forward; do
+    for CHAIN in ext dmz int; do
+        $IPTABLES -N ${TARGET}_${CHAIN}
+    done
+done
+for DEV in $FW_DEV_EXT; do
+    for IP in $DEV_EXT; do
+        $IPTABLES -A INPUT -j input_ext -i $DEV -d $IP
+    done
+    test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j forward_ext -i $DEV
+done
+for DEV in $FW_DEV_DMZ; do
+    for IP in $DEV_DMZ; do
+        $IPTABLES -A INPUT -j input_dmz -i $DEV -d $IP
+    done
+    test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j forward_dmz -i $DEV
+done
+for DEV in $FW_DEV_INT; do
+    for IP in $DEV_INT; do
+        $IPTABLES -A INPUT -j input_int -i $DEV -d $IP
+    done
+    test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j forward_int -i $DEV
+done
+
+test "$FW_ALLOW_FW_BROADCAST" = yes && {
+    for NET in $DEV_EXT_BCAST; do
+	for DEV in $FW_DEV_EXT; do
+	    $IPTABLES -A INPUT -j input_ext -i $DEV -d $NET
+	    $IPTABLES -A INPUT -j input_ext -i $DEV -d 255.255.255.255
+	done
+    done
+    for NET in $DEV_DMZ_BCAST; do
+	for DEV in $FW_DEV_DMZ; do
+	    $IPTABLES -A INPUT -j input_dmz -i $DEV -d $NET
+	    $IPTABLES -A INPUT -j input_dmz -i $DEV -d 255.255.255.255
+	done
+    done
+    for NET in $DEV_INT_BCAST; do
+	for DEV in $FW_DEV_INT; do
+	    $IPTABLES -A INPUT -j input_int -i $DEV -d $NET
+	    $IPTABLES -A INPUT -j input_int -i $DEV -d 255.255.255.255
+	done
+    done
+}
+
+# broadcast stuff
+test "$FW_IGNORE_FW_BROADCAST" = yes && {
+    for NET in $DEV_EXT_BCAST; do
+	for DEV in $FW_DEV_EXT; do
+	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
+	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
+	done
+    done
+    for NET in $DEV_DMZ_BCAST; do
+	for DEV in $FW_DEV_DMZ; do
+	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
+	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
+	done
+    done
+    for NET in $DEV_INT_BCAST; do
+	for DEV in $FW_DEV_INT; do
+	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
+	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
+	done
+    done
+}
+
+###############################################################
+# Anti Spoofing/Cirumvention protection - interface dependent #
+###############################################################
+for DEV in $FW_DEV_INT; do
+    for IP in $DEV_EXT; do
+        $IPTABLES -A INPUT -j LOG ${LOG}"-ACCESS_DENIED_FOR_INT "  -i $DEV -d $IP
+	$IPTABLES -A INPUT -i $DEV -d $IP -j "$DROP"
+    done
+done
+# anything which is now not in the input_* chains is evil
+test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-ILLEGAL-TARGET " 
+$IPTABLES -A INPUT -j "$DROP"
+test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A FORWARD -j LOG ${LOG}"-ILLEGAL-ROUTING " 
+test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
+# anti ip spoofing rules
+for SPOOF in $DEV_EXT_NET $DEV_DMZ_NET; do
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_int -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
+    test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_int -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
+    $IPTABLES -A input_int -j "$DROP" -s $SPOOF
+    test "$FW_ROUTE" = yes && $IPTABLES -A forward_int -j "$DROP" -s $SPOOF
+done
+for SPOOF in $DEV_EXT_NET $DEV_INT_NET; do
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_dmz -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
+    test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_dmz -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
+    $IPTABLES -A input_dmz -j "$DROP" -s $SPOOF
+    test "$FW_ROUTE" = yes && $IPTABLES -A forward_dmz -j "$DROP" -s $SPOOF
+done
+# those devices must not be 0/0!
+for SPOOF in $DEV_INT_NET $DEV_DMZ_NET $DEV_MASQ_NET; do
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_ext -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
+    test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_ext -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
+    $IPTABLES -A input_ext -j "$DROP" -s $SPOOF
+    test "$FW_ROUTE" = yes && $IPTABLES -A forward_ext -j "$DROP" -s $SPOOF
+done
+# anti circumvention rules
+test "$FW_ROUTE" = yes && for IP in $DEV_INT $DEV_DMZ; do
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_ext -j LOG ${LOG}"-DROP-CIRCUMVENTION " -d $IP
+    $IPTABLES -A forward_ext -j "$DROP" -d $IP
+done
+test "$FW_ROUTE" = yes && for IP in $DEV_INT $DEV_EXT; do
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_dmz -j LOG ${LOG}"-DROP-CIRCUMVENTION " -d $IP
+    $IPTABLES -A forward_dmz -j "$DROP" -d $IP
+done
+test "$FW_ROUTE" = yes && for IP in $DEV_EXT $DEV_DMZ; do
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_int -j LOG ${LOG}"-DROP-CIRCUMVENTION " -d $IP
+    $IPTABLES -A forward_int -j "$DROP" -d $IP
+done
+
+###################################################
+# Protect the firewall from the internal network? #
+###################################################
+test "$FW_PROTECT_FROM_INTERNAL" = no && {
+    $LAA $IPTABLES -A input_int -j LOG ${LOG}"-ACCEPT-ALL-INTERNAL " 
+    $IPTABLES -A input_int -j "$ACCEPT"
+}
+
+########################
+# ICMP Stuff (special) #
+########################
+# INPUT ICMP rules
+test "$FW_ALLOW_FW_SOURCEQUENCH" = no || for NET in $DEV_EXT_NET; do
+        test -z "$LAC" -o -z "$LAA" && $IPTABLES -A input_ext -j LOG ${LOG}"-ACCEPT-SOURCEQUENCH "  -p icmp -s $NET --icmp-type source-quench
+        $IPTABLES -A input_ext -j "$ACCEPT" -p icmp -s $NET --icmp-type source-quench
+done
+test "$FW_ALLOW_PING_FW" = yes && for CHAIN in input_ext input_dmz input_int; do
+    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-PING "  -p icmp --icmp-type echo-request
+    $IPTABLES -A $CHAIN -j "$ACCEPT" -p icmp --icmp-type echo-request
+done
+for TYPE in echo-reply destination-unreachable time-exceeded \
+  parameter-problem timestamp-reply address-mask-reply; do
+    for CHAIN in input_ext input_dmz input_int; do
+	$LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-ICMP "  -p icmp --icmp-type $TYPE
+	$IPTABLES -A $CHAIN -j "$ACCEPT"  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $TYPE
+    done
+done
+# DROP rules for input ICMP are after trusted handling (see below)
+
+# OUTPUT ICMP rules
+test -z "$LDC" -o -z "$LDA" -o -z "$LAC" -o -z "$LAA" && $IPTABLES -A OUTPUT -j LOG ${LOG}"-TRACEROUTE-ATTEMPT "  -p icmp --icmp-type time-exceeded
+test "$FW_ALLOW_FW_TRACEROUTE" = yes && {
+    $IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type time-exceeded
+    $IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type port-unreachable
+}
+test "$FW_ALLOW_FW_TRACEROUTE" = yes || \
+    $IPTABLES -A OUTPUT -j "$DROP" -p icmp --icmp-type time-exceeded
+for TYPE in fragmentation-needed network-prohibited host-prohibited communication-prohibited; do
+    $IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type $TYPE
+done
+$IPTABLES -A OUTPUT -j "$DROP" -p icmp --icmp-type destination-unreachable # we deny all other icmp type 3 codes
+
+# FORWARD ICMP rules
+test "$FW_ALLOW_PING_DMZ" = yes -a "$FW_ROUTE" = yes && {
+    for DEV in $FW_DEV_DMZ; do
+        for CHAIN in forward_ext forward_int; do
+	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-PING "  -p icmp --icmp-type echo-request -o $DEV
+	    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $DEV
+        done
+    done
+    $LAA $IPTABLES -A forward_dmz -j LOG ${LOG}"-ACCEPT-PING "  -p icmp --icmp-type echo-reply
+    $IPTABLES -A forward_dmz -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
+}
+test "$FW_ALLOW_PING_EXT" = yes -a "$FW_ROUTE" = yes && {
+    for DEV in $FW_DEV_EXT; do
+        for CHAIN in forward_int forward_dmz; do
+	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-PING "  -p icmp --icmp-type echo-request -o $DEV
+	    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $DEV
+        done
+    done
+    $LAA $IPTABLES -A forward_ext -j LOG ${LOG}"-ACCEPT-PING "  -p icmp --icmp-type echo-reply
+    $IPTABLES -A forward_ext -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
+}
+# drop rule for forwarding chains are at the end of the forwarding rules
+
+####################################################
+# Customary hook: fw_custom_before_port_handling() #
+####################################################
+fw_custom_before_port_handling
+
+#############################
+# Trusted Networks Handling #
+#############################
+for NETS in $FW_TRUSTED_NETS; do
+    #NET=`echo $NETS | $AWK -F, '{print $1}'`
+    NET=${NETS/,*/}
+    PROTO=`echo $NETS | $AWK -F, '{print $2}'`
+    PORT=`echo $NETS | $AWK -F, '{print $3}'`
+    ERROR=`echo $NETS | $AWK -F, '{print $4}'`
+    test -z "$4" || {
+	echo "Error: Too many arguments in FW_TRUSTED_NETS -> $NETS"
+	NET=""
+    }
+    test -z "$PORT" -a "$PROTO" = tcp -o -z "$PORT" -a "$PROTO" = udp && {
+	echo "Error: Missing port definition for TCP/UDP in FW_TRUSTED_NETS -> $NETS"
+	NET=""
+    }
+    test -z "$PORT" || {
+	test "$PROTO" = tcp -o "$PROTO" = udp -o "$PROTO" = icmp || {
+	    echo "Error: the third parameter is for use with tcp, udp and icmp only in FW_TRUSTED_NETS -> $NETS"
+	    NET=""
+    }; }
+    test -z "$NET" || {
+	test -z "$PROTO" || PROTO="-p $PROTO"
+	test -z "$PORT" || {
+	    test "$PROTO" = "-p icmp" || PORT="--dport $PORT"
+	    test "$PROTO" = "-p icmp" && PORT="--icmp-type $PORT"
+	}
+	for CHAIN in input_ext input_dmz input_int; do # trusted networks can be on any interface ...
+	    test "$LAC" = "" -a "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-TRUST "  -s $NET $PROTO $PORT --syn
+	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-TRUST "  -s $NET $PROTO $PORT
+	    $IPTABLES -A $CHAIN -j "$ACCEPT"  -m state --state NEW,ESTABLISHED,RELATED -s $NET $PROTO $PORT
+	done
+    }
+done
+
+# ICMP drop rules must be here to allow trusted rules for ICMP
+for CHAIN in input_ext input_dmz input_int; do
+    $LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-ICMP-CRIT "  -p icmp --icmp-type redirect
+    $LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-ICMP-CRIT "  -p icmp --icmp-type source-quench
+    $LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-ICMP-CRIT "  -p icmp --icmp-type timestamp-request
+    $LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-ICMP-CRIT "  -p icmp --icmp-type address-mask-request
+    $LDC $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-ICMP-CRIT "  -p icmp --icmp-type 2
+    $LDA $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-ICMP " -p icmp
+    $IPTABLES -A $CHAIN -j "$DROP" -p icmp
+done
+
+############
+# IP Stuff #
+############
+for PROTO in $FW_SERVICES_EXT_IP; do
+    $LAA $IPTABLES -A input_ext -j LOG ${LOG}"-ACCEPT " -p $PROTO
+    $IPTABLES -A input_ext -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p $PROTO
+done
+for PROTO in $FW_SERVICES_DMZ_IP; do
+    $LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-ACCEPT " -p $PROTO
+    $IPTABLES -A input_dmz -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p $PROTO
+done
+for PROTO in $FW_SERVICES_INT_IP; do
+    $LAA $IPTABLES -A input_int -j LOG ${LOG}"-ACCEPT " -p $PROTO
+    $IPTABLES -A input_int -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p $PROTO
+done
+
+#############
+# TCP Stuff #
+#############
+for PORT in $FW_SERVICES_EXT_TCP; do
+    $LAC $IPTABLES -A input_ext -j LOG ${LOG}"-ACCEPT " -p tcp --dport $PORT --syn
+    $LAA $IPTABLES -A input_ext -j LOG ${LOG}"-ACCEPT " -p tcp --dport $PORT
+    $IPTABLES -A input_ext -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport $PORT
+done
+for PORT in $FW_SERVICES_DMZ_TCP; do
+    $LAC $IPTABLES -A input_dmz -j LOG ${LOG}"-ACCEPT " -p tcp --dport $PORT --syn
+    $LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-ACCEPT " -p tcp --dport $PORT
+    $IPTABLES -A input_dmz -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport $PORT
+done
+for PORT in $FW_SERVICES_INT_TCP; do
+    $LAC $IPTABLES -A input_int -j LOG ${LOG}"-ACCEPT " -p tcp --dport $PORT --syn
+    $LAA $IPTABLES -A input_int -j LOG ${LOG}"-ACCEPT " -p tcp --dport $PORT
+    $IPTABLES -A input_int -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport $PORT
+done
+
+# If port 113 (auth/identd) was not allowed above, outgoing mail would
+# be delayed most of the time. Hence we put a hardcoded reject line in.
+for CHAIN in input_ext input_dmz input_int; do
+    $LDA $IPTABLES -A $CHAIN -j LOG ${LOG}"-REJECT "  -p tcp --dport 113 --syn
+    $IPTABLES -A $CHAIN -j "$REJECT" -p tcp --dport 113 --syn 2> /dev/null
+done
+
+# some words about the autoprotecting feature below: these long lines of code
+# try to identify which services were allowed via the config file (including
+# the DNS port for UDP) and which others are open which have to be protected.
+# This could even be more optimised by resolving name->number and just
+# protecting ports > 1023. I know it looks ... weird ... but it works! ;-)
+test "$FW_AUTOPROTECT_SERVICES" = no || {
+    PROTECT_GLOBAL=`$NETSTAT -an | \
+      $GREP -E '^tcp .* 0.0.0.0:[1-9].*LISTEN|^tcp .* :::[1-9].*LISTEN' | \
+      $AWK '{print $4}' | $SED 's/.*://'`
+    for IP in $DEV_EXT; do
+        PROTECT_EXT="$PROTECT_EXT `$NETSTAT -an | \
+	 $AWK '/^tcp .* '"$IP"':[1-9].*LISTEN/ {print $4}' | $SED 's/.*://'`"
+    done
+    for IP in $DEV_DMZ; do
+        PROTECT_DMZ="$PROTECT_DMZ `$NETSTAT -an | \
+	 $AWK '/^tcp .* '"$IP"':[1-9].*LISTEN/ {print $4}' | $SED 's/.*://'`"
+    done
+   test "$FW_PROTECT_FROM_INTERNAL" = no || {
+    for IP in $DEV_INT; do
+        PROTECT_INT="$PROTECT_INT `$NETSTAT -an | \
+	 $AWK '/^tcp .* '"$IP"':[1-9].*LISTEN/ {print $4}' | $SED 's/.*://'`"
+    done
+    export PROTECT_INT PROTECT_GLOBAL
+### XXX TODO BAK
+    PROTECT=`for S in $PROTECT_INT $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
+    OPENED_INT=`echo "$FW_SERVICES_INT_TCP" | $SED 's/ /|/g'`
+    PROTECT_INT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_INT"`
+    for PORT in $PROTECT_INT; do
+	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_int -j LOG ${LOG}"-DROP " -p tcp --dport $PORT --syn
+	$IPTABLES -A input_int -j "$DROP" -p tcp --dport $PORT --syn
+    done
+   }
+    PROTECT=`for S in $PROTECT_DMZ $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
+    OPENED_DMZ=`echo "$FW_SERVICES_DMZ_TCP" | $SED 's/ /|/g'`
+    PROTECT_DMZ=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_DMZ"`
+    for PORT in $PROTECT_DMZ; do
+	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_dmz -j LOG ${LOG}"-DROP " -p tcp --dport $PORT --syn
+	$IPTABLES -A input_dmz -j "$DROP" -p tcp --dport $PORT --syn
+    done
+    PROTECT=`for S in $PROTECT_EXT $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
+    OPENED_EXT=`echo "$FW_SERVICES_EXT_TCP" | $SED 's/ /|/g'`
+    PROTECT_EXT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_EXT"`
+    for PORT in $PROTECT_EXT; do
+	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_ext -j LOG ${LOG}"-DROP " -p tcp --dport $PORT --syn
+	$IPTABLES -A input_ext -j "$DROP" -p tcp --dport $PORT --syn
+    done
+}
+
+DONE_ALL=no
+test "$FW_ALLOW_INCOMING_HIGHPORTS_TCP" = yes || {
+    for CHAIN in input_int input_dmz input_ext; do
+        $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --dport 1024:65535 --syn
+        $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --dport 1024:65535
+        $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp --dport 1024:65535
+    done
+}
+for j in $FW_ALLOW_INCOMING_HIGHPORTS_TCP; do
+        case "$j" in
+            no) ;;
+            yes)
+		for CHAIN in input_int input_dmz input_ext; do
+                    $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --dport 1024:65535 --syn
+                    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --dport 1024:65535
+                    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport 1024:65535
+		done
+		DONE_ALL=yes
+                ;;
+            [Dd][Nn][Ss])
+                test -z "$NAMESERVERS" && \
+                    echo 'Warning: No nameservers in /etc/resolv.conf!'
+                test "$DONE_ALL" = yes || for k in $NAMESERVERS; do
+  		    test "$k" = 127.0.0.1 || for CHAIN in input_int input_dmz input_ext; do
+                        $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp -s $k --sport 53 --dport 1024:65535
+                        $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp -s $k --sport 53 --dport 1024:65535
+		    done
+                done
+                ;;
+            *)
+		test "$DONE_ALL" = yes || for CHAIN in input_int input_dmz input_ext; do
+                    $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --sport $j --dport 1024:65535 --syn
+                    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --sport $j --dport 1024:65535
+                    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --sport $j --dport 1024:65535
+		done
+                ;;
+        esac
+done
+
+# This sucks, we need this rule so we can receive data ... hello stealth scan
+for CHAIN in input_int input_dmz input_ext; do
+    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --dport 600:65535 '!' --syn
+    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED -p tcp --dport 600:65535 '!' --syn
+done
+for CHAIN in input_int input_dmz input_ext; do
+    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p tcp --dport 20 '!' --syn
+    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED -p tcp --dport 20 '!' --syn
+done
+
+#############
+# UDP Stuff #
+#############
+for PORT in $FW_SERVICES_EXT_UDP; do
+    $LAA $IPTABLES -A input_ext -j LOG ${LOG}"-ACCEPT " -p udp --dport $PORT
+    $IPTABLES -A input_ext -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport $PORT
+done
+for PORT in $FW_SERVICES_DMZ_UDP; do
+    $LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-ACCEPT " -p udp --dport $PORT
+    $IPTABLES -A input_dmz -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport $PORT
+done
+for PORT in $FW_SERVICES_INT_UDP; do
+    $LAA $IPTABLES -A input_int -j LOG ${LOG}"-ACCEPT " -p udp --dport $PORT
+    $IPTABLES -A input_int -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport $PORT
+done
+
+test "$FW_SERVICE_DNS" = yes && {
+    test -z "$DNS_PORT" && \
+        echo 'Warning: FW_SERVICE_DNS defined, but no DNS server found running!'
+    test -z "$DNS_PORT" || {
+	for PORT in $DNS_PORT; do
+	    for CHAIN in input_int input_dmz input_ext; do
+	        $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p udp --dport $PORT
+	        $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport $PORT
+	    done
+	done
+    }
+}
+
+test "$FW_SERVICE_SQUID" = yes && {
+    test -z "$SQUID_PORT" && \
+        echo 'Warning: FW_SERVICE_SQUID defined, but no Squid server found running!'
+    test -z "$SQUID_PORT" || {
+	for PORT in $SQUID_PORT; do
+	    for CHAIN in input_int input_dmz input_ext; do
+	        $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p udp --dport $PORT
+	        $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport $PORT
+	    done
+	done
+    }
+}
+
+# special pre-rules before the autoprotecting feature to prevent the blocking
+# of DNS resolvers
+OPEN_DNS=no
+for j in $FW_ALLOW_INCOMING_HIGHPORTS_UDP; do
+        case "$j" in
+            yes)
+		OPEN_DNS=yes
+		;;
+            [Dd][Nn][Ss])
+		OPEN_DNS=yes
+                ;;
+            *)  ;;
+        esac
+done
+test "$OPEN_DNS" = yes && {
+   test -z "$NAMESERVERS" && \
+       echo 'Warning: No nameservers in /etc/resolv.conf!'
+   for k in $NAMESERVERS; do
+       test "$k" = 127.0.0.1 || for CHAIN in input_int input_dmz input_ext; do
+           $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p udp -s $k --sport 53 --dport 1024:65535
+# guess this has to be state NEW because the outgoing packet was not seen when
+# doing autodialing... XXX - or?
+           $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp -s $k --sport 53 --dport 1024:65535
+	done
+   done
+}
+
+# description of the code below: see TCP notes for the autoprotect feature
+test "$FW_AUTOPROTECT_SERVICES" = no || {
+    PROTECT_GLOBAL=`$NETSTAT -an | \
+      $GREP -E '^udp .* 0.0.0.0:[1-9]|^udp .* :::[1-9]' | $GREP -v ESTAB | \
+      $AWK '{print $4}' | $SED 's/.*://'`
+    for IP in $DEV_EXT; do
+        PROTECT_EXT="$PROTECT_EXT `$NETSTAT -an | $GREP -v ESTAB | \
+	 $AWK '/^udp .* '"$IP"':[1-9]/ {print $4}' | $SED 's/.*://'`"
+    done
+    for IP in $DEV_DMZ; do
+        PROTECT_DMZ="$PROTECT_DMZ `$NETSTAT -an | $GREP -v ESTAB | \
+	 $AWK '/^udp .* '"$IP"':[1-9]/ {print $4}' | $SED 's/.*://'`"
+    done
+   test "$FW_PROTECT_FROM_INTERNAL" = no || {
+    for IP in $DEV_INT; do
+        PROTECT_INT="$PROTECT_INT `$NETSTAT -an | $GREP -v ESTAB | \
+	 $AWK '/^udp .* '"$IP"':[1-9]/ {print $4}' | $SED 's/.*://'`"
+    done
+    PROTECT=`for S in $PROTECT_INT $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
+    OPENED_INT=`echo "$FW_SERVICES_INT_UDP $DNS_PORT $SQUID_PORT" | $SED 's/ /|/g'`
+    PROTECT_INT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_INT"`
+    for PORT in $PROTECT_INT; do
+	$LAA $IPTABLES -A input_int -j LOG ${LOG}"-DROP " -p udp --dport $PORT
+	$IPTABLES -A input_int -j "$DROP" -p udp --dport $PORT
+    done
+   }
+    PROTECT=`for S in $PROTECT_DMZ $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
+    OPENED_DMZ=`echo "$FW_SERVICES_DMZ_UDP $DNS_PORT $SQUID_PORT" | $SED 's/ /|/g'`
+    PROTECT_DMZ=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_DMZ"`
+    for PORT in $PROTECT_DMZ; do
+	$LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-DROP " -p udp --dport $PORT
+	$IPTABLES -A input_dmz -j "$DROP" -p udp --dport $PORT
+    done
+    PROTECT=`for S in $PROTECT_EXT $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
+    OPENED_EXT=`echo "$FW_SERVICES_EXT_UDP $DNS_PORT $SQUID_PORT" | $SED 's/ /|/g'`
+    PROTECT_EXT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_EXT"`
+    for PORT in $PROTECT_EXT; do
+	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-DROP " -p udp --dport $PORT
+	$IPTABLES -A input_ext -j "$DROP" -p udp --dport $PORT
+    done
+}
+
+DONE_ALL=no
+test "$FW_ALLOW_INCOMING_HIGHPORTS_UDP" = yes || {
+    for CHAIN in input_int input_dmz input_ext; do
+        $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p udp --dport 1024:65535
+        $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p udp --dport 1024:65535
+    done
+}
+for j in $FW_ALLOW_INCOMING_HIGHPORTS_UDP; do
+        case "$j" in
+            no) ;;
+            yes)
+		for CHAIN in input_int input_dmz input_ext; do
+                    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p udp --dport 1024:65535
+                    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport 1024:65535
+		done
+		DONE_ALL=yes
+                ;;
+            [Dd][Nn][Ss])
+                ;;
+            *)
+		test "$DONE_ALL" = yes || for CHAIN in input_int input_dmz input_ext; do
+                    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -p udp --sport $j --dport 1024:65535
+                    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --sport $j --dport 1024:65535
+		done
+                ;;
+        esac
+done
+
+test "$FW_MASQUERADE" = yes && {
+    EXT=""; DMZ=""; INT="";
+    for DEV1 in $FW_MASQ_DEV; do
+	for DEV2 in $FW_DEV_EXT; do
+	    test "$DEV1" = $DEV2 -a -z "$EXT" && {
+	        $LAA $IPTABLES -A input_ext -j LOG ${LOG}"-ACCEPT " -p udp --dport 61000:65095
+        	$IPTABLES -A input_ext -j "$ACCEPT" -m state --state ESTABLISHED -p udp --dport 61000:65095
+		EXT=1
+	    }
+	done
+	for DEV2 in $FW_DEV_DMZ; do
+	    test "$DEV1" = $DEV2 -a -z "$DMZ" && {
+	        $LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-ACCEPT " -p udp --dport 61000:65095
+        	$IPTABLES -A input_dmz -j "$ACCEPT" -m state --state ESTABLISHED -p udp --dport 61000:65095
+		DMZ=1
+	    }
+	done
+	for DEV2 in $FW_DEV_INT; do
+	    test "$DEV1" = $DEV2 -a -z "$INT" && {
+	        $LAA $IPTABLES -A input_int -j LOG ${LOG}"-ACCEPT " -p udp --dport 61000:65095
+        	$IPTABLES -A input_int -j "$ACCEPT" -m state --state ESTABLISHED -p udp --dport 61000:65095
+		INT=1
+	    }
+	done
+    done
+}
+
+##################################################
+# Customary hook: fw_custom_before_forwardmasq() #
+##################################################
+fw_custom_before_masq
+
+###############################
+# IP FORWARDING STUFF (evil!) #
+###############################
+for NETS in $FW_REDIRECT; do
+    #NET1=`echo $NETS | $AWK -F, '{print $1}'`
+    NET1=${NETS/,*/}
+    NET2=`echo $NETS | $AWK -F, '{print $2}' | sed -e 's/!/! /'`
+    PROTO=`echo $NETS | $AWK -F, '{print $3}'`
+    PORT1=`echo $NETS | $AWK -F, '{print $4}'`
+    PORT2=`echo $NETS | $AWK -F, '{print $5}'`
+    ERROR=`echo $NETS | $AWK -F, '{print $6}'`
+    test -z "$6" || {
+	echo "Error: Too many arguments in FW_REDIRECT -> $NETS"
+	NET1=""
+    }
+    test -z "$NET1" -o -z "$NET2" -o -z "$PROTO" -o -z "$PORT1" -o -z "$PORT2" && {
+	echo "Error: Missing parameter in FW_REDIRECT -> $NETS"
+	NET1=""
+    }
+    test "$PROTO" = tcp -o "$PROTO" = udp || {
+	echo "Error: Protocol with FW_REDIRECT must be tcp or udp -> $NETS"
+	NET1=""
+    }
+    test -z "$NET1" || {
+	PROTO="-p $PROTO"
+	PORT1="--dport $PORT1"
+	$IPTABLES -A PREROUTING -t nat -j REDIRECT $PROTO -s $NET1 -d $NET2 $PORT1 --to-ports $PORT2
+	for CHAIN in input_ext input_dmz input_int; do
+	    test "$LAC" = "" -a "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-REDIRECT "  -s $NET1 $PROTO --dport $PORT2 --syn
+	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-REDIRECT "  -s $NET1 $PROTO --dport $PORT2
+	    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED $PROTO -s $NET1 --dport $PORT2
+	done
+    }
+done
+
+test "$FW_ROUTE" = yes && {
+ for CHAIN in forward_ext forward_dmz forward_int; do
+    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-FORWARD-RELATED "  -m state --state RELATED -p icmp --icmp-type destination-unreachable
+    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-FORWARD-RELATED "  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type echo-reply
+    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state RELATED -p icmp --icmp-type destination-unreachable
+    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type echo-reply
+ done
+
+ test "$FW_ALLOW_CLASS_ROUTING" = yes && {
+    for DEV1 in $FW_DEV_INT; do
+        for DEV2 in $FW_DEV_INT; do
+	    test "$DEV1" = "$DEV2" || {
+		$LAA $IPTABLES -A forward_int -j LOG ${LOG}"-ACCEPT-CLASS "  -i $DEV1 -o $DEV2
+		$IPTABLES -A forward_int -j "$ACCEPT" -i $DEV1 -o $DEV2
+	    }
+	done
+    done
+    for DEV1 in $FW_DEV_DMZ; do
+        for DEV2 in $FW_DEV_DMZ; do
+	    test "$DEV1" = "$DEV2" || {
+		$LAA $IPTABLES -A forward_dmz -j LOG ${LOG}"-ACCEPT-CLASS "  -i $DEV1 -o $DEV2
+		$IPTABLES -A forward_dmz -j "$ACCEPT" -i $DEV1 -o $DEV2
+	    }
+	done
+    done
+    for DEV1 in $FW_DEV_EXT; do
+        for DEV2 in $FW_DEV_EXT; do
+	    test "$DEV1" = "$DEV2" || {
+		$LAA $IPTABLES -A forward_ext -j LOG ${LOG}"-ACCEPT-CLASS "  -i $DEV1 -o $DEV2
+		$IPTABLES -A forward_ext -j "$ACCEPT" -i $DEV1 -o $DEV2
+	    }
+	done
+    done
+ }
+
+ for NETS in $FW_FORWARD; do
+    #NET1=`echo $NETS | $AWK -F, '{print $1}'`
+    NET1=${NETS/,*/}
+    NET2=`echo $NETS | $AWK -F, '{print $2}'`
+    PROTO=`echo $NETS | $AWK -F, '{print $3}'`
+    PORT=`echo $NETS | $AWK -F, '{print $4}'`
+    ERROR=`echo $NETS | $AWK -F, '{print $5}'`
+    test -z "$ERROR" || {
+	echo "Error: Too many arguments in FW_FORWARD -> $NETS"
+	NET1=""
+    }
+    test -z "$PORT" -a "$PROTO" = tcp -o -z "$PORT" -a "$PROTO" = udp && {
+	echo "Error: Missing port definition for TCP/UDP in FW_FORWARD -> $NETS"
+	NET1=""
+    }
+    test -z "$PORT" || {
+	test "$PROTO" = tcp -o "$PROTO" = udp -o "$PROTO" = icmp || {
+	    echo "Error: the fourth parameter is for use with tcp, udp and icmp only in FW_FORWARD -> $NETS"
+	    NET1=""
+    }; }
+    test -z "$NET1" -o -z "$NET2" || {
+	test -z "$PROTO" || PROTO="-p $PROTO"
+	test -z "$PORT" || {
+	    test "$PROTO" = icmp || {
+		PORTBACK="--sport $PORT"
+		PORT="--dport $PORT"
+	    }
+	    test "$PROTO" = "-p icmp" && PORT="--icmp-type $PORT"
+	}
+	for CHAIN in forward_ext forward_dmz forward_int; do
+	    test "$LAC" = "" -a "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-TRUST "  -s $NET1 -d $NET2 $PROTO $PORT --syn
+	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-TRUST "  -s $NET1 -d $NET2 $PROTO $PORT
+	    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $NET1 -d $NET2 $PROTO $PORT
+	    test "$LAA" = "" -a "$PROTO" = "-p tcp" -o "$PROTO" = "-p udp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT " -d $NET1 -s $NET2 $PROTO $PORTBACK
+	    test "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -d $NET1 -s $NET2 $PROTO $PORTBACK '!' --syn
+	    test "$PROTO" = "-p udp" && $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -d $NET1 -s $NET2 $PROTO $PORTBACK
+	done
+    }
+ done
+
+ test "$FW_MASQUERADE" = yes && {
+    for NETS in $FW_MASQ_NETS; do
+        #NET1=`echo $NETS | $AWK -F, '{print $1}'`
+	NET1=${NETS/,*/}
+        NET2=`echo $NETS | $AWK -F, '{print $2}'`
+        PROTO=`echo $NETS | $AWK -F, '{print $3}'`
+        PORT=`echo $NETS | $AWK -F, '{print $4}'`
+        ERROR=`echo $NETS | $AWK -F, '{print $5}'`
+        test -z "$5" || {
+   	    echo "Error: Too many arguments in FW_MASQ_NETS -> $NETS"
+	    NET1=""
+        }
+	case "$NET1" in
+		*/0)
+			if test "$NET1" != "0/0"; then
+			    echo "Error: Source network may not be */0 in FW_MASQ_NETS -> $NETS"
+			    NET1=""
+			fi
+		;;
+        esac
+        test "$PROTO" = tcp -o "$PROTO" = udp -o -z "$PROTO" || {
+	    echo "Error: The protocol with FW_MASQ_NETS must be tcp, udp or empty-> $NETS"
+	    NET1=""
+        }
+        test -z "$NET1" || {
+	    NET2X=""
+	    test -z "$NET2" || NET2X="-s $NET2"
+	    test -z "$NET2" || NET2="-d $NET2"
+	    test -z "$PROTO" || PROTO="-p $PROTO"
+            PORTX=""
+	    test -z "$PORT" || PORTX="--sport $PORT"
+	    test -z "$PORT" || PORT="--dport $PORT"
+	    for DEV in $FW_MASQ_DEV; do
+		for CHAIN in forward_ext forward_dmz forward_int; do
+		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-MASQ "  -s $NET1 $NET2 $PROTO $PORT -o $DEV
+		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $NET1 $NET2 $PROTO $PORT -o $DEV
+#not so sure about the rule below XXX
+		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-MASQ "  -d $NET1 $NET2X $PROTO $PORTX -i $DEV
+		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -d $NET1 $NET2X $PROTO $PORTX -i $DEV
+#XXX
+	        done
+		test -z "$PROTO" && \
+		    $IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $NET1 $NET2 -o $DEV
+		test -z "$PROTO" || \
+		    $IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $NET1 $NET2 $PROTO $PORT -o $DEV --to-ports 61000-65095
+	    done
+	}
+    done
+
+    for NETS in $FW_FORWARD_MASQ; do
+        #NET1=`echo $NETS | $AWK -F, '{print $1}'`
+        NET1=${NETS/,*/}
+        NET2=`echo $NETS | $AWK -F, '{print $2}'`
+        PROTO=`echo $NETS | $AWK -F, '{print $3}'`
+        PORT1=`echo $NETS | $AWK -F, '{print $4}'`
+        PORT2=`echo $NETS | $AWK -F, '{print $5}'`
+        LIP=`echo $NETS | $AWK -F, '{print $6}'`
+        ERROR=`echo $NETS | $AWK -F, '{print $7}'`
+        test -z "$ERROR" || {
+   	    echo "Error: Too many arguments in FW_FORWARD_MASQ -> $NETS"
+	    NET2=""
+        }
+	test -z "$LIP" && LIP="$DEV_EXT"
+	echo "$NET2" | $GREP -q "/" && {
+	    echo "Error: Target must be a single host in FW_FORWARD_MASQ -> $NETS"
+	    NET2=""
+        }
+        test "$PROTO" = tcp -o "$PROTO" = udp || {
+	    echo "Error: The protocol with FW_MASQ_NETS must be tcp or udp -> $NETS"
+	    NET2=""
+        }
+        test -z "$PORT1" && {
+	    echo "Error: Port missing in FW_MASQ_NETS -> $NETS"
+	    NET2=""
+        }
+        test -z "$NET2" || {
+	    test -z "$NET1" || NET1="-s $NET1"
+	    PROTO="-p $PROTO"
+	    test -z "$PORT2" && PORT2="$PORT1"
+	    test -z "$PORT1" || PORT1="--dport $PORT1"
+            PORT2X=""
+	    test -z "$PORT2" || {
+		PORT2X="--dport $PORT2"
+                #PORT2=`echo "$PORT2" | sed 's/:/-/g'`
+		PORT2=${PORT2/:/-}
+	        PORT2=":$PORT2"
+	    }
+	    for DEV in $FW_MASQ_DEV; do
+                for TLIP in $LIP; do
+                    $IPTABLES -A PREROUTING -j DNAT -t nat $PROTO $NET1 -d $TLIP $PORT1 --to-destination ${NET2}${PORT2} -i $DEV
+		done
+		for CHAIN in forward_ext forward_dmz forward_int; do
+		    test "$LAC" = "" -a "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-REVERSE_MASQ "  $PROTO $NET1 -d $NET2 $PORT2X -i $DEV --syn
+		    $LAA test "$PROTO" = "-p tcp" || $IPTABLES -A $CHAIN -j LOG ${LOG}"-ACCEPT-REVERSE_MASQ "  $PROTO $NET1 -d $NET2 $PORT2X -i $DEV
+		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED $PROTO $NET1 -d $NET2 $PORT2X -i $DEV
+		done
+	    done
+	}
+    done
+ }
+}
+
+##############################################
+# Customary hook: fw_custom_before_denyall() #
+##############################################
+fw_custom_before_denyall
+
+##########################
+# Special Logging + Deny #
+##########################
+# DROP rules for IP forwarding
+test "$FW_ROUTE" = yes && for CHAIN in forward_ext forward_dmz forward_int; do
+    test -z "$LDC" && {
+        $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT " -p tcp --syn
+	for TYPE in source-quench redirect echo-request timestamp-request address-mask-request; do
+	    $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT " -p icmp --icmp-type $TYPE
+	done
+        $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT " -p udp
+	$IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT-INVALID "  -m state --state INVALID
+    }
+    $LDA $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT "
+    $IPTABLES -A $CHAIN -j "$DROP"
+done
+# DROP rule for left INPUT packets
+for CHAIN in input_ext input_dmz input_int; do
+    test -z "$LDC" && {
+        $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT " -p tcp --syn
+	for TYPE in source-quench redirect echo-request timestamp-request address-mask-request; do
+	    $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT " -p icmp --icmp-type $TYPE
+	done
+        $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT " -p udp
+	$IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT-INVALID "  -m state --state INVALID
+    }
+    $LDA $IPTABLES -A $CHAIN -j LOG ${LOG}"-DROP-DEFAULT "
+    $IPTABLES -A $CHAIN -j "$DROP"
+done
+
+######################
+# Optimisation Rules #
+######################
+# Optimise your TCP/UDP connections by setting IP Options!
+TABLES=OUTPUT
+test "$FW_ROUTE" = yes && TABLES="OUTPUT PREROUTING"
+
+for i in $TABLES; do
+#mangle TOS with icmp does not seem to work. the 2.4 firewall still sucks
+#    $IPTABLES -A $i -j TOS -m state --state NEW -t mangle -p icmp --icmp-type echo-request --set-tos Minimize-Delay # ping
+#    $IPTABLES -A $i -j TOS -t mangle -p icmp --icmp-type echo-reply   --set-tos Minimize-Delay # pong
+#    $IPTABLES -A $i -j TOS -t mangle -p icmp --set-tos Maximize-Reliability # all other ICMP
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 22   --set-tos Minimize-Delay # SSH in
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 22   --set-tos Minimize-Delay # SSH out
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 20   --set-tos Maximize-Throughput # FTP Data
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 20   --set-tos Maximize-Throughput # FTP Data
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 80   --set-tos Maximize-Throughput # HTTP
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --dport 80   --set-tos Maximize-Throughput # HTTP
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p tcp --sport 53   --set-tos Minimize-Delay # DNS
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p udp --dport 53   --set-tos Minimize-Delay # DNS
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p udp --dport 161  --set-tos Maximize-Reliability # SNMP
+    $IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p udp --dport 162  --set-tos Maximize-Reliability # SNMP Trap
+    $IPTABLES -A $i -j TOS -t mangle -p udp --dport 514  --set-tos Maximize-Reliability # Syslog
+    #$IPTABLES -A $i -j TOS -m state --state NEW,ESTABLISHED,RELATED -t mangle -p udp --set-tos Maximize-Reliability # all UDP
+    test "$i" = PREROUTING && i=FORWARD
+    $IPTABLES -A $i -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
+    $IPTABLES -A $i -j LOG ${LOG}"-$i-ERROR " 
+done
+
+# MSS stuff needs this?
+$IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+
+# Log entry
+test -x "$LOGGER" && \
+    $LOGGER -p kern.info -t SuSEfirewall2 "Firewall rules successfully set from $FWCONFIG"
+
+########
+# END ##
+exit 0 #
+########

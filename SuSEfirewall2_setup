@@ -1,0 +1,75 @@
+#! /bin/sh
+# Copyright (c) 2000-2002 SuSE GmbH Nuernberg, Germany.
+#
+# Author: Marc Heuse <marc@suse.de>
+#
+# /etc/init.d/SuSEfirewall2_setup
+#
+### BEGIN INIT INFO
+# Provides: SuSEfirewall2_setup
+# Required-Start: SuSEfirewall2_init network route dhclient $local_fs
+# X-UnitedLinux-Should-Start: 
+# Required-Stop: 
+# X-UnitedLinux-Should-Stop: 
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 2 6
+# Short-Description: SuSEfirewall2 phase 1
+# Description: SuSEfirewall2_setup does some basic setup and is the
+#	phase 2 of 3 of the SuSEfirewall initialization.
+### END INIT INFO
+# X-SuSE-Dep-Only
+
+SUSEFWALL="/sbin/SuSEfirewall2"
+
+test -x $SUSEFWALL || exit 5
+
+test -e /etc/rc.status && . /etc/rc.status
+test -r /etc/sysconfig/SuSEfirewall2 || exit 6
+
+# The echo return value for success (defined in /etc/rc.config).
+return=$rc_done
+
+case "$1" in
+    start)
+	echo -n "Starting Firewall Initialization "
+	echo -n '(phase 2 of 3) '
+	$SUSEFWALL start > /dev/null 2>&1 || return=$rc_failed
+	echo -e "$return"
+	;;
+    stop)
+	echo -n "Shutting down the Firewall"
+	test "$FW_STOP_KEEP_ROUTING_STATE" = "yes" && echo -n ": "
+	test "$FW_STOP_KEEP_ROUTING_STATE" = "yes" || echo -n " (and disabling routing): "
+	$SUSEFWALL stop > /dev/null 2>&1 || return=$rc_failed
+	echo -e "$return"
+	;;
+    restart|force-reload)
+	$0 start  ||  return=$rc_failed
+	;;
+    try-restart|reload)
+	($0 status) >/dev/null 2>&1 || exit 7
+	$0 start  ||  return=$rc_failed
+	;;
+    restart2)
+	# the restart2 argument is used by yast2 to not open any ports
+	# while the filter rules are being rewritten.
+	RLVL=`/sbin/runlevel | sed 's/. //'`
+	if [ ! -e /etc/init.d/rc${RLVL}.d/S??SuSEfirewall2_setup ]; then
+		$SUSEFWALL stop > /dev/null 2>&1
+	fi
+	$SUSEFWALL start > /dev/null 2>&1
+	;;
+    status)
+	echo "Checking the status of the Firewall "
+	$SUSEFWALL status || return=$rc_failed
+	test "$return" = "$rc_failed" && exit 3
+	;;
+    *)
+	echo "Usage: $0 {start|stop|status|restart|reload|force-reload}"
+	exit 1
+	;;
+esac
+
+# Set exit status
+test "$return" = "$rc_failed" && exit 1
+exit 0

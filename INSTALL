@@ -1,0 +1,131 @@
+#!/bin/sh
+#
+# This INSTALL script should work for all SuSE and any other Linux distribution
+# which has got a SysV style init process and keep their startup scripts in
+# /etc/init.d/rc2.d style
+
+umask 077
+PATH=/bin:/usr/bin:/usr/sbin:/sbin
+
+install -v -d -o root -g root -m 755 /etc/sysconfig
+install -v -d -o root -g root -m 755 /etc/init.d
+rm -f /etc/init.d/SuSEfirewall2* /etc/init.d/rc?.d/*SuSEfirewall*
+
+# backup first
+
+test -L /etc/rc.config.d/firewall2.rc.config && rm -f /etc/rc.config.d/firewall2.rc.config
+test -L /etc/rc.config.d/firewall2-custom.rc.config && rm -f /etc/rc.config.d/firewall2-custom.rc.config
+
+test -e /etc/rc.config.d/firewall2.rc.config && {
+    echo -n "Moving "
+    mv -vf /etc/rc.config.d/firewall2.rc.config /etc/sysconfig/SuSEfirewall2.orig
+    echo -e 'You have to reconfigure /etc/sysconfig/SuSEfirewall2, old config is in /etc/sysconfig/SuSEfirewall2.orig\n'
+}
+
+test -e /etc/rc.config.d/firewall2-custom.rc.config && {
+    echo -n "Moving "
+    mv -vf /etc/rc.config.d/firewall2-custom.rc.config /etc/sysconfig/SuSEfirewall2-custom.orig
+    echo -e 'You have to reconfigure /etc/sysconfig/SuSEfirewall2-custom, old config is in /etc/sysconfig/SuSEfirewall2-custom.orig\n'
+}
+
+test -e /etc/sysconfig/SuSEfirewall2 && {
+    echo -n "Moving "
+    mv -vf /etc/sysconfig/SuSEfirewall2 /etc/sysconfig/SuSEfirewall2.orig
+    echo -e 'You have to reconfigure /etc/sysconfig/SuSEfirewall2, old config is in /etc/sysconfig/SuSEfirewall2.orig\n'
+}
+
+test -e /etc/sysconfig/SuSEfirewall2-custom && {
+    echo -n "Moving "
+    mv -vf /etc/sysconfig/SuSEfirewall2-custom /etc/sysconfig/SuSEfirewall2-custom.orig
+    echo -e 'You have to reconfigure /etc/sysconfig/SuSEfirewall2-custom, old config is in /etc/sysconfig/SuSEfirewall2-custom.orig\n'
+}
+
+# delete old stuff
+rm -rf /usr/sbin/SuSEfirewall2 /usr/share/doc/packages/SuSEfirewall2 /sbin/rcfirewall2 /sbin/rcSuSEfirewall2 /sbin/SuSEfirewall2
+grep -q START_FW2 /etc/ppp/ip-up 2> /dev/null || {
+   test -e /etc/SuSE-release && {
+	grep -q "VERSION = [567]" /etc/SuSE-release && \
+            cp -v /etc/ppp/ip-up /etc/ppp/ip-up.orig
+            install -v -d -o root -g root -m 755 /etc/ppp
+            install -v -b -o root -g root -m 755 ip-up /etc/ppp
+   }
+   test -e /etc/SuSE-release || {
+	echo "No idea what Linux Distro you are running. Ensure that after dialing-in to an ISP, SuSEfirewall2 is started. You can achieve this perhaps by putting the line "/sbin/SuSEfirewall" at the 2nd line of /etc/ppp/ip-up"
+   }
+}
+
+# now install the new things
+install -v -d -o root -g root -m 755 /usr/share/doc/packages/SuSEfirewall2
+install -v -o root -g root -m 740 SuSEfirewall2 /sbin
+install -v -o root -g root -m 600 SuSEfirewall2.sysconfig /etc/sysconfig/SuSEfirewall2
+install -v -o root -g root -m 600 SuSEfirewall2-custom.sysconfig /etc/sysconfig/SuSEfirewall2-custom
+install -v -o root -g root -m 644 CHANGES TODO LICENCE FAQ EXAMPLES UNINSTALL README SuSEfirewall2*sysconfig* ip-up /usr/share/doc/packages/SuSEfirewall2
+install -v -o root -g root -m 740 SuSEfirewall2_init SuSEfirewall2_setup SuSEfirewall2_final /etc/init.d/
+
+# setup some things
+touch /etc/rc.config # if this is a non-SuSE, this prevents errors from SuSEfirewall2
+
+# same here for rc.status
+test -e /etc/rc.status || {
+    echo '
+rc_reset() {
+    return=$rc_done
+}
+' > /etc/rc.status
+    chmod 644 /etc/rc.status
+}
+
+# the scripts
+(
+  rm -f /sbin/rcSuSEfirewall2
+  cd /etc; rm -f rc.firewall2; rm -f /etc/rc.config.d/rc.firewall2*
+  ln -s sysconfig/SuSEfirewall2 rc.firewall2
+  test -d /etc/rc.config.d && cd /etc/rc.config.d && { 
+    ln -s ../sysconfig/SuSEfirewall2 firewall2.rc.config
+   cd ..
+  }
+)
+test -e /etc/syslog.conf && {
+  grep -q /var/log/firewall /etc/syslog.conf || {
+     echo -e 'kern.*\t\t/var/log/firewall' >> /etc/syslog.conf
+     touch /var/log/firewall
+     kill -HUP `pidof syslogd`
+  }
+}
+
+cd /sbin && ln -s ../etc/rc.d/SuSEfirewall2_setup rcSuSEfirewall2
+cd /sbin && ln -s ../etc/rc.d/SuSEfirewall2_setup rcfirewall2
+
+test -x /sbin/insserv && {
+    /sbin/insserv SuSEfirewall2_init
+    /sbin/insserv SuSEfirewall2_setup
+    /sbin/insserv SuSEfirewall2_final
+
+    echo
+    echo Documentation can be found in /usr/share/doc/packages/SuSEfirewall2/
+    echo The config file is /etc/sysconfig/SuSEfirewall2
+
+    exit 0
+}
+
+test -d /etc/init.d -o -L /etc/init.d || {
+ echo
+ echo 'Can not install startup scripts to /etc/init.d/rc.d/'
+ exit 1
+}
+
+test -x /sbin/insserv || {
+ cd /etc/init.d/ || exit 1
+ for i in /etc/rc.d/rc[2-5].d; do
+    cd $i && {
+        ln -s /etc/init.d/SuSEfirewall2_init  S01SuSEfirewall2_init
+        ln -s /etc/init.d/SuSEfirewall2_setup S08SuSEfirewall2_setup
+        ln -s /etc/init.d/SuSEfirewall2_final S99SuSEfirewall2_final
+        ln -s /etc/init.d/SuSEfirewall2_setup K99SuSEfirewall2_setup
+    }
+ done
+}
+ # put out information
+echo
+echo Documentation can be found in /usr/share/doc/packages/SuSEfirewall2/
+echo The config file is /etc/sysconfig/SuSEfirewall2
