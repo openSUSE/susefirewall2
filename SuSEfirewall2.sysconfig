@@ -7,11 +7,10 @@
 # carefuly and take also a look into
 #  -> /usr/share/doc/packages/SuSEfirewall2/EXAMPLES !
 #  -> /usr/share/doc/packages/SuSEfirewall2/FAQ !
-#  -> /usr/share/doc/packages/SuSEfirewall2/SuSEfirewall2.conf.EXAMPLE !
 #
 # /etc/sysconfig/SuSEfirewall2
 #
-# for use with /sbin/SuSEfirewall2 version 3.1 which is for 2.4 kernels!
+# for use with /sbin/SuSEfirewall2 version 3.1
 #
 # ------------------------------------------------------------------------     #
 # PLEASE NOTE THE FOLLOWING:

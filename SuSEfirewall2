@@ -130,8 +130,8 @@ for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
                     exit 1 ; }
 done
 
-test -z `uname -r | $GREP -E '^2\.[345]' 2> /dev/null` && {
-    echo 'This script is for Linux 2.4 kernels only!'
+test -z `uname -r | $GREP -E '^2\.[34567]' 2> /dev/null` && {
+    echo 'This script is for Linux 2.4--2.6 kernels only!'
     exit 1
 }
 
