@@ -23,18 +23,25 @@ allfiles= \
 	SuSEfirewall2.update-message \
 	SuSEfirewall2.update-message.broadcast \
 	Makefile \
-	EXAMPLES \
-	FAQ \
-	LICENCE \
-	README
+	LICENCE
 
 tar: $(ARCHIVE)
 
-$(ARCHIVE): $(allfiles)
+$(ARCHIVE): $(allfiles) doc
 	rm -rf $(NVER)
 	mkdir $(NVER)
 	for i in $(allfiles); do \
 		ln $$i $(NVER)/$$i; \
+	done
+	for i in doc/*.html; do \
+		dest=$${i/.SuSEfirewall2/}; \
+		dest=$${dest##*/}; \
+		ln $$i $(NVER)/$$dest; \
+	done
+	for i in doc/*.txt; do \
+		dest=$${i%.SuSEfirewall2.txt} \
+		dest=$${dest##*/}; \
+		ln $$i $(NVER)/$$dest; \
 	done
 	tar --owner=root --group=root -cjf $(ARCHIVE) $(NVER)
 	rm -rf $(NVER)
@@ -53,7 +60,10 @@ install:
 	done
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 
+doc:
+	$(MAKE) -C doc
+
 clean:
 	rm -f $(ARCHIVE)
 
-.PHONY: clean
+.PHONY: clean doc
