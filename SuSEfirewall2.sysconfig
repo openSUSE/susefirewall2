@@ -800,7 +800,12 @@ FW_ALLOW_FW_SOURCEQUENCH="yes"
 # If you do not want to allow them however ignore the annoying log entries,
 # set FW_IGNORE_FW_BROADCAST to yes.
 #
-# Choice: "yes" or "no", if not set defaults to "no"
+# Format: "yes" or "no", any combination of "int", "ext" and "dmz" and/or list
+#         of udp ports
+#
+# Example: "int 631"
+#
+# set defaults to "no" if not set
 #
 FW_ALLOW_FW_BROADCAST="int"
 

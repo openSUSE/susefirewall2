@@ -1169,6 +1169,7 @@ antispoof_generic()
 ### handling of broadcasts ###
 parse_broadcast()
 {
+    local tmp=""
     FW_ALLOW_BROADCAST_int=no
     FW_ALLOW_BROADCAST_ext=no
     FW_ALLOW_BROADCAST_dmz=no
@@ -1178,21 +1179,28 @@ parse_broadcast()
 	    int) FW_ALLOW_BROADCAST_int=yes ;;
 	    ext) FW_ALLOW_BROADCAST_ext=yes ;;
 	    dmz) FW_ALLOW_BROADCAST_dmz=yes ;;
+	    no) ;;
+	    *) tmp="$tmp $i"
 	esac
     done
+    FW_ALLOW_FW_BROADCAST="$tmp"
 
     [ -z "$FW_IGNORE_FW_BROADCAST" ] && FW_IGNORE_FW_BROADCAST="ext";
     FW_IGNORE_BROADCAST_int=no
     FW_IGNORE_BROADCAST_ext=no
     FW_IGNORE_BROADCAST_dmz=no
+    tmp=""
     for i in $FW_IGNORE_FW_BROADCAST; do
 	case $i in
 	    yes) FW_IGNORE_BROADCAST_int=yes; FW_IGNORE_BROADCAST_ext=yes; FW_IGNORE_BROADCAST_dmz=yes ;;
 	    int) FW_IGNORE_BROADCAST_int=yes ;;
 	    ext) FW_IGNORE_BROADCAST_ext=yes ;;
 	    dmz) FW_IGNORE_BROADCAST_dmz=yes ;;
+	    no) ;;
+	    *) tmp="$tmp $i"
 	esac
     done
+    FW_IGNORE_FW_BROADCAST="$tmp"
 }
 
 drop_broadcast()
@@ -1200,6 +1208,7 @@ drop_broadcast()
     local zone="$1"
     local allow
     local ignore
+    local port
 
     eval allow="\$FW_ALLOW_BROADCAST_$zone"
     eval ignore="\$FW_IGNORE_BROADCAST_$zone"
@@ -1207,6 +1216,14 @@ drop_broadcast()
     [ "$allow" = yes ] && return
     
     local match="-A input_$zone -m pkttype --pkt-type broadcast"
+
+    for port in $FW_ALLOW_FW_BROADCAST; do
+	$LAA $IPTABLES $match -p udp --dport $port -j LOG ${LOG}"-ACC-BCAST${zone:0:1} "
+	$IPTABLES $match -p udp --dport $port -j "$ACCEPT"
+    done
+    for port in $FW_IGNORE_FW_BROADCAST; do
+	$IPTABLES $match -p udp --dport $port -j DROP
+    done
 
     if [ "$ignore" != yes ]; then
 	$LDA $IPTABLES $match -j LOG ${LOG}"-DROP-BCAST${zone:0:1} "

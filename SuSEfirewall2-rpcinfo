@@ -79,6 +79,13 @@ sub getportsfrom($$)
 	}
     }
     close FILE;
+
+    # always also add portmapper
+    if(scalar @ret > 0 && !exists $services{'portmapper'})
+    {
+	push @ret, '111';
+    }
+
     return @ret;
 }
 
