@@ -1,0 +1,34 @@
+xsl_html := custom-html.xsl
+allhtml := $(patsubst %.xml,%.html,$(wildcard *.xml))
+alltxt := $(patsubst %.xml,%.txt,$(wildcard *.xml))
+
+DESTDIR := ./
+
+admongfx := /usr/share/doc/manual/suselinux-adminguide_de/html/admon/
+naviggfx := /usr/share/doc/manual/suselinux-adminguide_de/html/navig/
+stylesheet := /usr/share/xml/docbook/custom/susedtd/*/stylesheet/susebooks.css
+stylesheet_out := susebooks.css
+
+all: all-single all-txt
+
+all-single: $(DESTDIR)$(stylesheet_out) $(allhtml)
+
+all-txt: $(alltxt)
+
+$(DESTDIR)$(stylesheet_out): $(stylesheet)
+	cat < $< > $@
+	#sed "s/sect1/section/g" < $< > $@
+
+
+$(DESTDIR)%.html: %.xml $(DESTDIR)$(stylesheet_out)
+	xmllint --nonet --valid --noout $<
+	xsltproc --nonet \
+	       	--output $@ $(xsl_html) $<
+
+%.txt: %.html
+	w3m -dump $< > $@
+
+clean:
+	rm -rf $(allhtml) $(DESTDIR)html $(DESTDIR)$(stylesheet_out) $(alltxt)
+
+.PHONY: clean html
