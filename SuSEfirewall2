@@ -523,7 +523,6 @@ function rulelog()
 function allow_basic_related()
 {
     for iptables in $IPTABLES $IP6TABLES; do
-	$iptables -A INPUT  -j "$ACCEPT" -m state --state     ESTABLISHED,RELATED
 	$iptables -A OUTPUT -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED
     done
 }
@@ -601,6 +600,15 @@ function set_basic_rules()
 	fi
 	IP6TABLES=":" # disable further rules
     fi
+
+    # needed for dhcp and dns replies
+    local iptables
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	    $LAA $iptables -A INPUT-j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state RELATED -p tcp
+	    $LAA $iptables -A INPUT -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state RELATED -p udp
+	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp
+	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p udp
+    done
 }
 
 handle_initscripts()
@@ -1737,19 +1745,6 @@ allow_udp_services()
     done
 }
 
-allow_related()
-{
-    local proto="$1"
-    local chain
-    local iptables
-    for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for chain in input_int input_dmz input_ext; do
-	    $LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state ESTABLISHED,RELATED -p $proto
-	    $iptables -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p $proto
-	done
-    done
-}
-
 # description of the code below: see TCP notes for the autoprotect feature
 # XXX !!!
 auto_protect_udp()
@@ -2138,8 +2133,6 @@ if [ "$FW_AUTOPROTECT_SERVICES" != no ]; then
     auto_protect_tcp
 fi
 
-allow_related tcp
-
 allow_tcp_highports
 
 allow_udp_services ext $FW_SERVICES_EXT_UDP
@@ -2149,8 +2142,6 @@ allow_udp_services dmz $FW_SERVICES_DMZ_UDP
 if [ "$FW_AUTOPROTECT_SERVICES" != no ]; then
     auto_protect_tcp
 fi
-
-allow_related udp
 
 allow_highports_udp
 
