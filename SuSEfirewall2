@@ -1189,70 +1189,58 @@ done
 ####################################################
 fw_custom_after_antispoofing
 
-FW_ALLOW_BROADCAST_INT=no
-FW_ALLOW_BROADCAST_EXT=no
-FW_ALLOW_BROADCAST_DMZ=no
+### handling of broadcasts ###
+
+FW_ALLOW_BROADCAST_int=no
+FW_ALLOW_BROADCAST_ext=no
+FW_ALLOW_BROADCAST_dmz=no
 for i in $FW_ALLOW_FW_BROADCAST; do
     case $i in
-	yes) FW_ALLOW_BROADCAST_INT=yes; FW_ALLOW_BROADCAST_EXT=yes; FW_ALLOW_BROADCAST_DMZ=yes ;;
-	int) FW_ALLOW_BROADCAST_INT=yes ;;
-	ext) FW_ALLOW_BROADCAST_EXT=yes ;;
-	dmz) FW_ALLOW_BROADCAST_DMZ=yes ;;
+	yes) FW_ALLOW_BROADCAST_int=yes; FW_ALLOW_BROADCAST_ext=yes; FW_ALLOW_BROADCAST_dmz=yes ;;
+	int) FW_ALLOW_BROADCAST_int=yes ;;
+	ext) FW_ALLOW_BROADCAST_ext=yes ;;
+	dmz) FW_ALLOW_BROADCAST_dmz=yes ;;
     esac
 done
 
 [ -z "$FW_IGNORE_FW_BROADCAST" ] && FW_IGNORE_FW_BROADCAST="ext";
-FW_IGNORE_BROADCAST_INT=no
-FW_IGNORE_BROADCAST_EXT=no
-FW_IGNORE_BROADCAST_DMZ=no
+FW_IGNORE_BROADCAST_int=no
+FW_IGNORE_BROADCAST_ext=no
+FW_IGNORE_BROADCAST_dmz=no
 for i in $FW_IGNORE_FW_BROADCAST; do
     case $i in
-	yes) FW_IGNORE_BROADCAST_INT=yes; FW_IGNORE_BROADCAST_EXT=yes; FW_IGNORE_BROADCAST_DMZ=yes ;;
-	int) FW_IGNORE_BROADCAST_INT=yes ;;
-	ext) FW_IGNORE_BROADCAST_EXT=yes ;;
-	dmz) FW_IGNORE_BROADCAST_DMZ=yes ;;
+	yes) FW_IGNORE_BROADCAST_int=yes; FW_IGNORE_BROADCAST_ext=yes; FW_IGNORE_BROADCAST_dmz=yes ;;
+	int) FW_IGNORE_BROADCAST_int=yes ;;
+	ext) FW_IGNORE_BROADCAST_ext=yes ;;
+	dmz) FW_IGNORE_BROADCAST_dmz=yes ;;
     esac
 done
 
-if [ "$FW_ALLOW_BROADCAST_EXT" = no ]; then
-    for DEV in $FW_DEV_EXT; do
-	test "$FW_IGNORE_BROADCAST_EXT" != yes && \
-	    $LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTe " -i $DEV -d 255.255.255.255
-	$IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
-	for NET in $DEV_EXT_BCAST; do
-	    test "$FW_IGNORE_BROADCAST_EXT" != yes && \
-		$LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTe " -i $DEV -d $NET
-	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
-	done
-    done
-fi
+drop_broadcast()
+{
+    local zone="$1"
+    local allow
+    local ignore
 
-if [ "$FW_ALLOW_BROADCAST_DMZ" = no ]; then
-    for DEV in $FW_DEV_DMZ; do
-	test "$FW_IGNORE_BROADCAST_DMZ" != yes && \
-	    $LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTd " -i $DEV -d 255.255.255.255
-	$IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
-	for NET in $DEV_DMZ_BCAST; do
-	    test "$FW_IGNORE_BROADCAST_DMZ" != yes && \
-		$LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTd " -i $DEV -d $NET
-	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
-	done
-    done
-fi
+    eval allow="\$FW_ALLOW_BROADCAST_$zone"
+    eval ignore="\$FW_IGNORE_BROADCAST_$zone"
 
-if [ "$FW_ALLOW_BROADCAST_INT" = no ]; then
-    for DEV in $FW_DEV_INT; do
-	test "$FW_IGNORE_BROADCAST_INT" != yes && \
-	    $LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTi " -i $DEV -d 255.255.255.255
-	$IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
-	for NET in $DEV_INT_BCAST; do
-	    test "$FW_IGNORE_BROADCAST_INT" != yes && \
-		$LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTi " -i $DEV -d $NET
-	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
-	done
-    done
-fi
+    [ "$allow" = yes ] && return
+    
+    local match="-A input_$zone -m pkttype --pkt-type broadcast"
 
+    if [ "$ignore" != yes ]; then
+	$LDA $IPTABLES $match -j LOG ${LOG}"-DROP-BCAST${zone:0:1} "
+    fi
+
+    $IPTABLES $match -j "$DROP"
+}
+
+drop_broadcast ext
+drop_broadcast int
+drop_broadcast dmz
+
+### IPsec ###
 
 ipsec_chain=""
 case "$FW_IPSEC_TRUST" in
