@@ -1518,7 +1518,7 @@ reject_or_drop_services()
 
     eval target=\$$action
     eval services=\"\$$var\"
-    
+
     for service in $services; do
 	IFS=, eval set -- \$service
 	if [ "$#" -ne 3 ]; then
@@ -1527,8 +1527,14 @@ reject_or_drop_services()
 	fi
 
 	net="${1:-0/0}"
+	iptables="$IPTABLES $IP6TABLES"
+	case "$net" in
+	    *:*) iptables="$IP6TABLES" ;;
+	    [0-9]*.*.*.*) iptables="$IPTABLES" ;;
+	esac
+
 	if check_proto_port "$2" "$3" "$var"; then
-	    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	    for iptables in $iptables; do
 		$LDA $iptables -A $chain -s $net $proto $port -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
 		$iptables -A $chain -s $net $proto $port -m state --state NEW -j "$target"
 	    done
