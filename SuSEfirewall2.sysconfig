@@ -82,16 +82,6 @@
 # Please note that if you use service names, that they exist in /etc/services.
 # There is no service "dns", it's called "domain"; email is called "smtp" etc.
 #
-# *Any* routing between interfaces except masquerading requires to set FW_ROUTE
-# to "yes" and use FW_FORWARD or FW_ALLOW_CLASS_ROUTING !
-#
-# If you just want to do masquerading without filtering, ignore this script
-# and run this line (exchange "ippp0" "ppp0" if you use a modem, not isdn):
-#   iptables -A POSTROUTING -t nat -j MASQUERADE -o ippp0
-#   echo 1 > /proc/sys/net/ipv4/ip_forward
-# and additionally the following lines to get at least a minimum of security:
-#   iptables -A INPUT -j DROP -m state --state NEW,INVALID -i ippp0
-#   iptables -A FORWARD -j DROP -m state --state NEW,INVALID -i ippp0
 # ------------------------------------------------------------------------
 
 ## Path:	Network/Firewall/SuSEfirewall2
@@ -612,7 +602,7 @@ FW_LOG_DROP_CRIT=""
 # whether all dropped packets should be logged
 #
 # Note: for broadcasts to be logged you also need to set
-# FW_IGNORE_BROADCAST_* to 'no'
+# FW_IGNORE_FW_BROADCAST to 'no'
 #
 # defaults to "no" if not set
 #
