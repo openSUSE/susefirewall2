@@ -567,7 +567,7 @@ function set_basic_rules()
     $IPTABLES -F OUTPUT
     $IPTABLES -F FORWARD
     $IPTABLES -P INPUT "$DROP_JUMP"
-    $IPTABLES -P OUTPUT "$DROP_JUMP"
+    $IPTABLES -P OUTPUT ACCEPT
     $IPTABLES -P FORWARD "$DROP_JUMP"
     $IPTABLES -F
     $IPTABLES -X
@@ -589,7 +589,7 @@ function set_basic_rules()
     $IP6TABLES -F OUTPUT
     $IP6TABLES -F FORWARD
     $IP6TABLES -P INPUT "$DROP_JUMP"
-    $IP6TABLES -P OUTPUT "$DROP_JUMP"
+    $IP6TABLES -P OUTPUT ACCEPT
     $IP6TABLES -P FORWARD "$DROP_JUMP"
     $IP6TABLES -F
     $IP6TABLES -X
@@ -1094,7 +1094,7 @@ finish_chains()
 	$iptables -A OUTPUT -j LOG ${LOG}"-OUT-ERROR " 
 	# we want to let locally generated packets out since our task is not
 	# to protect the world from us, but protect us from the world ;)
-	$iptables -A OUTPUT -j ACCEPT
+	# policy is ACCEPT $iptables -A OUTPUT -j ACCEPT
     done
 
     # MSS stuff needs this?
@@ -1692,13 +1692,13 @@ drop_all()
     for chain in $chains; do
 	# some packet types are considered critical
 	if [ -z "$LDC" ]; then
-	    local log=${LOG}"-`rulelog $chain`-DROP-DEFLT "
-	    $IPTABLES  -A $chain -j LOG $log -p tcp --syn
-	    $IP6TABLES -A $chain -j LOG $log -p tcp --syn
-	    $IPTABLES  -A $chain -j LOG $log -p icmp
-	    $IP6TABLES -A $chain -j LOG $log -p icmpv6
-	    $IPTABLES  -A $chain -j LOG $log -p udp
-	    $IP6TABLES -A $chain -j LOG $log -p udp
+	    local log=${LOG}"-`rulelog $chain`-DROP-DEFLT"
+	    $IPTABLES  -A $chain -j LOG $log" " -p tcp --syn
+	    $IP6TABLES -A $chain -j LOG $log" " -p tcp --syn
+	    $IPTABLES  -A $chain -j LOG $log" " -p icmp
+	    $IP6TABLES -A $chain -j LOG $log" " -p icmpv6
+	    $IPTABLES  -A $chain -j LOG $log" " -p udp
+	    $IP6TABLES -A $chain -j LOG $log" " -p udp
 	    $IPTABLES  -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
 	    $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
 	fi
@@ -1731,9 +1731,6 @@ if [ "$ACTION" = "basic" ]; then
     # Reset the filter rules
     set_basic_rules
 
-    $IPTABLES -A OUTPUT -j "$ACCEPT"
-    $IP6TABLES -A OUTPUT -j "$ACCEPT"
-
     $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
 
     # log incoming tcp connection requests. also logging udp etc would just flood the log
@@ -1764,9 +1761,6 @@ fi
 if [ "$ACTION" = "close" ]; then
     set_basic_rules
     setproc 0 /proc/sys/net/ipv4/ip_forward
-
-    $IPTABLES -A OUTPUT -j "$ACCEPT"
-    $IP6TABLES -A OUTPUT -j "$ACCEPT"
 
     die 0 "Firewall rules set to CLOSE."
 fi
@@ -1848,8 +1842,6 @@ drop_broadcast
 
 allow_ipsec
 
-fork_to_chains
-
 allow_icmp
 
 allow_forward_icmp_echo
@@ -1901,15 +1893,17 @@ fw_custom_before_denyall
 
 drop_all
 
-finish_chains
+fork_to_chains
 
-[ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
+finish_chains
 
 # HTB settings
 if [ -n "$FW_HTB_TUNE_DEV" ]; then
     need qdisc
     do_qdisc_settings
 fi
+
+[ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
 
 handle_initscripts
 
