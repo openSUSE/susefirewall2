@@ -1,7 +1,7 @@
 # Copyright (c) 2000-2002 SuSE GmbH Nuernberg, Germany.  All rights reserved.
+# Copyright (c) 2003,2004 SuSE Linux AG Nuernberg, Germany.  All rights reserved.
 #
-# Author: Marc Heuse <marc@suse.de>, 2002
-# Please contact me directly if you find bugs.
+# Author: Marc Heuse <feedback@suse.de>, 2002
 #
 # If you have problems getting this tool configures, please read this file
 # carefuly and take also a look into
@@ -577,6 +577,9 @@ FW_LOG=""
 # configuration which works for you. Then set this to "yes" and keep it
 # if everything still works. (It should!) ;-)
 #
+# Warning: do not set FW_KERNEL_SECURITY and FW_ANTISPOOF to "no" at the same
+# time, otherwise you won't have any spoof protection!
+#
 # Choice: "yes" or "no", if not set defaults to "yes"
 #
 FW_KERNEL_SECURITY="yes"
@@ -584,6 +587,17 @@ FW_KERNEL_SECURITY="yes"
 ## Type:	yesno
 ## Default:	no
 #
+# 17a.)
+#
+# Setup anti-spoofing rules?
+# Anti-Spoofing rules shouldn't be necessary with rp_filter set. They only
+# cause headaches with dynamic interfaces.
+#
+# Warning: do not set FW_KERNEL_SECURITY and FW_ANTISPOOF to "no" at the same
+# time, otherwise you won't have any spoof protection!
+#
+FW_ANTISPOOF="no"
+
 # 18.)
 # Keep the routing set on, if the firewall rules are unloaded?
 # REQUIRES: FW_ROUTE
@@ -665,11 +679,11 @@ FW_ALLOW_FW_TRACEROUTE="yes"
 #
 FW_ALLOW_FW_SOURCEQUENCH="yes"
 
-## Type:	yesno
-## Default:	no
+## Type:	string(yes,no,int,ext,dmz)
+## Default:	int
 #
 # 22.)
-# Allow/Ignore IP Broadcasts?
+# Allow IP Broadcasts?
 #
 # If set to yes, the firewall will not filter broadcasts by default.
 # This is needed e.g. for Netbios/Samba, RIP, OSPF where the broadcast
@@ -679,12 +693,14 @@ FW_ALLOW_FW_SOURCEQUENCH="yes"
 #
 # Choice: "yes" or "no", if not set defaults to "no"
 #
-FW_ALLOW_FW_BROADCAST="no"
+FW_ALLOW_FW_BROADCAST="int"
 
-## Type:	yesno
-## Default:	yes
+## Type:	string(yes,no,int,ext,dmz)
+## Default:	ext
 #
-FW_IGNORE_FW_BROADCAST="yes"
+# set to yes to suppress log messages for dropped broadcast packets
+#
+FW_IGNORE_FW_BROADCAST="no"
 
 ## Type:	yesno
 ## Default:	no

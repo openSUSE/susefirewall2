@@ -703,15 +703,18 @@ if [ "$FW_MASQ_DEV" = "auto" ]; then
     FW_MASQ_DEV="$FW_DEV_EXT"
 fi
 
+
+# why should that be important? just shut down everything if no interface is
+# available -- ln
 ###################
 # Important check #
 ###################
-test -z "$FW_DEV_EXT" && {
-    echo -e "\n The Firewall script needs to know the external (internet) interface."
-    echo -en " Set FW_DEV_EXT in $FWCONFIG"
-    reset_rules
-    exit 6
-}
+#test -z "$FW_DEV_EXT" && {
+#    echo -e "\n The Firewall script needs to know the external (internet) interface."
+#    echo -en " Set FW_DEV_EXT in $FWCONFIG"
+#    reset_rules
+#    exit 6
+#}
 
 ########################################################################
 #                                                                      #
@@ -1133,15 +1136,18 @@ fw_custom_before_antispoofing
 #################################################
 # Anti Spoofing rules - not interface dependent #
 #################################################
-test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -s 127.0.0.0/8
-test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -d 127.0.0.0/8
-$IPTABLES -A INPUT -j "$DROP" -s 127.0.0.0/8
-$IPTABLES -A INPUT -j "$DROP" -d 127.0.0.0/8
-for SPOOF in $DEV_INT $DEV_EXT $DEV_DMZ; do
-    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -s $SPOOF
-    #echo "AntiSpoof: -A INPUT -j $DROP -s $SPOOF"
-    $IPTABLES -A INPUT -j "$DROP" -s $SPOOF
-done
+if [ "$FW_ANTISPOOF" = yes ]; then
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -s 127.0.0.0/8
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -d 127.0.0.0/8
+    $IPTABLES -A INPUT -j "$DROP" -s 127.0.0.0/8
+    $IPTABLES -A INPUT -j "$DROP" -d 127.0.0.0/8
+    for SPOOF in $DEV_INT $DEV_EXT $DEV_DMZ; do
+	test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-DROP-ANTISPOOF "  -s $SPOOF
+	#echo "AntiSpoof: -A INPUT -j $DROP -s $SPOOF"
+	$IPTABLES -A INPUT -j "$DROP" -s $SPOOF
+    done
+fi
+
 # some people have wrong routing setups, so ...
 test "$FW_ROUTE" = yes && for DEV in $FW_DEV_INT $FW_DEV_EXT $FW_DEV_DMZ; do
     $IPTABLES -A FORWARD -j "$ACCEPT" -i $DEV -o $DEV
@@ -1152,70 +1158,85 @@ done
 ####################################################
 fw_custom_after_antispoofing
 
+FW_ALLOW_BROADCAST_INT=no
+FW_ALLOW_BROADCAST_EXT=no
+FW_ALLOW_BROADCAST_DMZ=no
+for i in $FW_ALLOW_FW_BROADCAST; do
+    case $i in
+	yes) FW_ALLOW_BROADCAST_INT=yes; FW_ALLOW_BROADCAST_EXT=yes; FW_ALLOW_BROADCAST_DMZ=yes ;;
+	int) FW_ALLOW_BROADCAST_INT=yes ;;
+	ext) FW_ALLOW_BROADCAST_EXT=yes ;;
+	dmz) FW_ALLOW_BROADCAST_DMZ=yes ;;
+    esac
+done
+
+[ -z "$FW_IGNORE_FW_BROADCAST" ] && FW_IGNORE_FW_BROADCAST="ext";
+FW_IGNORE_BROADCAST_INT=no
+FW_IGNORE_BROADCAST_EXT=no
+FW_IGNORE_BROADCAST_DMZ=no
+for i in $FW_IGNORE_FW_BROADCAST; do
+    case $i in
+	yes) FW_IGNORE_BROADCAST_INT=yes; FW_IGNORE_BROADCAST_EXT=yes; FW_IGNORE_BROADCAST_DMZ=yes ;;
+	int) FW_IGNORE_BROADCAST_INT=yes ;;
+	ext) FW_IGNORE_BROADCAST_EXT=yes ;;
+	dmz) FW_IGNORE_BROADCAST_DMZ=yes ;;
+    esac
+done
+
+if [ "$FW_ALLOW_BROADCAST_EXT" = no ]; then
+    for DEV in $FW_DEV_EXT; do
+	test "$FW_IGNORE_BROADCAST_EXT" != yes && \
+	    $LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTe " -i $DEV -d 255.255.255.255
+	$IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
+	for NET in $DEV_EXT_BCAST; do
+	    test "$FW_IGNORE_BROADCAST_EXT" != yes && \
+		$LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTe " -i $DEV -d $NET
+	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
+	done
+    done
+fi
+
+if [ "$FW_ALLOW_BROADCAST_DMZ" = no ]; then
+    for DEV in $FW_DEV_DMZ; do
+	test "$FW_IGNORE_BROADCAST_DMZ" != yes && \
+	    $LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTd " -i $DEV -d 255.255.255.255
+	$IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
+	for NET in $DEV_DMZ_BCAST; do
+	    test "$FW_IGNORE_BROADCAST_DMZ" != yes && \
+		$LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTd " -i $DEV -d $NET
+	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
+	done
+    done
+fi
+
+if [ "$FW_ALLOW_BROADCAST_INT" = no ]; then
+    for DEV in $FW_DEV_INT; do
+	test "$FW_IGNORE_BROADCAST_INT" != yes && \
+	    $LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTi " -i $DEV -d 255.255.255.255
+	$IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
+	for NET in $DEV_INT_BCAST; do
+	    test "$FW_IGNORE_BROADCAST_INT" != yes && \
+		$LDA $IPTABLES -A INPUT -j LOG ${LOG}"-DROP-BCASTi " -i $DEV -d $NET
+	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
+	done
+    done
+fi
+
 #####################################
 # Rule split up - forking to chains #
 #####################################
 for DEV in $FW_DEV_EXT; do
-    for IP in $DEV_EXT; do
-        $IPTABLES -A INPUT -j input_ext -i $DEV -d $IP
-    done
+    $IPTABLES -A INPUT -j input_ext -i $DEV
     test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j forward_ext -i $DEV
 done
 for DEV in $FW_DEV_DMZ; do
-    for IP in $DEV_DMZ; do
-        $IPTABLES -A INPUT -j input_dmz -i $DEV -d $IP
-    done
+    $IPTABLES -A INPUT -j input_dmz -i $DEV
     test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j forward_dmz -i $DEV
 done
 for DEV in $FW_DEV_INT; do
-    for IP in $DEV_INT; do
-        $IPTABLES -A INPUT -j input_int -i $DEV -d $IP
-    done
+    $IPTABLES -A INPUT -j input_int -i $DEV
     test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j forward_int -i $DEV
 done
-
-test "$FW_ALLOW_FW_BROADCAST" = yes && {
-    for NET in $DEV_EXT_BCAST; do
-	for DEV in $FW_DEV_EXT; do
-	    $IPTABLES -A INPUT -j input_ext -i $DEV -d $NET
-	    $IPTABLES -A INPUT -j input_ext -i $DEV -d 255.255.255.255
-	done
-    done
-    for NET in $DEV_DMZ_BCAST; do
-	for DEV in $FW_DEV_DMZ; do
-	    $IPTABLES -A INPUT -j input_dmz -i $DEV -d $NET
-	    $IPTABLES -A INPUT -j input_dmz -i $DEV -d 255.255.255.255
-	done
-    done
-    for NET in $DEV_INT_BCAST; do
-	for DEV in $FW_DEV_INT; do
-	    $IPTABLES -A INPUT -j input_int -i $DEV -d $NET
-	    $IPTABLES -A INPUT -j input_int -i $DEV -d 255.255.255.255
-	done
-    done
-}
-
-# broadcast stuff
-test "$FW_IGNORE_FW_BROADCAST" = yes && {
-    for NET in $DEV_EXT_BCAST; do
-	for DEV in $FW_DEV_EXT; do
-	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
-	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
-	done
-    done
-    for NET in $DEV_DMZ_BCAST; do
-	for DEV in $FW_DEV_DMZ; do
-	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
-	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
-	done
-    done
-    for NET in $DEV_INT_BCAST; do
-	for DEV in $FW_DEV_INT; do
-	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d $NET
-	    $IPTABLES -A INPUT -j "$DROP" -i $DEV -d 255.255.255.255
-	done
-    done
-}
 
 ###############################################################
 # Anti Spoofing/Cirumvention protection - interface dependent #
@@ -1229,10 +1250,14 @@ done
 # anything which is now not in the input_* chains is evil
 test -z "$LDC" -o -z "$LDA" && $IPTABLES -A INPUT -j LOG ${LOG}"-IN-ILL-TARGET " 
 $IPTABLES -A INPUT -j "$DROP"
-test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A FORWARD -j LOG ${LOG}"-FWD-ILL-ROUTING " 
-test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
+
+if [ "$FW_ROUTE" = yes ]; then
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A FORWARD -j LOG ${LOG}"-FWD-ILL-ROUTING "
+    $IPTABLES -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
+fi
+
 # anti ip spoofing rules
-for SPOOF in $DEV_EXT_NET $DEV_DMZ_NET; do
+test "$FW_ANTISPOOF" = yes && for SPOOF in $DEV_EXT_NET $DEV_DMZ_NET; do
     # special case for internal ipsec devices that have the same ip as the
     # external device
     for net in $DEV_INT_NET; do
@@ -1247,14 +1272,14 @@ for SPOOF in $DEV_EXT_NET $DEV_DMZ_NET; do
     $IPTABLES -A input_int -j "$DROP" -s $SPOOF
     test "$FW_ROUTE" = yes && $IPTABLES -A forward_int -j "$DROP" -s $SPOOF
 done
-for SPOOF in $DEV_EXT_NET $DEV_INT_NET; do
+test "$FW_ANTISPOOF" = yes && for SPOOF in $DEV_EXT_NET $DEV_INT_NET; do
     test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-DROP-ANTISPOOF " -s $SPOOF
     test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_dmz -j LOG ${LOG}"-FWDdmz-DROP-ANTISPOOF " -s $SPOOF
     $IPTABLES -A input_dmz -j "$DROP" -s $SPOOF
     test "$FW_ROUTE" = yes && $IPTABLES -A forward_dmz -j "$DROP" -s $SPOOF
 done
 # those devices must not be 0/0!
-for SPOOF in $DEV_INT_NET $DEV_DMZ_NET $DEV_MASQ_NET; do
+test "$FW_ANTISPOOF" = yes && for SPOOF in $DEV_INT_NET $DEV_DMZ_NET $DEV_MASQ_NET; do
     # special case for internal ipsec devices that have the same ip as the
     # external device
     for net in $DEV_EXT_NET; do
@@ -1295,8 +1320,8 @@ test "$FW_PROTECT_FROM_INTERNAL" = no && {
 ########################
 # INPUT ICMP rules
 test "$FW_ALLOW_FW_SOURCEQUENCH" = no || for NET in $DEV_EXT_NET; do
-        test -z "$LAC" -o -z "$LAA" && $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-SOURCEQUENCH "  -p icmp -s $NET --icmp-type source-quench
-        $IPTABLES -A input_ext -j "$ACCEPT" -p icmp -s $NET --icmp-type source-quench
+        test -z "$LAC" -o -z "$LAA" && $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-SOURCEQUENCH "  -p icmp --icmp-type source-quench
+        $IPTABLES -A input_ext -j "$ACCEPT" -p icmp --icmp-type source-quench
 done
 test "$FW_ALLOW_PING_FW" = yes && for CHAIN in input_ext input_dmz input_int; do
     $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-PING "  -p icmp --icmp-type echo-request
