@@ -387,22 +387,22 @@ FW_SERVICES_INT_RPC=""
 #
 # Packets to silently drop without log message
 #
-# Format: space separated list of protocol[,port]
-# Example: "tcp,445 udp,4662"
+# Format: space separated list of net,protocol[,port]
+# Example: "0/0,tcp,445 0/0,udp,4662"
 #
-FW_SERVICES_DROP_EXT="tcp,22"
+FW_SERVICES_DROP_EXT=""
 
 ## Type: string
-## Default: tcp,113
+## Default: 0/0,tcp,113
 #
 # Packets to silently reject without log message. Common usage is
 # TCP port 113 which if dropped would cause long timeouts when
 # sending mail or connecting to IRC servers.
 #
-# Format: space separated list of protocol[,port]
-# Example: "tcp,113"
+# Format: space separated list of net,protocol[,port]
+# Example: "0/0,tcp,113"
 #
-FW_SERVICES_REJECT_EXT="tcp,113"
+FW_SERVICES_REJECT_EXT="0/0,tcp,113"
 
 ## Type:	string
 #
@@ -598,7 +598,7 @@ FW_REDIRECT=""
 #
 # defaults to "yes" if not set
 #
-FW_LOG_DROP_CRIT="yes"
+FW_LOG_DROP_CRIT=""
 
 ## Type:	yesno
 ## Default:	no
@@ -610,7 +610,7 @@ FW_LOG_DROP_CRIT="yes"
 #
 # defaults to "no" if not set
 #
-FW_LOG_DROP_ALL="no"
+FW_LOG_DROP_ALL=""
 
 ## Type:	yesno
 ## Default:	yes
@@ -622,7 +622,7 @@ FW_LOG_DROP_ALL="no"
 #
 # defaults to "yes" if not set
 #
-FW_LOG_ACCEPT_CRIT="yes"
+FW_LOG_ACCEPT_CRIT=""
 
 ## Type:	yesno
 ## Default:	no
@@ -634,12 +634,12 @@ FW_LOG_ACCEPT_CRIT="yes"
 #
 # defaults to "no" if not set
 #
-FW_LOG_ACCEPT_ALL="no"
+FW_LOG_ACCEPT_ALL=""
 
 ## Type:	string
 #
 # How many packets per time unit get logged for each logging rule.
-# Default is the iptables default 3/hour to prevent port scans
+# When empty a default of 3/minute is used to prevent port scans
 # flooding your log files. For desktop usage it's a good idea to
 # have the limit, if you are using logfile analysis tools however
 # you might want to disable it.

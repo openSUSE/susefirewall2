@@ -138,13 +138,14 @@ IP6TABLES_HAVE_REJECT=1
 
 ACTION="start"
 MODE="standard"
+needconfig=
 
 case $1 in
-    start|"") ;;
+    start|"") needconfig=1 ;;
     test) MODE="test" ;;
     debug) MODE="debug" ;;
     easy|novice|basic) ACTION="basic" ;;
-    stop|halt|down|shutdown) ACTION="stop" ;;
+    stop|halt|down|shutdown) ACTION="stop"; needconfig=1 ;;
     close) ACTION="close" ;;
     status) ACTION="status" ;;
     log) ACTION="showlog" ;;
@@ -153,25 +154,25 @@ case $1 in
 esac
 shift
 
-if [ "$ACTION" != "showlog" ]; then
-    while [ $# -gt 0 ]; do
-	case "$1" in
-	    file) FWCONFIG="$2"; shift 2 ;;
-	    batch) USE_IPTABLES_BATCH=1; shift;;
-	    force) shift ;;  # unused, for compatability
-	    *) echo "invalid option: $1"; exit 1 ;;
-	esac
-    done
-fi
+case "$ACTION" in
+    start|stop)
+	while [ $# -gt 0 ]; do
+	    case "$1" in
+		file) FWCONFIG="$2"; shift 2 ;;
+		batch) USE_IPTABLES_BATCH=1; shift;;
+		force) shift ;;  # unused, for compatability
+		*) echo "invalid option: $1"; exit 1 ;;
+	    esac
+	done
+	;;
+esac
 
 test -e /etc/sysconfig/network/config && . /etc/sysconfig/network/config
 
-if [ "$ACTION" != "basic" -a "$ACTION" != "showlog" ]; then
-    if [ ! -e "$FWCONFIG" ]; then
-	die 6 " Can not read $FWCONFIG"
-    fi
-
+if [ -r "$FWCONFIG" ]; then
     . "$FWCONFIG"
+elif [ -n "$needconfig" ]; then
+    die 6 " Can not read $FWCONFIG"
 fi
 
 # SuSEpersonal-firewall legacy support. Allow for a single-variable configuration,
@@ -320,7 +321,7 @@ fi
 ###############
 
 if [ -z "$FW_LOG_LIMIT" ]; then
-    FW_LOG_LIMIT="-m limit"
+    FW_LOG_LIMIT="-m limit --limit 3/minute"
 elif [ "$FW_LOG_LIMIT" = 'no' ]; then
     FW_LOG_LIMIT=''
 else
@@ -490,6 +491,15 @@ function rulelog()
 		echo FWD${rule#forward_}
 		;;
     esac	
+}
+
+
+function allow_basic_related()
+{
+    for iptables in $IPTABLES $IP6TABLES; do
+	$iptables -A INPUT  -j "$ACCEPT" -m state --state     ESTABLISHED,RELATED
+	$iptables -A OUTPUT -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED
+    done
 }
 
 function set_basic_rules()
@@ -816,18 +826,20 @@ if [ "$ACTION" = "basic" ]; then
 
     # Setting filter rules
     # 1. allow anything which is esablished or related
-    $IPTABLES -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+    allow_basic_related
+
     # 2. allow dhcp replies from servers
+    # not needed!?
     #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
+
     # 3. allow echo requests
     $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
 
     # log incoming tcp connection requests. also logging udp etc would just flood the log
     $IPTABLES -A INPUT -p tcp -m state --state NEW -j LOG $LOG"-IN-DROP-NEW-CONNECT "
+
     # reject anything else
     $IPTABLES -A INPUT -j "$DROP"
-
-    $IPTABLES -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
 
     die 0 "Firewall rules successfully set in simple mode"
 fi
@@ -850,9 +862,11 @@ fi
 if [ "$ACTION" = "close" ]; then
     set_basic_rules
     setproc 0 /proc/sys/net/ipv4/ip_forward
+    allow_basic_related
     #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
-    $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
-    $IPTABLES -A INPUT -j "$DROP"
+
+    # XXX should we?
+    #$IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
     die 0 "Firewall rules set to CLOSE."
 fi
 
@@ -887,7 +901,8 @@ if [ "$FW_QUICKMODE" = 'yes' ]; then
 
     # Setting filter rules
     # 1. allow anything which is esablished or related
-    $IPTABLES -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+    allow_basic_related
+
     # 2. allow dhcp replies from servers
     #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
     # 3. allow echo requests
@@ -1479,7 +1494,7 @@ reject_or_drop_services()
     local chain="input_$1"
     local action="$2"
     local var="FW_SERVICES_${action}_$3"
-    local services target service proto port
+    local services target service proto net port
     local iptables
 
     eval target=\$$action
@@ -1487,11 +1502,16 @@ reject_or_drop_services()
     
     for service in $services; do
 	IFS=, eval set -- \$service
+	if [ "$#" -ne 3 ]; then
+	    error "too few parameters in $var -> $service"
+	    continue
+	fi
 
-	if check_proto_port "$1" "$2" "$var"; then
+	net="${1:-0/0}"
+	if check_proto_port "$2" "$3" "$var"; then
 	    for iptables in "$IPTABLES" "$IP6TABLES"; do
-		$LDA $iptables -A $chain $proto $port -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
-		$iptables -A $chain $proto $port -m state --state NEW -j "$target"
+		$LDA $iptables -A $chain -s $net $proto $port -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
+		$iptables -A $chain -s $net $proto $port -m state --state NEW -j "$target"
 	    done
 	fi
     done
