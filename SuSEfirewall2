@@ -294,6 +294,7 @@ NETSTAT="/bin/netstat"
 SORT="/bin/sort"
 LOGGER="/bin/logger"
 GREP="/bin/grep"
+PERL="/usr/bin/perl -w"
 modinfo="/sbin/modinfo"
 
 for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
@@ -1453,7 +1454,7 @@ process_trusted_nets()
 rpcservicerules()
 {
 	[ -z "$1" ] && return
-	$RPCHELPER "$@"
+	$PERL $RPCHELPER "$@"
 }
 
 # parameters: int|ext|dmz REJECT|DROP INT|EXT|DMZ

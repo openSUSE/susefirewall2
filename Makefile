@@ -14,6 +14,7 @@ allfiles=SuSEfirewall2_final \
 	SuSEfirewall2 \
 	sysconfig-personal-firewall \
 	SuSEfirewall2.sysconfig \
+	SuSEfirewall2.update-message \
 	Makefile \
 	EXAMPLES \
 	FAQ \
@@ -42,7 +43,7 @@ install:
 	rm -f $(DESTDIR)/sbin/rcSuSEfirewall2
 	ln -s /etc/init.d/SuSEfirewall2_setup $(DESTDIR)/sbin/rcSuSEfirewall2
 	install -m 755 SuSEfirewall2-autointerface.sh $(DESTDIR)/etc/sysconfig/scripts
-	install -m 755 SuSEfirewall2-rpcinfo $(DESTDIR)/etc/sysconfig/scripts
+	install -m 644 SuSEfirewall2-rpcinfo $(DESTDIR)/etc/sysconfig/scripts
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 
 clean:

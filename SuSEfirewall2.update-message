@@ -1,0 +1,9 @@
+Dear sysadmin,
+FW_LOG in /etc/sysconfig/SuSEfirewall2 has been changed to an empty
+string which means default logging options will used by
+SuSEfirewall2. The change was necessary since the previous log
+prefix was too long. Please verify that the configuration still
+works.
+
+Yours,
+	SUSE Security Team
