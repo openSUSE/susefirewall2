@@ -1575,7 +1575,7 @@ forwarding_rules()
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args
 		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args
 		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args
-		$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $more_args
+		$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args
 	    done
 	else
 	    error "too few parameters in FW_FORWARD -> $nets"
