@@ -1705,9 +1705,9 @@ allow_tcp_services()
     shift
     for iptables in "$IPTABLES" "$IP6TABLES"; do
 	for port in $*; do
-	    $LAC $iptables -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port --syn
-	    $LAA $iptables -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port
-	    $iptables -A input_ext -j "$ACCEPT" -p tcp --dport $port
+	    $LAC $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port --syn
+	    $LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port
+	    $iptables -A $chain -j "$ACCEPT" -p tcp --dport $port
 	done
     done
 }
@@ -1721,8 +1721,8 @@ allow_udp_services()
     shift
     for iptables in "$IPTABLES" "$IP6TABLES"; do
 	for port in $*; do
-	    $LAA $iptables -A input_ext -j LOG ${LOG}"-`rulelog $chain`-ACC-UDP " -p udp --dport $port
-	    $iptables -A input_ext -j "$ACCEPT" -p udp --dport $port
+	    $LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-UDP " -p udp --dport $port
+	    $iptables -A $chain -j "$ACCEPT" -p udp --dport $port
 	done
     done
 }
