@@ -1,0 +1,108 @@
+#!/usr/bin/perl
+
+use strict;
+use Sys::Hostname;
+use Net::DNS;
+
+my $res;
+if($#ARGV >= 0 && $ARGV[0] eq '-N')
+{
+    $res = Net::DNS::Resolver->new;
+    $res->tcp_timeout(10);
+    $res->udp_timeout(10);
+    $res->persistent_tcp(1);
+    $res->persistent_udp(1);
+    shift @ARGV;
+}
+
+if($#ARGV < 0)
+{
+    $ARGV[0] = '/var/log/messages';
+}
+elsif($ARGV[0] eq '--help' || $ARGV[0] eq '-h')
+{
+    print "Usage: $0 FILES\n";
+    print "    /var/log/messages will be used if no file is specified\n";
+    print "    specify - as file to read from STDIN\n";
+    exit 0;
+}
+elsif($ARGV[0] eq '-')
+{
+    shift @ARGV;
+}
+
+my %dnscache;
+sub dnsresolve($)
+{
+    my $ip = shift;
+    return $dnscache{$ip} if(exists $dnscache{$ip});
+
+    my $query = $res->search($ip);
+
+    if ($query)
+    {
+	my $a;
+	foreach my $rr (grep { $_->type eq 'PTR' } $query->answer)
+	{
+	    $a = $rr->ptrdname;
+	}
+	if($a)
+	{
+	    $dnscache{$ip} = $a;
+	    return $a;
+	}
+    }
+    return $ip;
+}
+
+my $hostname = hostname;
+
+my ($sflog,$src,$dst,$spt,$dpt,$interface,$proto);
+
+format STDOUT =
+@<<<<<<<<<<<<<<< @<<<<<< @>>>>>>>>>>>>>>>>>>>>>>>>>>>@<<<<< @|||||| @>>>>>>>>>>>>>>>>>>>>>>>>>>>@<<<<<
+$sflog,         $proto, $src,                        $spt,  $interface, $dst,$dpt
+.
+
+while(<>)
+{
+    next unless /^.*$hostname kernel: SFW2/;
+    chomp;
+    s/^.*$hostname kernel: //;
+    s/OPT \((.*)\)/OPT=$1/;
+    my @arr = split(/ /);
+    $sflog = shift @arr;
+    $sflog =~ s/^SFW2-//;
+
+    my %tags = map { my @a = split(/=/,$_,2); $a[0] => $a[1]; } @arr;
+
+    $src = $tags{SRC};
+    $dst = $tags{DST};
+
+    $src = dnsresolve($src) if($res && $src);
+    $dst = dnsresolve($dst) if($res && $dst);
+    
+    $src = '['.$src.']' if($src =~ /:/);
+    $dst = '['.$dst.']' if($dst =~ /:/);
+    $spt = ':'.$tags{SPT} if($tags{SPT});
+    $dpt = ':'.$tags{DPT} if($tags{DPT});
+    $proto = lc $tags{PROTO};
+
+    if($tags{IN})
+    {
+	$interface = '> '.$tags{IN};
+    }
+    else
+    {
+	$interface = $tags{OUT}.' >';
+    }
+
+    $spt = ' '.$tags{TYPE} if ($proto =~ /ICMP.*/);
+
+    $src =~ s/(.*:).*:.*:.*:(.*:.*:.*:.*)/$1...$2/;
+    $dst =~ s/(.*):.*:.*:.*:(.*:.*:.*:.*)/$1...$2/;
+
+    write;
+}
+
+# vim: sw=4

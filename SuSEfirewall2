@@ -64,6 +64,7 @@ Options:
           to syslog anything which *would* be denied
   status  print the output of "iptables -nvL"
   debug   print the iptables command to stdout instead of executing them
+  log     show SuSEfirewall2 related syslog messages in a better readable format
   help    this output
 
   file FILENAME  same as "start" but load alternate config file FILENAME
@@ -121,6 +122,7 @@ die()
 }
 
 RPCHELPER="/etc/sysconfig/scripts/SuSEfirewall2-rpcinfo"
+SHOWLOGHELPER="/etc/sysconfig/scripts/SuSEfirewall2-showlog"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
 PERSFWCONFIG="/etc/sysconfig/personal-firewall"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
@@ -145,23 +147,26 @@ case $1 in
     stop|halt|down|shutdown) ACTION="stop" ;;
     close) ACTION="close" ;;
     status) ACTION="status" ;;
+    log) ACTION="showlog" ;;
     help) help ;;
     *) help ;;
 esac
 shift
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-	file) FWCONFIG="$2"; shift 2 ;;
-	batch) USE_IPTABLES_BATCH=1; shift;;
-	force) shift ;;  # unused, for compatability
-	*) echo "invalid option: $1"; exit 1 ;;
-    esac
-done
+if [ "$ACTION" != "showlog" ]; then
+    while [ $# -gt 0 ]; do
+	case "$1" in
+	    file) FWCONFIG="$2"; shift 2 ;;
+	    batch) USE_IPTABLES_BATCH=1; shift;;
+	    force) shift ;;  # unused, for compatability
+	    *) echo "invalid option: $1"; exit 1 ;;
+	esac
+    done
+fi
 
 test -e /etc/sysconfig/network/config && . /etc/sysconfig/network/config
 
-if [ "$ACTION" != "basic" ]; then
+if [ "$ACTION" != "basic" -a "$ACTION" != "showlog" ]; then
     if [ ! -e "$FWCONFIG" ]; then
 	die 6 " Can not read $FWCONFIG"
     fi
@@ -294,7 +299,7 @@ NETSTAT="/bin/netstat"
 SORT="/bin/sort"
 LOGGER="/bin/logger"
 GREP="/bin/grep"
-PERL="/usr/bin/perl -w"
+PERL="/usr/bin/perl"
 modinfo="/sbin/modinfo"
 
 for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
@@ -302,6 +307,17 @@ for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
 	die 1 "$i is required for SuSEfirewall2 but it is not an executable"
     fi
 done
+
+
+###############
+
+
+if [ "$ACTION" = "showlog" ]; then
+    $PERL $SHOWLOGHELPER "$@"
+    exit $?
+fi
+
+###############
 
 if [ -z "$FW_LOG_LIMIT" ]; then
     FW_LOG_LIMIT="-m limit"
