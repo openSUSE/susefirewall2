@@ -405,6 +405,9 @@ FW_SERVICES_DROP_EXT="tcp,22"
 FW_SERVICES_REJECT_EXT="tcp,113"
 
 ## Type:	string
+#
+# WARNING: Quickmode is DEPRECATED and will be removed in the future!
+# 
 # 9a.)
 # External services in QUICKMODE.
 # This is only used for QUICKMODE (see 1.)!
@@ -467,11 +470,14 @@ FW_TRUSTED_NETS=""
 ## Default:
 #
 # 11.)
-# How is access allowed to high (unpriviliged [above 1023]) ports?
+# Specify which ports are allowed ot access unprivileged ports (>1023)
+#
+# Format: yes, no or space separated list of ports
 #
 # You may either allow everyone from anyport access to your highports ("yes"),
 # disallow anyone ("no"), anyone who comes from a defined port (portnumber or
-# known portname) [note that this is easy to circumvent!]
+# known portname). Note that this is easy to circumvent! The best choice is to
+# keep this option unset or set to 'no'
 #
 # defaults to "no" if not set (good choice)
 #
@@ -480,80 +486,86 @@ FW_ALLOW_INCOMING_HIGHPORTS_TCP=""
 ## Type:	string
 ## Default:
 #
+# See FW_ALLOW_INCOMING_HIGHPORTS_TCP
+#
 # defaults to "no" if not set (good choice)
 FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
 
 ## Type:	string
 #
 # 13.)
-# Which services accessed from the internet should be allowed to the
-# dmz (or internal network - if it is not masqueraded)?
-# REQUIRES: FW_ROUTE
+# Which services or networks are allowed to be routed through the
+# firewall, no matter which zone they are in?
+# Requires: FW_ROUTE
 #
 # With this option you may allow access to e.g. your mailserver. The
-# machines must have valid, non-private, IP addresses which were assigned to
-# you by your ISP. This opens a direct link to your network, so only use
-# this option for access to your dmz!!!!
+# machines must have valid, non-private, IP addresses which were
+# assigned to you by your ISP. This opens a direct link to the
+# specified network, so please think twice befor using this option!
 #
-# Choice: leave empty (good choice!) or use the following explained syntax
-# of forwarding rules, seperated each by a space.
-# A forwarding rule consists of 1) source IP/net and 2) destination IP
-# seperated by a comma. e.g. "1.1.1.1,2.2.2.2 3.3.3.3/16,4.4.4.4/24"
-# Optional is a protocol, seperated by a comma, e.g. "5.5.5.5,6.6.6.6,igmp"
-# Optional is a port after the protocol with a comma, e.g. "0/0,0/0,udp,514"
-# Optinal are flags separated by comma. The only flag currently supported is
-# "ipsec" which means only forward if the packets originate from an IPsec
-# tunnel
+# Format: space separated list of
+#    <source network>,<destination network>[,protocol[,port[,flags]]]
 #
-FW_FORWARD=""		# Beware to use this!
+#  If the protocol is icmp then port is interpreted as icmp type
+#
+#  The only flag currently supported is 'ipsec' which means to only
+#  match packets that originate from an IPsec tunnel
+#
+# Examples: - "1.1.1.1,2.2.2.2" allow the host 1.1.1.1 to access any
+#             service on the host 2.2.2.2
+#           - "3.3.3.3/16,4.4.4.4/24" allow the network 3.3.3.3/16
+#             to access any service in the network 4.4.4.4/24
+#           - "5.5.5.5,6.6.6.6,igmp" allow routing of IGMP messages
+#              from 5.5.5.5 to 6.6.6.6
+#           - "0/0,0/0,udp,514" always permit udp port 514 to pass
+#             the firewall
+#           - "192.168.1.0/24,10.10.0.0/16,,,ipsec \
+#              10.10.0.0/16,192.168.1.0/24,,,ipsec" permit traffic
+#              from 192.168.1.0/24 to 10.10.0.0/16 and vice versa
+#              provided that both networks are connected via an
+#              IPsec tunnel.
+FW_FORWARD=""
 
 ## Type:	string
 #
 # 14.)
 # Which services accessed from the internet should be allowed to masqueraded
 # servers (on the internal network or dmz)?
-# REQUIRES: FW_ROUTE
+# Requires: FW_ROUTE
 #
 # With this option you may allow access to e.g. your mailserver. The
-# machines must be in a masqueraded segment and may not have public IP addesses!
-# Hint: if FW_DEV_MASQ is set to the external interface you have to set
-# FW_FORWARD from internal to DMZ for the service as well to allow access
-# from internal!
+# machines must be in a masqueraded segment and may not have public
+# IP addesses! Hint: if FW_DEV_MASQ is set to the external interface
+# you have to set FW_FORWARD from internal to DMZ for the service as
+# well to allow access from internal!
 #
-# Please note that this should *not* be used for security reasons! You are
-# opening a hole to your precious internal network. If e.g. the webserver there
-# is compromised - your full internal network is compromised!!
+# Please note that this should *not* be used for security reasons!
+# You are opening a hole to your precious internal network. If e.g.
+# the webserver there is compromised - your full internal network is
+# compromised!
 #
-# Choice: leave empty (good choice!) or use the following explained syntax
-# of forward masquerade rules, seperated each by a space.
-# A forward masquerade rule consists of 1) source IP/net, 2) the IP to which
-# the requests will be forwarded to (in the dmz/intern net), 3) a protocol
-# (tcp/udp only!) and 4) destination port, seperated by a comma (","), e.g.
-# "4.0.0.0/8,1.1.1.1,tcp,80"
+# Format: space separated list of
+#    <source network>,<ip to forward to>,<protocol>,<port>[,redirect port,[destination ip]]
 #
-# Optional is a port after the destination port, to redirect the request to
-# a different destination port on the destination IP, e.g.
-# "4.0.0.0/8,1.1.1.1,tcp,80,81"
+#  Protocol must be either tcp or udp
 #
-# Optional is an target IP address on which should the masquerading be decided.
-# You have to set the optional port option to use this.
+# Examples: - "4.0.0.0/8,10.0.0.10,tcp,80" forward all tcp request on
+#             port 80 coming from the 4.0.0.0/8 network to the
+#             internal server 1.1.1.1
+#           - "4.0.0.0/8,10.0.0.10,tcp,80,81" forward all tcp request on
+#             port 80 coming from the 4.0.0.0/8 network to the
+#             internal server 1.1.1.1 on port 81
+#           - "200.200.200.0/24,10.0.0.10,tcp,80,81,202.202.202.202"
+#             the network 200.200.200.0/24 trying to access the
+#             address 202.202.202.202 on port 80 will be forwarded
+#             to the internal server 10.0.0.10 on port 81
 #
-# Example:
-# 200.200.200.0/24,10.0.0.10,tcp,80,81,202.202.202.202
-# The class C network 200.200.200.0/24 trying to access 202.202.202.202 port
-# 80 will be forwarded to the internal server 10.0.0.10 on port 81.
-# Example:
-# 200.200.200.0/24,10.0.0.10,tcp,80
-# The class C network 200.200.200.0/24 trying to access anything which goes
-# through this firewall ill be forwarded to the internal server 10.0.0.10 on
-# port 80
-#
-FW_FORWARD_MASQ=""		# Beware to use this!
+FW_FORWARD_MASQ=""
 
 ## Type:	string
 #
 # 15.)
-# Which accesses to services should be redirected to a localport on
+# Which accesses to services should be redirected to a local port on
 # the firewall machine?
 #
 # This option can be used to force all internal users to surf via
@@ -578,42 +590,62 @@ FW_REDIRECT=""
 ## Default:	yes
 #
 # 16.)
-# Which logging level should be enforced?
-# You can define to log packets which were accepted or denied.
-# You can also the set log level, the critical stuff or everything.
-# Note that logging *_ALL is only for debugging purpose ...
+# Which kind of packets should be logged?
 #
-# Choice: "yes" or "no", if not set FW_LOG_*_CRIT defaults to "yes", and
-# FW_LOG_*_ALL defaults to "no"
+# When set to "yes", packages that got dropped and are considered
+# 'critical' will be logged. Such packets include for example
+# spoofed packets, tcp connection requests and certain icmp types.
+#
+# defaults to "yes" if not set
 #
 FW_LOG_DROP_CRIT="yes"
 
 ## Type:	yesno
 ## Default:	no
 #
+# whether all dropped packets should be logged
+#
+# Note: for broadcasts to be logged you also need to set
+# FW_IGNORE_BROADCAST_* to 'no'
+#
+# defaults to "no" if not set
+#
 FW_LOG_DROP_ALL="no"
 
 ## Type:	yesno
 ## Default:	yes
+#
+# When set to "yes", packages that got accepted and are considered
+# 'critical' will be logged. Such packets include for example tcp
+# connection requests, rpc connection requests, access to high
+# udp/tcp port and forwarded pakets.
+#
+# defaults to "yes" if not set
 #
 FW_LOG_ACCEPT_CRIT="yes"
 
 ## Type:	yesno
 ## Default:	no
 #
-# only change this if you know what you are doing!
+# whether all accepted packets should be logged
 #
-# setting this to 'yes' causes _LOTS_ of log entries and may fill
-# your disk quickly. It also disables FW_LOG_LIMIT
+# Note: setting this to 'yes' causes _LOTS_ of log entries and may
+# fill your disk quickly. It also disables FW_LOG_LIMIT
+#
+# defaults to "no" if not set
 #
 FW_LOG_ACCEPT_ALL="no"
 
 ## Type:	string
 #
 # How many packets per time unit get logged for each logging rule.
-# Default is the iptables default 3/hour. Set to 'no' to disable the
-# rate limit. Setting FW_LOG_ACCEPT_ALL to 'yes' disables this
-# option as well.
+# Default is the iptables default 3/hour to prevent port scans
+# flooding your log files. For desktop usage it's a good idea to
+# have the limit, if you are using logfile analysis tools however
+# you might want to disable it.
+#
+# Set to 'no' to disable the rate limit. Setting FW_LOG_ACCEPT_ALL
+# to 'yes' disables this option as well.
 # 
 # Format: a digit and suffix /second, /minute, /hour or /day
 FW_LOG_LIMIT=""
