@@ -170,12 +170,12 @@ function reset_rules_silent() {
 	$IPTABLES -t nat -X
 	$IPTABLES -t mangle -F
 	$IPTABLES -t mangle -X
-	{ rmmod ipt_TCPMSS ipt_TOS ipt_MASQUERADE ipt_LOG ipt_state \
-	   ipt_MARK ipt_MIRROR ipt_REDIRECT ipt_limit ipt_mac ipt_mark \
-	   ipt_multiport ipt_owner ipt_tcpmss ipt_tos ipt_unclean ip_queue \
-	   ip_nat_ftp ip_conntrack_ftp ipt_REJECT iptable_mangle iptable_nat \
-	   iptable_filter ip_queue ip_conntrack iptable_filter ip_tables
-	} > /dev/null 2> /dev/null
+#	{ rmmod ipt_TCPMSS ipt_TOS ipt_MASQUERADE ipt_LOG ipt_state \
+#	   ipt_MARK ipt_MIRROR ipt_REDIRECT ipt_limit ipt_mac ipt_mark \
+#	   ipt_multiport ipt_owner ipt_tcpmss ipt_tos ipt_unclean ip_queue \
+#	   ip_nat_ftp ip_conntrack_ftp ipt_REJECT iptable_mangle iptable_nat \
+#	   iptable_filter ip_queue ip_conntrack iptable_filter ip_tables
+#	} > /dev/null 2> /dev/null
 }
 
 function reset_rules() {
@@ -346,7 +346,8 @@ test "$1" = stop -o "$1" = halt -o "$1" = down -o "$1" = shutdown && {
     test "$FW_STOP_KEEP_ROUTING_STATE" = "yes" && echo "..."
     test "$FW_STOP_KEEP_ROUTING_STATE" = "yes" || \
 	echo "and disabling IP forwarding ..."
-    { rmmod ipfwadm; rmmod ipchains; rmmod ip_tables; } > /dev/null 2>&1
+#    { rmmod ipfwadm; rmmod ipchains; rmmod ip_tables; } > /dev/null 2>&1
+    { rmmod ipfwadm; rmmod ipchains; } > /dev/null 2>&1
     reset_rules
     # Log entry
     test -x "$LOGGER" && \
