@@ -400,29 +400,24 @@ FW_SERVICES_QUICK_IP=""
 FW_TRUSTED_NETS=""
 
 ## Type:	string
+## Default:
 #
 # 11.)
 # How is access allowed to high (unpriviliged [above 1023]) ports?
 #
 # You may either allow everyone from anyport access to your highports ("yes"),
 # disallow anyone ("no"), anyone who comes from a defined port (portnumber or
-# known portname) [note that this is easy to circumvent!], or just your
-# defined nameservers ("DNS").
-# Note that you can't use rpc requests (e.g. rpcinfo, showmount) as root
-# from a firewall using this script (well, you can if you include range
-# 600:1023 in FW_SERVICES_EXT_UDP ...).
-# Please note that with v2.1 "yes" is not mandatory for active FTP from
-# the firewall anymore.
+# known portname) [note that this is easy to circumvent!]
 #
-# Choice: "yes", "no", "DNS", portnumber or known portname,
-#         if not set defaults to "no"
+# defaults to "no" if not set (good choice)
 #
-# Common: "ftp-data", better is "yes" to be sure that everything else works :-(
-FW_ALLOW_INCOMING_HIGHPORTS_TCP="no"
+FW_ALLOW_INCOMING_HIGHPORTS_TCP=""
 
 ## Type:	string
-# Common: "DNS" or "domain ntp", better is "yes" to be sure ...
-FW_ALLOW_INCOMING_HIGHPORTS_UDP="DNS"
+## Default:
+#
+# defaults to "no" if not set (good choice)
+FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
 
 ## Type:	yesno
 ## Default:	yes
@@ -442,13 +437,6 @@ FW_SERVICE_AUTODETECT="yes"	# Autodetect the services below when starting
 
 ## Type:	yesno
 ## Default:	no
-# If you are running bind/named set to yes. Remember that you have to open
-# port 53 (or "domain") as udp/tcp to allow incoming queries.
-# Also FW_ALLOW_INCOMING_HIGHPORTS_UDP needs to be "yes"
-FW_SERVICE_DNS="no"
-
-## Type:	yesno
-## Default:	no
 # if you use dhclient to get an ip address you have to set this to "yes" !
 FW_SERVICE_DHCLIENT="no"
 
@@ -456,12 +444,6 @@ FW_SERVICE_DHCLIENT="no"
 ## Default:	no
 # set to "yes" if this server is a DHCP server
 FW_SERVICE_DHCPD="no"
-
-## Type:	yesno
-## Default:	no
-# set to "yes" if this server is running squid. You still have to open the
-# tcp port 3128 to allow remote access to the squid proxy service.
-FW_SERVICE_SQUID="no"
 
 ## Type:	yesno
 ## Default:	no
