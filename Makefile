@@ -43,6 +43,7 @@ $(ARCHIVE): $(allfiles) doc
 		dest=$${dest##*/}; \
 		ln $$i $(NVER)/$$dest; \
 	done
+	ln doc/susebooks.css $(NVER)/
 	tar --owner=root --group=root -cjf $(ARCHIVE) $(NVER)
 	rm -rf $(NVER)
 
