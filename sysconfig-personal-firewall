@@ -1,0 +1,49 @@
+## Path:	Network/Firewall/personal-firewall
+## Description:	Historical simplified firewall configuration
+## Type:	string
+#
+# The variable REJECT_ALL_INCOMING_CONNECTIONS provides backwards
+# compatibility legacy support for SuSEpersonal-firewall (package
+# personal-firewall). Today, the package SuSEfirewall2 takes over
+# the functionality.
+# The framework  around  REJECT_ALL_INCOMING_CONNECTIONS designed
+# to provide an  extremely easy configuration of  simple firewall
+# rules. There is only one variable:
+# Set  REJECT_ALL_INCOMING_CONNECTIONS to one of the values below
+# if you wish to have all incoming connections blocked.
+#
+# possible values:
+# no	don't place any rules.
+# yes	This is not supported any more. It used to reject connections
+#       on all interfaces, but SuSEfirewall2 will write an error message
+#       and exit unsuccessfully.
+# iface	reject incoming connections as well as UDP traffic on the
+# 	interface "iface". More names for interfaces can be added,
+# 	seperated by space. Example:
+#	REJECT_ALL_INCOMING_CONNECTIONS="eth0 ippp0"
+#	this rejects everything on the first ethernet card as well as the
+# 	ISDN interface.
+# masq	if the interface name is "masq", then all packets that arrive will
+#	be masqueraded (NAT) when they arrive at an interface we don't
+# 	reject packets from. Setting masq is useless together with "yes".
+#	This option requires IP_FORWARD from /etc/sysconfig/sysctl
+#	to be set to "yes".
+#	"masq" and the interface name must be space-seperated. Example:
+#	REJECT_ALL_INCOMING_CONNECTIONS="ippp0 masq"
+#	will reject all connection attempts to the ippp0 interface but not
+# 	the ethernet interface. All outbound traffic gets masqueraded.
+#
+# See /sbin/SuSEfirewall2 for more details.
+#
+# Side effects: Protocols that open secondary TCP connections will be
+# rendered useless. Among these are ftp (PORT mode), irc (DCC mode, CTCP),
+# quake, real-audio, real-video. If you need to use these, you must turn off
+# the firewall to enable them again.
+#
+# Please note that you can't log on to your host from the network any more
+# if SuSEfirewall2 in the personal-firewall compatibility mode is active.
+#
+# the default is off (do nothing).
+# A value other than "" or "no" will override the settings for
+# SuSEfirewall2.
+REJECT_ALL_INCOMING_CONNECTIONS=""
