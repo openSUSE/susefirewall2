@@ -1424,8 +1424,8 @@ drop_icmp()
 # parameters: names of rpc services, e.g. ypbind mountd
 rpcservicerules()
 {
-	[ -z "$*" ] && return
-	$RPCHELPER "$*"
+	[ -z "$1" ] && return
+	$RPCHELPER "$@"
 }
 
 # parameters: int|ext|dmz REJECT|DROP INT|EXT|DMZ
