@@ -326,7 +326,7 @@ mark_redir=1
 # ipsec
 
 ipsec_chain=""
-IPSEC_MATCH=""
+IPSEC_MATCH="-m policy --dir in --pol ipsec --proto esp"
 
 ### zones
 
@@ -1030,8 +1030,6 @@ parse_ipsec()
 	    warning "FW_IPSEC_TRUST: $FW_IPSEC_TRUST is no valid zone"
 	fi
     fi
-
-    [ -n "$ipsec_chain" ] && IPSEC_MATCH="-m policy --dir in --pol ipsec --proto esp"
 }
 
 allow_ipsec()
@@ -1553,6 +1551,7 @@ forwarding_rules()
 	port="$4"
 	flags="$5"
 	rport=""
+	more_args=
 
 	case "$flags" in
 	    "") ;;
