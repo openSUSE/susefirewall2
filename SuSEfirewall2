@@ -288,11 +288,24 @@ export LANG=en_US
 
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 
+modinfo="/sbin/modinfo"
 TC="/usr/sbin/tc"
 if [ "$MODE" = debug ]; then
-    IPTABLES="echo iptables"
-    IP6TABLES="echo ip6tables"
-    TC="echo tc"
+    IPTABLES="iptables"
+    iptables()
+    {
+	echo iptables "$@"
+    }
+    IP6TABLES="ip6tables"
+    ip6tables()
+    {
+	echo ip6tables "$@"
+    }
+    TC="tc"
+    tc()
+    {
+	echo tc "$@"
+    }
 elif [ -n "$USE_IPTABLES_BATCH" ]; then
     IPTABLES=iptables
     IP6TABLES=ip6tables
@@ -302,7 +315,7 @@ else
 
     # Do we have a kernel with IPv6 enabled?
     $IP6TABLES -nvL >/dev/null 2>&1 || IP6TABLES=:
-    if ! $IP6TABLES -m state --help >/dev/null 2>&1; then
+    if ! $IP6TABLES -m state --help >/dev/null 2>&1 || ! $modinfo ip6t_state >/dev/null 2>&1; then
 	warning "ip6tables does not support state matching. Extended IPv6 support disabled."
 	IP6TABLES_HAVE_STATE=0
     fi
@@ -315,7 +328,6 @@ SORT="/bin/sort"
 LOGGER="/bin/logger"
 GREP="/bin/grep"
 PERL="/usr/bin/perl"
-modinfo="/sbin/modinfo"
 
 for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
     if [ ! -x "$i" ]; then
@@ -561,9 +573,13 @@ function set_basic_rules()
     $IP6TABLES -t mangle -F
     $IP6TABLES -t mangle -X
     $IP6TABLES -N reject_func
-    $IP6TABLES -A reject_func -p tcp -j REJECT --reject-with tcp-reset
-    $IP6TABLES -A reject_func -p udp -j REJECT --reject-with port-unreach
-    $IP6TABLES -A reject_func        -j REJECT --reject-with addr-unreach # know anything better?
+    if [ "$IP6TABLES_HAVE_REJECT" != 1 ]; then
+	$IP6TABLES -A reject_func -j DROP
+    else
+	$IP6TABLES -A reject_func -p tcp -j REJECT --reject-with tcp-reset
+	$IP6TABLES -A reject_func -p udp -j REJECT --reject-with port-unreach
+	$IP6TABLES -A reject_func        -j REJECT --reject-with addr-unreach # know anything better?
+    fi
 
     # loopback is always allowed
     $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo
