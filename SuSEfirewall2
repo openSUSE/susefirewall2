@@ -604,10 +604,19 @@ function set_basic_rules()
     # needed for dhcp and dns replies
     local iptables
     for iptables in "$IPTABLES" "$IP6TABLES"; do
-	    $LAA $iptables -A INPUT -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state RELATED -p tcp
-	    $LAA $iptables -A INPUT -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state RELATED -p udp
+	    $LAA $iptables -A INPUT -j LOG ${LOG}"-IN-ACC-RELATED " -m state --state RELATED -p tcp
+	    $LAA $iptables -A INPUT -j LOG ${LOG}"-IN-ACC-RELATED " -m state --state RELATED -p udp
 	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp
 	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p udp
+
+	    # if two hosts have a tcp connection on fixed ports and
+	    # one of the hosts crashes it will send a SYN to the
+	    # peer if it comes back up. The peer sends back ACK as
+	    # it thinks there is already a connection established.
+	    # This ACK is INVALID and must be answered with RST
+	    # otherwise long timeouts may occur (#46818).
+	    $LDA $iptables -A INPUT -j LOG ${LOG}"-IN-REJECT-ACK " -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
+	    $iptables -A INPUT -j "$REJECT" -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
     done
 }
 
@@ -2029,28 +2038,14 @@ drop_all()
 	    done
 	    $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p udp
 	    $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p udp
+	    $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
+	    $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
 	fi
 	# log anything else
 	$LDA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT "
 	$IPTABLES -A $chain -j "$DROP"
 	$LDA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT "
 	$IP6TABLES -A $chain -j "$DROP"
-    done
-}
-
-# hard drop rule for invalid
-# ipv4 and ipv6
-drop_invalid()
-{
-    local iptables
-    local chain
-    local chains="input_ext input_dmz input_int"
-    [ "$FW_ROUTE" = yes ] && chains="$chains forward_ext forward_dmz forward_int"
-    for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for chain in $chains; do
-	    $LDAC $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
-	    $iptables -A $chain -j DROP -m state --state INVALID
-	done
     done
 }
 
@@ -2099,10 +2094,6 @@ fork_to_chains
 antispoof_per_interface
 
 allow_icmp
-
-# invalid after icmp otherwise icmpv6 Neighbor Solicitation (type 135) get
-# dropped
-drop_invalid
 
 # HOOK
 fw_custom_before_port_handling
