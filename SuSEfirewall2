@@ -148,7 +148,6 @@ need()
 
 SCRIPTSDIR="/etc/sysconfig/scripts"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
-PERSFWCONFIG="/etc/sysconfig/personal-firewall"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
 BOOTLOCKFILE="/var/lock/SuSEfirewall2.booting"
 FW_CUSTOMRULES=""
