@@ -16,7 +16,6 @@ allfiles=SuSEfirewall2_final \
 	$(SCRIPTS) \
 	SuSEfirewall2-custom.sysconfig \
 	SuSEfirewall2 \
-	sysconfig-personal-firewall \
 	SuSEfirewall2.sysconfig \
 	SuSEfirewall2.update-message \
 	Makefile \
