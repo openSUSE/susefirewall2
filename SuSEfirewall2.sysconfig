@@ -547,10 +547,10 @@ FW_FORWARD=""
 #
 # Examples: - "4.0.0.0/8,10.0.0.10,tcp,80" forward all tcp request on
 #             port 80 coming from the 4.0.0.0/8 network to the
-#             internal server 1.1.1.1
+#             internal server 10.10.0.10
 #           - "4.0.0.0/8,10.0.0.10,tcp,80,81" forward all tcp request on
 #             port 80 coming from the 4.0.0.0/8 network to the
-#             internal server 1.1.1.1 on port 81
+#             internal server 10.10.0.10 on port 81
 #           - "200.200.200.0/24,10.0.0.10,tcp,80,81,202.202.202.202"
 #             the network 200.200.200.0/24 trying to access the
 #             address 202.202.202.202 on port 80 will be forwarded
