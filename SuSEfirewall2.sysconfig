@@ -216,13 +216,16 @@ FW_MASQ_DEV="$FW_DEV_EXT"
 # directly (not via proxys on the firewall)?
 # Only these networks will be allowed access and will be masqueraded!
 #
+# Format: <source network>[,<destination network>,<protocol>[,port[:port]]
+#  If the protocol is icmp then port is interpreted as icmp type
+#
 # Choice: leave empty or any number of hosts/networks seperated by a space.
 # Every host/network may get a list of allowed services, otherwise everything
 # is allowed. A target network, protocol and service is appended by a comma to
 # the host/network. e.g. "10.0.0.0/8" allows the whole 10.0.0.0 network with
-# unrestricted access. "10.0.1.0/24,0/0,tcp,80 10.0.1.0/24,0/0tcp,21" allows
+# unrestricted access. "10.0.1.0/24,0/0,tcp,80 10.0.1.0/24,0/0,tcp,21" allows
 # the 10.0.1.0 network to use www/ftp to the internet.
-# "10.0.1.0/24,tcp,1024:65535 10.0.2.0/24" is OK too.
+# "10.0.1.0/24,0/0,tcp,1024:65535 10.0.2.0/24" is OK too.
 # Set this variable to "0/0" to allow unrestricted access to the internet.
 #
 FW_MASQ_NETS=""

@@ -1905,14 +1905,17 @@ test "$FW_ROUTE" = yes && {
 	    NET1=""
     }; }
     test -z "$NET1" -o -z "$NET2" || {
-	test -z "$PROTO" || PROTO="-p $PROTO"
-	test -z "$PORT" || {
-	    test "$PROTO" = icmp || {
-		PORTBACK="--sport $PORT"
-		PORT="--dport $PORT"
-	    }
-	    test "$PROTO" = "-p icmp" && PORT="--icmp-type $PORT"
-	}
+	if [ -n "$PROTO" ]; then
+	    if [ -n "$PORT" ]; then
+		if [ "$PROTO" = "icmp" ]; then
+		    PORT="--icmp-type $PORT"
+		else
+		    PORTBACK="--sport $PORT"
+		    PORT="--dport $PORT"
+		fi
+	    fi
+	    PROTO="-p $PROTO"
+	fi
 	for CHAIN in forward_ext forward_dmz forward_int; do
 	    test "$LAC" = "" -a "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-TRUST "  -s $NET1 -d $NET2 $PROTO $PORT --syn
 	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-TRUST "  -s $NET1 -d $NET2 $PROTO $PORT
@@ -1939,18 +1942,27 @@ test "$FW_ROUTE" = yes && {
 			fi
 		;;
         esac
-        test "$PROTO" = tcp -o "$PROTO" = udp -o -z "$PROTO" || {
-	    echo "Error: The protocol with FW_MASQ_NETS must be tcp, udp or empty-> $NETS"
+        test "$PROTO" = tcp -o "$PROTO" = udp -o "$PROTO" = icmp -o -z "$PROTO" || {
+	    echo "Error: The protocol with FW_MASQ_NETS must be tcp, udp, icmp or empty-> $NETS"
 	    NET1=""
         }
         test -z "$NET1" || {
 	    NET2X=""
-	    test -z "$NET2" || NET2X="-s $NET2"
-	    test -z "$NET2" || NET2="-d $NET2"
+	    NET2=${NET2/\!/\! }
+	    test -z "$NET2" || {
+		NET2X="-s $NET2"
+		NET2="-d $NET2"
+	    }
 	    test -z "$PROTO" || PROTO="-p $PROTO"
             PORTX=""
-	    test -z "$PORT" || PORTX="--sport $PORT"
-	    test -z "$PORT" || PORT="--dport $PORT"
+	    test -z "$PORT" || {
+		test "$PROTO" = "-p icmp" && {
+		    PORT="--icmp-type $PORT"
+		} || {
+		    PORTX="--sport $PORT"
+		    PORT="--dport $PORT"
+		}
+	    }
 	    for DEV in $FW_MASQ_DEV; do
 		for CHAIN in forward_ext forward_dmz forward_int; do
 		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-MASQ "  -s $NET1 $NET2 $PROTO $PORT -o $DEV
@@ -1960,10 +1972,15 @@ test "$FW_ROUTE" = yes && {
 		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -d $NET1 $NET2X $PROTO $PORTX -i $DEV
 #XXX
 	        done
-		test -z "$PROTO" && \
+		test -z "$PROTO" && {
 		    $IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $NET1 $NET2 -o $DEV
-		test -z "$PROTO" || \
-		    $IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $NET1 $NET2 $PROTO $PORT -o $DEV --to-ports 61000-65095
+		} || {
+		    test "$PROTO" = tcp -o "$PROTO" = udp && {
+			$IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $NET1 $NET2 $PROTO $PORT -o $DEV --to-ports 61000-65095
+		    } || {
+			$IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $NET1 $NET2 $PROTO $PORT -o $DEV
+		    }
+		}
 	    done
 	}
     done
