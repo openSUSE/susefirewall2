@@ -127,9 +127,12 @@ die()
     exit $ret
 }
 
-RPCHELPER="/etc/sysconfig/scripts/SuSEfirewall2-rpcinfo"
-SHOWLOGHELPER="/etc/sysconfig/scripts/SuSEfirewall2-showlog"
-OPENHELPER="/etc/sysconfig/scripts/SuSEfirewall2-open"
+need()
+{
+    . "$SCRIPTSDIR/SuSEfirewall2-$1"
+}
+
+SCRIPTSDIR="/etc/sysconfig/scripts"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
 PERSFWCONFIG="/etc/sysconfig/personal-firewall"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
@@ -148,6 +151,26 @@ MODE="standard"
 INITSCRIPTS="" # on|off
 needconfig=
 needlock=1
+
+getopttmp=`getopt -o h --long help,scriptsdir:,batch,file:,debug,test \
+     -n 'SuSEfirewall2' -- "$@"`
+
+[ $? != 0 ] && die 1 "getopt error"
+
+eval set -- "$getopttmp"
+
+while true ; do
+        case "$1" in
+		--file) FWCONFIG="$2"; shift 2 ;;
+		--batch) USE_IPTABLES_BATCH=1; shift ;;
+                --scriptsdir) SCRIPTSDIR="$2" ; shift 2 ;;
+                --test) MODE="test" ; shift ;;
+                --debug) MODE="debug"; needlock=0 ; shift ;;
+                -h|--help) help ; shift ;;
+                --) shift ; break ;;
+                *) die 1 "getopt error"; ;;
+        esac
+done
 
 case "$1" in
     start|"") needconfig=1 ;;
@@ -187,99 +210,9 @@ elif [ -n "$needconfig" ]; then
     die 6 " Can not read $FWCONFIG"
 fi
 
-# SuSEpersonal-firewall legacy support. Allow for a single-variable configuration,
-# according to /etc/sysconfig/personal-firewall.
-if [ -e "$PERSFWCONFIG" ]; then
-    REJECT_ALL_INCOMING_CONNECTIONS=`. "$PERSFWCONFIG" && echo "$REJECT_ALL_INCOMING_CONNECTIONS"`
-
-    [ -z "$REJECT_ALL_INCOMING_CONNECTIONS" ] && REJECT_ALL_INCOMING_CONNECTIONS="no"
-
-    if [ "$REJECT_ALL_INCOMING_CONNECTIONS" != "no" ]; then
-	# values for REJECT_ALL_INCOMING_CONNECTIONS override settings
-	# for SuSEfirewall2 from $FWCONFIG
-	# first check if "modem" is selected, and provide wildcard "ppp+"
-	# also check if we should do masquerading.
-	RAIC=""
-	for iname in $REJECT_ALL_INCOMING_CONNECTIONS; do
-	    case "$iname" in
-		masq|MASQ)
-		    PFW_MASQ=yes
-		    ;;
-		modem)
-		    RAIC="$RAIC ppp+"
-		    PFW_HAVE_IFACE=yes
-		    ;;
-		all|ALL) # not supported any more. We need a list.
-		    {
-		    echo "You have set \$REJECT_ALL_INCOMING_CONNECTIONS to the"
-		    echo "value \"all\". This is not supported any more."
-		    echo "Please provide interface names in a space-seperated"
-		    echo "list in /etc/sysconfig/personal-firewall or go through"
-		    echo "the configuration of SuSEfirewall2 (the file is"
-		    echo "/etc/sysconfig/SuSEfirewall2)."
-		    } | logger -s -t "SuSEfirewall2" -p err 
-		    exit 1
-		    ;;
-		*)
-		    RAIC="$RAIC $iname"
-		    PFW_HAVE_IFACE=yes
-		    ;;
-	    esac
-	done
-	REJECT_ALL_INCOMING_CONNECTIONS="$RAIC"
-
-	# we have an interface, unless only "masq" is stated. Use the default route iface.
-	if [ "$PFW_HAVE_IFACE" = "" ]; then
-	    FW_DEV_EXT=`/sbin/ip route show | /bin/awk '/^default / { print $5 ;} { next; }'`
-	else
-	    FW_DEV_EXT="$REJECT_ALL_INCOMING_CONNECTIONS"
-	fi
-	if [ "$PFW_MASQ" = yes ]; then
-	    FW_MASQ_DEV="$FW_DEV_EXT"
-	else
-	    FW_MASQ_DEV=""
-	fi
-
-	FW_QUICKMODE=yes
-    fi
-fi
-
 if [ -n "$USE_IPTABLES_BATCH" ]; then
-	IPTABLES_BATCH=`type -p iptables-batch`
-	IP6TABLES_BATCH=`type -p ip6tables-batch`
-	if [ -z "$IPTABLES_BATCH" ]; then
-		echo "iptables-batch missing, batch support disabled."
-		USE_IPTABLES_BATCH=""
-	elif [ -z "$IP6TABLES_BATCH" ]; then
-		echo "ip6tables-batch missing, batch support disabled."
-		USE_IPTABLES_BATCH=""
-	fi
-fi
-
-# override iptables calls with shell function if in batch mode
-if [ -n "$USE_IPTABLES_BATCH" ]; then
-	iptables_batchfile=`mktemp -t SuSEfirewall2_iptables.XXXXXXXX` || exit 1
-	removeonexit "$iptables_batchfile"
-	exec 4> "$iptables_batchfile"
-	echo "#!$IPTABLES_BATCH" >&4
-	iptables()
-	{
-		local i
-		echo -n "iptables" >&4
-		for i in "$@"; do echo -n " \"$i\""; done >&4
-		echo >&4
-	}
-	ip6tables_batchfile=`mktemp -t SuSEfirewall2_ip6tables.XXXXXXXX` || exit 1
-	removeonexit "$ip6tables_batchfile"
-	exec 6> "$ip6tables_batchfile"
-	echo "#!$IP6TABLES_BATCH" >&6
-	ip6tables()
-	{
-		local i
-		echo -n "ip6tables" >&6
-		for i in "$@"; do echo -n " \"$i\""; done >&6
-		echo >&6
-	}
+    need batch
+    check_iptables_batch
 fi
 
 ### Definitions - fixed
@@ -305,6 +238,10 @@ if [ "$MODE" = debug ]; then
     tc()
     {
 	echo tc "$@"
+    }
+    modprobe()
+    {
+	echo modprobe "$@"
     }
 elif [ -n "$USE_IPTABLES_BATCH" ]; then
     IPTABLES=iptables
@@ -335,87 +272,85 @@ for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
     fi
 done
 
-
-###############
-
-
-if [ "$ACTION" = "showlog" ]; then
-    $PERL $SHOWLOGHELPER "$@"
-    exit $?
-fi
-
-###############
-
-if [ -z "$FW_LOG_LIMIT" ]; then
-    FW_LOG_LIMIT="-m limit --limit 3/minute"
-elif [ "$FW_LOG_LIMIT" = 'no' ]; then
-    FW_LOG_LIMIT=''
-else
-    FW_LOG_LIMIT="-m limit --limit $FW_LOG_LIMIT"
-fi
-
-### logging setup
-if [ -z "$FW_LOG" ]; then
-    LOG='--log-level warning --log-tcp-options --log-ip-options --log-prefix SFW2'
-else
-    LOG="$FW_LOG"
-fi
-
-LDC=''  # log drop critical
-LDA=''  # log drop all
-LDAC='' # log drop all or critical
-LAC=''  # log accept critical
-LAA=''  # log accept all
-LAAC='' # log accept all or critical
-LA=''   # log any
-
-# 'critical' will be unset if 'all' is set since 'critical' might be a special case of 'all'.
-
-if [ "$FW_LOG_DROP_ALL" != yes ]; then
-    LDA=":"
-    if [ "$FW_LOG_DROP_CRIT" = no ]; then
-	LDC=":"
-	LDAC=":"
-    fi
-else
-    LDC=':'
-fi
-
-if [ "$FW_LOG_ACCEPT_ALL" != yes ]; then
-    LAA=":"
-    if [ "$FW_LOG_ACCEPT_CRIT" = no ]; then
-	LAC=":"
-	LAAC=":"
-    fi
-else 
-    LAC=':'
-fi
-
-# LDA and LDC are : if logging is disabled so check if empty
-[ -z "$LDA" -o -z "$LDC" -o -z "$LDA" -o -z "$LAA" ] || LA=:
-
-[ "$LAA" = ':' ] && LOG="$FW_LOG_LIMIT $LOG"
-
 ### jump targets
 ACCEPT="ACCEPT"
 DROP="DROP"
 REJECT="reject_func"
 [ "$FW_REJECT" = yes ] && DROP="reject_func"
 
-### ipv6 checks
-case "$FW_IPv6" in
-	drop|reject) IP6TABLES_HAVE_STATE=0 ;;
-	no) IP6TABLES=":" ;;
-	*) FW_IPv6="" ;;
-esac
+###############
 
-$modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
+parse_logging()
+{
+    if [ -z "$FW_LOG_LIMIT" ]; then
+	FW_LOG_LIMIT="-m limit --limit 3/minute"
+    elif [ "$FW_LOG_LIMIT" = 'no' ]; then
+	FW_LOG_LIMIT=''
+    else
+	FW_LOG_LIMIT="-m limit --limit $FW_LOG_LIMIT"
+    fi
 
-if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
-    -a "$IP6TABLES" != ":" -a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
-	warning "Kernel lacks support for IPv6 REJECT target! Using DROP instead."
-	DROP="DROP"
-fi
+    ### logging setup
+    if [ -z "$FW_LOG" ]; then
+	LOG='--log-level warning --log-tcp-options --log-ip-options --log-prefix SFW2'
+    else
+	LOG="$FW_LOG"
+    fi
+
+    LDC=''  # log drop critical
+    LDA=''  # log drop all
+    LDAC='' # log drop all or critical
+    LAC=''  # log accept critical
+    LAA=''  # log accept all
+    LAAC='' # log accept all or critical
+    LA=''   # log any
+
+    # 'critical' will be unset if 'all' is set since 'critical' might be a special case of 'all'.
+    if [ "$FW_LOG_DROP_ALL" != yes ]; then
+	LDA=":"
+	if [ "$FW_LOG_DROP_CRIT" = no ]; then
+	    LDC=":"
+	    LDAC=":"
+	fi
+    else
+	LDC=':'
+    fi
+
+    if [ "$FW_LOG_ACCEPT_ALL" != yes ]; then
+	LAA=":"
+	if [ "$FW_LOG_ACCEPT_CRIT" = no ]; then
+	    LAC=":"
+	    LAAC=":"
+	fi
+    else 
+	LAC=':'
+    fi
+
+    # LDA and LDC are : if logging is disabled so check if empty
+    [ -z "$LDA" -o -z "$LDC" -o -z "$LDA" -o -z "$LAA" ] || LA=:
+
+    [ "$LAA" = ':' ] && LOG="$FW_LOG_LIMIT $LOG"
+}
+
+parse_logging
+
+check_ipv6()
+{
+    ### ipv6 checks
+    case "$FW_IPv6" in
+	    drop|reject) IP6TABLES_HAVE_STATE=0 ;;
+	    no) IP6TABLES=":" ;;
+	    *) FW_IPv6="" ;;
+    esac
+
+    $modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
+
+    if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
+	-a "$IP6TABLES" != ":" -a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
+	    warning "Kernel lacks support for IPv6 REJECT target! Using DROP instead."
+	    DROP="DROP"
+    fi
+}
 
 ### Functions
 function setproc()
@@ -838,7 +773,7 @@ auto_detect_interfaces()
 		FW_DEV_INT_AUTO="$*"
 	    ;;
 	esac
-    done < <(/etc/sysconfig/scripts/SuSEfirewall2-autointerface.sh)
+    done < <(/bin/bash $SCRIPTSDIR/SuSEfirewall2-autointerface.sh)
     auto_detect_done=1
 }
 
@@ -860,187 +795,32 @@ auto_detect_all_interfaces()
     fi
 }
 
-### Locking mechanism
-if [ "$needlock" -ne 0 ]; then
-    if [ -e "$LOCKFILE" ]; then
-	read PID < $LOCKFILE
-	syslog 0 "Another SuSEfirewall2 with PID $PID found, waiting ..."
-	i=0
-	while [ -e "$LOCKFILE" -a "$i" -lt 15 ]; do
-	    sleep 2
-	    i=$(( i + 1 ))
-	done
+setlock()
+{
+    ### Locking mechanism
+    if [ "$needlock" -ne 0 ]; then
 	if [ -e "$LOCKFILE" ]; then
-	    syslog 0 "Lockfile is still there, ignoring it ..."
-	    kill -TERM $PID
-	    sleep 2
-	    kill -KILL $PID
-	    rm -f "$LOCKFILE"
+	    read PID < $LOCKFILE
+	    syslog 0 "Another SuSEfirewall2 with PID $PID found, waiting ..."
+	    i=0
+	    while [ -e "$LOCKFILE" -a "$i" -lt 15 ]; do
+		sleep 2
+		i=$(( i + 1 ))
+	    done
+	    if [ -e "$LOCKFILE" ]; then
+		syslog 0 "Lockfile is still there, ignoring it ..."
+		kill -TERM $PID
+		sleep 2
+		kill -KILL $PID
+		rm -f "$LOCKFILE"
+	    fi
 	fi
+	removeonexit "$LOCKFILE"
+	set -o noclobber
+	echo "$$" > $LOCKFILE || exit 1
+	set +o noclobber
     fi
-    removeonexit "$LOCKFILE"
-    set -o noclobber
-    echo "$$" > $LOCKFILE || exit 1
-    set +o noclobber
-fi
-
-if [ "$ACTION" = "basic" ]; then
-    # Reset the filter rules
-    set_basic_rules
-
-    # Setting filter rules
-    # 1. allow anything which is established or related
-    allow_basic_related
-
-    # 2. allow dhcp replies from servers
-    # not needed!?
-    #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
-
-    # 3. allow echo requests
-    $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
-
-    # log incoming tcp connection requests. also logging udp etc would just flood the log
-    $IPTABLES -A INPUT -p tcp -m state --state NEW -j LOG $LOG"-IN-DROP-NEW-CONNECT "
-
-    # reject anything else
-    $IPTABLES -A INPUT -j "$DROP"
-
-    die 0 "Firewall rules successfully set in simple mode"
-fi
-
-if [ "$MODE" = "test" ]; then
-    DROP="ACCEPT"
-    REJECT="ACCEPT"
-    FW_LOG_DROP_ALL=yes
-    FW_LOG_DROP_CRIT=yes
-    FW_LOG_ACCEPT_ALL=no
-    FW_LOG_ACCEPT_CRIT=no
-    warning "SuSEfirewall2 is running in TEST MODE, no packet filtering is done!"
-fi
-	
-if [ "$ACTION" = "stop" ]; then
-    reset_rules
-    handle_initscripts
-    die 0 "Firewall rules unloaded."
-fi
-
-if [ "$ACTION" = "close" ]; then
-    set_basic_rules
-    setproc 0 /proc/sys/net/ipv4/ip_forward
-    allow_basic_related
-    #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
-
-    # XXX should we?
-    #$IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
-    die 0 "Firewall rules set to CLOSE."
-fi
-
-if [ "$ACTION" = "status" ]; then
-    if [ "$UID" != 0 ]; then
-	die 2 "You need to be root to check the status"
-    fi
-    if ! $IPTABLES -nL reject_func >/dev/null 2>&1; then
-	die 1 "SuSEfirewall2 not active"
-    fi
-    echo
-    echo "###### iptables ######"
-    echo
-    # yes we need cat here, while read ... does no work :-(
-    for i in `sort < /proc/net/ip_tables_names`; do
-	echo "### $i ###"
-	$IPTABLES -t $i -vnL
-	echo ""
-    done
-    if [ "$IP6TABLES" != ":" ]; then
-	echo
-	echo "###### ip6tables ######"
-	echo
-	for i in `sort /proc/net/ip6_tables_names`; do
-	    echo "### $i ###"
-	    $IP6TABLES -t $i -vnL
-	    echo ""
-	done
-    fi
-    die 0
-fi
-
-if [ "$ACTION" = "open" ]; then
-    exec perl -w $OPENHELPER "$@"
-    die 1 "failed to execute $OPENHELPER"
-fi
-
-auto_detect_all_interfaces
-
-# process quickmode immediately and skip rest of script
-if [ "$FW_QUICKMODE" = 'yes' ]; then
-    # Reset the filter rules
-    set_basic_rules
-
-    # Setting filter rules
-    # 1. allow anything which is esablished or related
-    allow_basic_related
-
-    # 2. allow dhcp replies from servers
-    #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
-    # 3. allow echo requests
-    $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
-
-    # masquerading part 1
-    if [ -n "$FW_MASQ_DEV" ]; then
-        $IPTABLES -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
-	for i in $FW_MASQ_DEV; do
-	  $IPTABLES -A FORWARD -j "$ACCEPT" -i $i -m state --state ESTABLISHED,RELATED
-	done
-    fi
-
-    # New chain for external input
-    $IPTABLES -N input_ext
-    $IPTABLES -A input_ext -j "$REJECT"
-    # log incoming tcp connection requests
-    $IPTABLES -I input_ext 1 -p tcp -m state --state NEW -j LOG $LOG"-INext-DROP-NEW-CONNECT "
-
-    # now reject everything which is entering through insecure interfaces
-    for i in $FW_DEV_EXT; do
-	$IPTABLES -A INPUT -i $i -j input_ext
-	$IPTABLES -A FORWARD -i $i -j "$REJECT"
-    done
-    
-    # Apply settings from FW_SERVICE_QUICK_*
-    # Note that we push the rules to the head of the chain; therefore the reversed order
-    # UDP Stuff #
-    for PORT in $FW_SERVICES_QUICK_UDP; do
-	$IPTABLES -I input_ext 1 -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p udp --dport $PORT
-    done
-    # If port 113 (auth/identd) will not allowed below, outgoing mail would
-    # be delayed most of the time. Hence we put a hardcoded reject line in.
-    $IPTABLES -I input_ext 1 -j "$REJECT" -p tcp --dport 113 -m state --state NEW
-    # TCP Stuff #
-    for PORT in $FW_SERVICES_QUICK_TCP; do
-	$IPTABLES -I input_ext 1 -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport $PORT
-    done
-    # IP Stuff #
-    for PROTO in $FW_SERVICES_QUICK_IP; do
-	$IPTABLES -I input_ext 1 -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p $PROTO
-    done 
-
-    # masquerading part 2
-    if [ -n "$FW_MASQ_DEV" ]; then
-	for i in $FW_MASQ_DEV; do
-            $IPTABLES -A FORWARD -j "$ACCEPT" -o $i
-            $IPTABLES -A POSTROUTING -j MASQUERADE -t nat -o $i
-	done
-	echo 1 > /proc/sys/net/ipv4/ip_forward
-	EXTRA=" plus masquerading"
-    fi
-
-    # Optimise your TCP/UDP connections by setting IP Options!
-    apply_tos_settings
-    do_qdisc_settings
-
-    $IPTABLES -A OUTPUT -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED
-
-    die 0 "Firewall rules successfully set in QUICKMODE for device(s) \"$FW_DEV_EXT\"$EXTRA"
-fi
+}
 
 ##
 ## function definitions for full featured mode
@@ -1586,7 +1366,7 @@ process_trusted_nets()
 rpcservicerules()
 {
 	[ -z "$1" ] && return
-	$PERL $RPCHELPER "$@"
+	$PERL "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@"
 }
 
 # parameters: int|ext|dmz REJECT|DROP INT|EXT|DMZ
@@ -2055,6 +1835,105 @@ drop_all()
 #                                          #
 ############################################
 
+if [ "$ACTION" = "showlog" ]; then
+    exec $PERL "$SCRIPTSDIR/SuSEfirewall2-showlog" "$@"
+    die 1 "failed to execute $SCRIPTSDIR/SuSEfirewall2-showlog"
+fi
+
+###############
+
+setlock
+
+if [ "$ACTION" = "basic" ]; then
+    # Reset the filter rules
+    set_basic_rules
+
+    # Setting filter rules
+    # 1. allow anything which is established or related
+    allow_basic_related
+
+    # 2. allow dhcp replies from servers
+    # not needed!?
+    #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
+
+    # 3. allow echo requests
+    $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
+
+    # log incoming tcp connection requests. also logging udp etc would just flood the log
+    $IPTABLES -A INPUT -p tcp -m state --state NEW -j LOG $LOG"-IN-DROP-NEW-CONNECT "
+
+    # reject anything else
+    $IPTABLES -A INPUT -j "$DROP"
+
+    die 0 "Firewall rules successfully set in simple mode"
+fi
+
+if [ "$MODE" = "test" ]; then
+    DROP="ACCEPT"
+    REJECT="ACCEPT"
+    FW_LOG_DROP_ALL=yes
+    FW_LOG_DROP_CRIT=yes
+    FW_LOG_ACCEPT_ALL=no
+    FW_LOG_ACCEPT_CRIT=no
+    warning "SuSEfirewall2 is running in TEST MODE, no packet filtering is done!"
+fi
+	
+if [ "$ACTION" = "stop" ]; then
+    reset_rules
+    handle_initscripts
+    die 0 "Firewall rules unloaded."
+fi
+
+if [ "$ACTION" = "close" ]; then
+    set_basic_rules
+    setproc 0 /proc/sys/net/ipv4/ip_forward
+    allow_basic_related
+    #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
+
+    # XXX should we?
+    #$IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
+    die 0 "Firewall rules set to CLOSE."
+fi
+
+if [ "$ACTION" = "status" ]; then
+    if [ "$UID" != 0 ]; then
+	die 2 "You need to be root to check the status"
+    fi
+    if ! $IPTABLES -nL reject_func >/dev/null 2>&1; then
+	die 1 "SuSEfirewall2 not active"
+    fi
+    echo
+    echo "###### iptables ######"
+    echo
+    # yes we need cat here, while read ... does no work :-(
+    for i in `sort < /proc/net/ip_tables_names`; do
+	echo "### $i ###"
+	$IPTABLES -t $i -vnL
+	echo ""
+    done
+    if [ "$IP6TABLES" != ":" ]; then
+	echo
+	echo "###### ip6tables ######"
+	echo
+	for i in `sort /proc/net/ip6_tables_names`; do
+	    echo "### $i ###"
+	    $IP6TABLES -t $i -vnL
+	    echo ""
+	done
+    fi
+    die 0
+fi
+
+if [ "$ACTION" = "open" ]; then
+    OPENHELPER="$SCRIPTSDIR/SuSEfirewall2-open"
+    exec $PERL -w $OPENHELPER "$@"
+    die 1 "failed to execute $OPENHELPER"
+fi
+
+### main mode ###
+
+auto_detect_all_interfaces
+
 parse_interfaces
 load_customrules
 
@@ -2169,10 +2048,7 @@ finish_chains
 # Optimisation Rules
 apply_tos_settings
 
-if [ -n "$USE_IPTABLES_BATCH" ]; then
-    iptables-batch "$iptables_batchfile"
-    ip6tables-batch "$ip6tables_batchfile"
-fi
+[ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
 
 # HTB settings
 [ -n "$FW_HTB_TUNE_DEV" ] && do_qdisc_settings

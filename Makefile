@@ -2,16 +2,18 @@ VERSION=3.2
 NAME=SuSEfirewall2
 NVER=$(NAME)-$(VERSION)
 ARCHIVE=$(NVER).tar.bz2
+SCRIPTS=SuSEfirewall2-batch \
+	SuSEfirewall2-open \
+	SuSEfirewall2-showlog \
+	SuSEfirewall2-rpcinfo \
+	SuSEfirewall2-autointerface.sh 
 
 DESTDIR=
 
 allfiles=SuSEfirewall2_final \
 	SuSEfirewall2_init \
 	SuSEfirewall2_setup \
-	SuSEfirewall2-autointerface.sh \
-	SuSEfirewall2-rpcinfo \
-	SuSEfirewall2-showlog \
-	SuSEfirewall2-open \
+	$(SCRIPTS) \
 	SuSEfirewall2-custom.sysconfig \
 	SuSEfirewall2 \
 	sysconfig-personal-firewall \
@@ -44,10 +46,9 @@ install:
 	install -m 755 SuSEfirewall2_final $(DESTDIR)/etc/init.d
 	rm -f $(DESTDIR)/sbin/rcSuSEfirewall2
 	ln -s /etc/init.d/SuSEfirewall2_setup $(DESTDIR)/sbin/rcSuSEfirewall2
-	install -m 755 SuSEfirewall2-autointerface.sh $(DESTDIR)/etc/sysconfig/scripts
-	install -m 644 SuSEfirewall2-rpcinfo $(DESTDIR)/etc/sysconfig/scripts
-	install -m 644 SuSEfirewall2-showlog $(DESTDIR)/etc/sysconfig/scripts
-	install -m 644 SuSEfirewall2-open $(DESTDIR)/etc/sysconfig/scripts
+	for i in $(SCRIPTS); do \
+		install -m 644 $$i $(DESTDIR)/etc/sysconfig/scripts \
+	done \
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 
 clean:

@@ -1,0 +1,69 @@
+#!/bin/bash
+# SuSEfirewall2-batch - batchmode support functions
+# Copyright (C) 2004 SUSE LINUX Products GmbH
+#
+# Author:     Ludwig Nussel
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# version 2 as published by the Free Software Foundation.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+check_iptables_batch()
+{
+    if [ -n "$USE_IPTABLES_BATCH" ]; then
+	    IPTABLES_BATCH=`type -p iptables-batch`
+	    IP6TABLES_BATCH=`type -p ip6tables-batch`
+	    if [ -z "$IPTABLES_BATCH" ]; then
+		    echo "iptables-batch missing, batch support disabled."
+		    USE_IPTABLES_BATCH=""
+	    elif [ -z "$IP6TABLES_BATCH" ]; then
+		    echo "ip6tables-batch missing, batch support disabled."
+		    USE_IPTABLES_BATCH=""
+	    fi
+    fi
+
+    # override iptables calls with shell function if in batch mode
+    if [ -n "$USE_IPTABLES_BATCH" ]; then
+	    iptables_batchfile=`mktemp -t SuSEfirewall2_iptables.XXXXXXXX` || exit 1
+	    removeonexit "$iptables_batchfile"
+	    exec 4> "$iptables_batchfile"
+	    echo "#!$IPTABLES_BATCH" >&4
+	    iptables()
+	    {
+		    local i
+		    echo -n "iptables" >&4
+		    for i in "$@"; do echo -n " \"$i\""; done >&4
+		    echo >&4
+	    }
+	    ip6tables_batchfile=`mktemp -t SuSEfirewall2_ip6tables.XXXXXXXX` || exit 1
+	    removeonexit "$ip6tables_batchfile"
+	    exec 6> "$ip6tables_batchfile"
+	    echo "#!$IP6TABLES_BATCH" >&6
+	    ip6tables()
+	    {
+		    local i
+		    echo -n "ip6tables" >&6
+		    for i in "$@"; do echo -n " \"$i\""; done >&6
+		    echo >&6
+	    }
+    fi
+}
+
+commit_iptables_batch()
+{
+    if [ -n "$USE_IPTABLES_BATCH" ]; then
+	iptables-batch "$iptables_batchfile"
+	ip6tables-batch "$ip6tables_batchfile"
+    fi
+}
+
+# vim: sw=4
