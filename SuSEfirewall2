@@ -921,60 +921,11 @@ create_chains()
 
 ### handling of broadcasts ###
 
-# backward compat
-parse_broadcast()
+check_convert_old_broadcast()
 {
-    local i zone
-
-    if [ -n "$FW_ALLOW_FW_BROADCAST" ]; then
-	for i in $FW_ALLOW_FW_BROADCAST; do
-	    case "$i" in
-		no) ;;
-		yes)
-		    warning "FW_ALLOW_FW_BROADCAST=yes is deprecated, use FW_ALLOW_FW_BROADCAST_{INT,EXT,DMZ}=yes instead"
-		    for zone in $all_zones; do
-			eval FW_ALLOW_FW_BROADCAST_`cibiz $zone`=yes
-		    done
-		    ;;
-		int|ext|dmz)
-			warning "FW_ALLOW_FW_BROADCAST=$i is deprecated, use FW_ALLOW_FW_BROADCAST_`cibiz $i`=yes instead"
-			eval FW_ALLOW_FW_BROADCAST_`cibiz $i`=yes
-		    ;;
-		*)
-		    warning "FW_ALLOW_FW_BROADCAST=$i is deprecated, use FW_ALLOW_FW_BROADCAST_{INT,EXT,DMZ}=$i instead"
-		    for zone in $all_zones; do
-			eval FW_ALLOW_FW_BROADCAST_`cibiz $zone`="$i"
-		    done
-		    ;;
-	    esac
-	done
-	unset FW_ALLOW_FW_BROADCAST
-    fi
-
-    if [ -n "$FW_IGNORE_FW_BROADCAST" ]; then
-	# backward compat
-	for i in $FW_IGNORE_FW_BROADCAST; do
-	    case "$i" in
-		no) ;;
-		yes)
-		    warning "FW_IGNORE_FW_BROADCAST=yes is deprecated, use FW_IGNORE_FW_BROADCAST_{INT,EXT,DMZ}=yes instead"
-		    for zone in $all_zones; do
-			eval FW_IGNORE_FW_BROADCAST_`cibiz $zone`=yes
-		    done
-		    ;;
-		int|ext|dmz)
-			warning "FW_IGNORE_FW_BROADCAST=$i is deprecated, use FW_IGNORE_FW_BROADCAST_`cibiz $i`=yes instead"
-			eval FW_IGNORE_FW_BROADCAST_`cibiz $i`=yes
-		    ;;
-		*)
-		    warning "FW_IGNORE_FW_BROADCAST=$i is deprecated, use FW_IGNORE_FW_BROADCAST_{INT,EXT,DMZ}=$i instead"
-		    for zone in $all_zones; do
-			eval FW_IGNORE_FW_BROADCAST_`cibiz $zone`="$i"
-		    done
-		    ;;
-	    esac
-	done
-	unset FW_IGNORE_FW_BROADCAST
+    if [ -n "$FW_ALLOW_FW_BROADCAST" -o -n "$FW_IGNORE_FW_BROADCAST" ]; then
+	need oldbroadcast
+	convert_old_broadcast
     fi
 }
 
@@ -1891,7 +1842,7 @@ fw_custom_after_antispoofing
 
 protect_from_internal
 
-parse_broadcast
+check_convert_old_broadcast
 
 drop_broadcast
 

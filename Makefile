@@ -8,6 +8,7 @@ SCRIPTS=SuSEfirewall2-batch \
 	SuSEfirewall2-rpcinfo \
 	SuSEfirewall2-bashhash \
 	SuSEfirewall2-qdisc \
+	SuSEfirewall2-oldbroadcast \
 	SuSEfirewall2-autointerface.sh 
 
 DESTDIR=
@@ -20,6 +21,7 @@ allfiles= \
 	SuSEfirewall2 \
 	SuSEfirewall2.sysconfig \
 	SuSEfirewall2.update-message \
+	SuSEfirewall2.update-message.broadcast \
 	Makefile \
 	EXAMPLES \
 	FAQ \
