@@ -1663,8 +1663,6 @@ forward_masquerading_rules()
 	port2="$5"
 	lip="$6"
 
-#	test -z "$lip" && lip="$DEV_ext"
-
 	case "$net2" in
 	    */*|'')
 		error "target must be a single host in FW_FORWARD_MASQ -> $nets"
