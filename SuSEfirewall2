@@ -1185,7 +1185,7 @@ finish_chains()
 # Protect the firewall from the internal network? #
 protect_from_internal()
 {
-    local iptables chain
+    local iptables chain newzones
     for chain in $input_zones; do
 
 	if [ "$chain" = "int" -a "$FW_PROTECT_FROM_INTERNAL" = "no" ]; then
@@ -1196,16 +1196,23 @@ protect_from_internal()
 	    eval val="\"\$$var\""
 	fi
 
-	[ -z "$val" -o "$val" != no ] && continue
-
-	eval devs="\$FW_DEV_$zone"
-
-	chain=input_$chain
-	for iptables in "$IPTABLES" "$IP6TABLES"; do
-	    $LAA $iptables -A $chain -j LOG ${LOG}"-INint-ACC-ALL-INT " 
-	    $iptables -A $chain -j "$ACCEPT"
-	done
+	if [ -z "$val" -o "$val" != no ]; then
+	    if [ -z "$newzones" ]; then
+		newzones="$chain"
+	    else
+		newzones="$newzones $chain"
+	    fi
+	else
+	    eval devs="\$FW_DEV_$zone"
+	    chain=input_$chain
+	    for iptables in "$IPTABLES" "$IP6TABLES"; do
+		$LAA $iptables -A $chain -j LOG ${LOG}"-INint-ACC-ALL-INT " 
+		$iptables -A $chain -j "$ACCEPT"
+	    done
+	fi
     done
+
+    [ "$input_zones" != "$newzones" ] && input_zones="$newzones"
 }
 
 # ICMP stuff
