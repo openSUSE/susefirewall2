@@ -295,6 +295,17 @@ input_dmz_zones="$dmz_zones"
 input_ext_zones="$ext_zones"
 input_all_zones="$input_int_zones $input_ext_zones $input_dmz_zones"
 
+# convert if built in zone, eg ext -> EXT
+cibiz()
+{
+    case $1 in
+	int) echo INT ;;
+	ext) echo EXT ;;
+	dmz) echo DMZ ;;
+	*)   echo "$1" ;;
+    esac
+}
+
 ###############
 
 parse_logging()
@@ -1320,38 +1331,42 @@ rpcservicerules()
 	$PERL "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@"
 }
 
-# parameters: int|ext|dmz REJECT|DROP INT|EXT|DMZ
+# parameters: REJECT|DROP
 reject_or_drop_services()
 {
-    local chain="input_$1"
-    local action="$2"
-    local var="FW_SERVICES_${action}_$3"
+    local action="$1"
+    local var
     local services target service proto net port
-    local iptables
+    local iptables zone chain
 
     eval target=\$$action
-    eval services=\"\$$var\"
 
-    for service in $services; do
-	IFS=, eval set -- \$service
-	if [ "$#" -ne 3 ]; then
-	    error "too few parameters in $var -> $service"
-	    continue
-	fi
+    for zone in $input_all_zones; do
+	chain=input_$zone
+	var="FW_SERVICES_${action}_`cibiz $zone`"
+	eval services="\"\$$var\""
 
-	net="${1:-0/0}"
-	iptables="$IPTABLES $IP6TABLES"
-	case "$net" in
-	    *:*) iptables="$IP6TABLES" ;;
-	    [0-9]*.*.*.*) iptables="$IPTABLES" ;;
-	esac
+	for service in $services; do
+	    IFS=, eval set -- \$service
+	    if [ "$#" -ne 3 ]; then
+		error "too few parameters in $var -> $service"
+		continue
+	    fi
 
-	if check_proto_port "$2" "$3" "$var"; then
-	    for iptables in $iptables; do
-		$LDA $iptables -A $chain -s $net $proto $port -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
-		$iptables -A $chain -s $net $proto $port -m state --state NEW -j "$target"
-	    done
-	fi
+	    net="${1:-0/0}"
+	    iptables="$IPTABLES $IP6TABLES"
+	    case "$net" in
+		*:*) iptables="$IP6TABLES" ;;
+		[0-9]*.*.*.*) iptables="$IPTABLES" ;;
+	    esac
+
+	    if check_proto_port "$2" "$3" "$var"; then
+		for iptables in $iptables; do
+		    $LDA $iptables -A $chain -s $net $proto $port -m state --state NEW -j LOG ${LOG}"-`rulelog $chain`-$action "
+		    $iptables -A $chain -s $net $proto $port -m state --state NEW -j "$target"
+		done
+	    fi
+	done
     done
 }
 
@@ -1385,39 +1400,47 @@ allow_tcp_highports()
 
 allow_rpc_services()
 {
-    local chain="input_$1"
-    shift
-    rpcservicerules $* | while read ARG; do
-	$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " -m state --state NEW $ARG
-	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
-	$IPTABLES -A $chain -j "$ACCEPT" $ARG
+    local zone chain ports
+    for zone in $input_all_zones; do
+	chain=input_$zone
+	eval ports="\$FW_SERVICES_`cibiz $zone`_RPC"
+	rpcservicerules $ports | while read ARG; do
+	    $LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " -m state --state NEW $ARG
+	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
+	    $IPTABLES -A $chain -j "$ACCEPT" $ARG
+	done
     done
 }
 
 allow_ip_services()
 {
-    local iptables
-    local chain="input_$1"
-    shift
-    for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for PROTO in $*; do
-	    $LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-IP " -p $PROTO
-	    $iptables -A $chain -j "$ACCEPT" -p $PROTO
+    local proto zone iptables protos
+
+    for zone in $input_all_zones; do
+	chain=input_$zone
+	eval protos="\$FW_SERVICES_`cibiz $zone`_IP"
+	for iptables in "$IPTABLES" "$IP6TABLES"; do
+	    for proto in $protos; do
+		$LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-IP " -p $proto
+		$iptables -A $chain -j "$ACCEPT" -p $proto
+	    done
 	done
     done
 }
 
 allow_tcp_services()
 {
-    local port
-    local iptables
-    local chain="input_$1"
-    shift
-    for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for port in $*; do
-	    $LAC $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port --syn
-	    $LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port
-	    $iptables -A $chain -j "$ACCEPT" -p tcp --dport $port
+    local port zone iptables ports
+
+    for zone in $input_all_zones; do
+	chain=input_$zone
+	eval ports="\$FW_SERVICES_`cibiz $zone`_TCP"
+	for iptables in "$IPTABLES" "$IP6TABLES"; do
+	    for port in $ports; do
+		$LAC $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port --syn
+		$LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TCP " -p tcp --dport $port
+		$iptables -A $chain -j "$ACCEPT" -p tcp --dport $port
+	    done
 	done
     done
 }
@@ -1425,14 +1448,16 @@ allow_tcp_services()
 # UDP Stuff
 allow_udp_services()
 {
-    local port
-    local iptables
-    local chain="input_$1"
-    shift
-    for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for port in $*; do
-	    $LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-UDP " -p udp --dport $port
-	    $iptables -A $chain -j "$ACCEPT" -p udp --dport $port
+    local port zone iptables ports
+
+    for zone in $input_all_zones; do
+	chain=input_$zone
+	eval ports="\$FW_SERVICES_`cibiz $zone`_UDP"
+	for iptables in "$IPTABLES" "$IP6TABLES"; do
+	    for port in $ports; do
+		$LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-UDP " -p udp --dport $port
+		$iptables -A $chain -j "$ACCEPT" -p udp --dport $port
+	    done
 	done
     done
 }
@@ -1852,31 +1877,19 @@ fw_custom_before_port_handling
 
 process_trusted_nets
 
-allow_ip_services ext $FW_SERVICES_EXT_IP
-allow_ip_services int $FW_SERVICES_INT_IP
-allow_ip_services dmz $FW_SERVICES_DMZ_IP
+allow_ip_services
 
-allow_tcp_services ext $FW_SERVICES_EXT_TCP
-allow_tcp_services int $FW_SERVICES_INT_TCP
-allow_tcp_services dmz $FW_SERVICES_DMZ_TCP
+allow_tcp_services
 
-allow_rpc_services ext $FW_SERVICES_EXT_RPC
-allow_rpc_services int $FW_SERVICES_INT_RPC
-allow_rpc_services dmz $FW_SERVICES_DMZ_RPC
+allow_rpc_services
 
-reject_or_drop_services int DROP INT
-reject_or_drop_services ext DROP EXT
-reject_or_drop_services dmz DROP DMZ
+reject_or_drop_services DROP
 
-reject_or_drop_services int REJECT INT
-reject_or_drop_services ext REJECT EXT
-reject_or_drop_services dmz REJECT DMZ
+reject_or_drop_services REJECT
 
 allow_tcp_highports
 
-allow_udp_services ext $FW_SERVICES_EXT_UDP
-allow_udp_services int $FW_SERVICES_INT_UDP
-allow_udp_services dmz $FW_SERVICES_DMZ_UDP
+allow_udp_services
 
 allow_highports_udp
 
