@@ -509,6 +509,9 @@ test "$FW_QUICKMODE" = yes && {
     test -z "$FW_MASQ_DEV" || {
 	$IPTABLES -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED -p udp --dport 61000:65095
         $IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+	for i in $FW_MASQ_DEV; do
+	  $IPTABLES -A FORWARD -j "$ACCEPT" -i $i -m state --state ESTABLISHED,RELATED
+	done
     }
 
     # New chain for external input
