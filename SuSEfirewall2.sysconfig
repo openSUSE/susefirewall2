@@ -372,6 +372,10 @@ FW_ALLOW_INCOMING_HIGHPORTS_UDP="DNS"
 #
 # Set services you are running to "yes", all others to "no",
 # if not set defaults to "no"
+# If you want to offer the below services to your DMZ as well,
+# (and not just internally), set the switches below to "dmz",
+# if you even want to offer to the world as well, set to "ext"
+# instead of "yes" (NOT RECOMMENDED FOR SECURITY REASONS!)
 #
 FW_SERVICE_AUTODETECT="yes"	# Autodetect the services below when starting
 
@@ -390,8 +394,8 @@ FW_SERVICE_DHCPD="no"
 # tcp port 3128 to allow remote access to the squid proxy service.
 FW_SERVICE_SQUID="no"
 
-# set to "yes" if this server is running a samba server. You still have to open
-# the tcp port 139 to allow remote access to SAMBA.
+# set to "yes" if this server is running a samba server. You still have to 
+# open the tcp port 139 to allow remote access to SAMBA.
 FW_SERVICE_SAMBA="no"
 
 #
