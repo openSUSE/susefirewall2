@@ -469,6 +469,9 @@ FW_SERVICE_SAMBA="no"
 # seperated by a comma. e.g. "1.1.1.1,2.2.2.2 3.3.3.3/16,4.4.4.4/24"
 # Optional is a protocol, seperated by a comma, e.g. "5.5.5.5,6.6.6.6,igmp"
 # Optional is a port after the protocol with a comma, e.g. "0/0,0/0,udp,514"
+# Optinal are flags separated by comma. The only flag currently supported is
+# "ipsec" which means only forward if the packets originate from an IPsec
+# tunnel
 #
 FW_FORWARD=""		# Beware to use this!
 

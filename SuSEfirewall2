@@ -1261,13 +1261,12 @@ case "$FW_IPSEC_TRUST" in
     dmz) ipsec_chain=dmz ;;
 esac
 
+IPSEC_MATCH=
 if [ -n "$ipsec_chain" ]; then
     [ -z "$FW_IPSEC_MARK" ] && FW_IPSEC_MARK="0x1701d"
-    $IPTABLES -A INPUT -j "input_$ipsec_chain" -m mark --mark "$FW_IPSEC_MARK"
-    # this would fail, forward_* contains device names
-    $IPTABLES -A FORWARD -j "forward_$ipsec_chain" -m mark --mark "$FW_IPSEC_MARK"
-    #$LAA $IPTABLES -A FORWARD -j LOG ${LOG}"-FWD$ipsec_chain-ACC-ALL " -m mark --mark "$FW_IPSEC_MARK"
-    #$IPTABLES -A FORWARD -j ACCEPT -m mark --mark "$FW_IPSEC_MARK"
+    IPSEC_MATCH="-m mark --mark $FW_IPSEC_MARK"
+    $IPTABLES -A INPUT -j "input_$ipsec_chain" $IPSEC_MATCH
+    $IPTABLES -A FORWARD -j "forward_$ipsec_chain" $IPSEC_MATCH
     $IPTABLES -A INPUT -t mangle -p esp -j MARK --set-mark "$FW_IPSEC_MARK"
 fi
 
@@ -1833,12 +1832,21 @@ test "$FW_ROUTE" = yes && {
     done
  }
 
+ more_args=""
  for NETS in $FW_FORWARD; do
-    IFS="," read NET1 NET2 PROTO PORT ERROR < <(echo "$NETS")
-    test -z "$ERROR" || {
-	echo "Error: Too many arguments in FW_FORWARD -> $NETS"
-	NET1=""
-    }
+    IFS="," read NET1 NET2 PROTO PORT FLAGS < <(echo "$NETS")
+
+    case "$FLAGS" in
+	    "") ;;
+	    ipsec)
+		more_args="$IPSEC_MATCH"
+		;;
+	    *)
+		echo "Error: unsupported flag in FW_FORWARD: $FLAGS"
+		NET1=""
+		;;
+    esac
+
     test -z "$PORT" -a "$PROTO" = tcp -o -z "$PORT" -a "$PROTO" = udp && {
 	echo "Error: Missing port definition for TCP/UDP in FW_FORWARD -> $NETS"
 	NET1=""
@@ -1861,12 +1869,12 @@ test "$FW_ROUTE" = yes && {
 	    PROTO="-p $PROTO"
 	fi
 	for CHAIN in forward_ext forward_dmz forward_int; do
-	    test "$LAC" = "" -a "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-TRUST "  -s $NET1 -d $NET2 $PROTO $PORT --syn
-	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-TRUST "  -s $NET1 -d $NET2 $PROTO $PORT
-	    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $NET1 -d $NET2 $PROTO $PORT
-	    test "$LAA" = "" -a "$PROTO" = "-p tcp" -o "$PROTO" = "-p udp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC " -d $NET1 -s $NET2 $PROTO $PORTBACK
-	    test "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -d $NET1 -s $NET2 $PROTO $PORTBACK '!' --syn
-	    test "$PROTO" = "-p udp" && $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -d $NET1 -s $NET2 $PROTO $PORTBACK
+	    test "$LAC" = "" -a "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-TRUST "  -s $NET1 -d $NET2 $PROTO $PORT --syn $more_args
+	    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-TRUST "  -s $NET1 -d $NET2 $PROTO $PORT $more_args
+	    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $NET1 -d $NET2 $PROTO $PORT $more_args
+	    test "$LAA" = "" -a "$PROTO" = "-p tcp" -o "$PROTO" = "-p udp" && $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC " -d $NET1 -s $NET2 $PROTO $PORTBACK $more_args
+	    test "$PROTO" = "-p tcp" && $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -d $NET1 -s $NET2 $PROTO $PORTBACK '!' --syn $more_args
+	    test "$PROTO" = "-p udp" && $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -d $NET1 -s $NET2 $PROTO $PORTBACK $more_args
 	done
     }
  done
