@@ -863,6 +863,9 @@ FW_IPv6_REJECT_OUTGOING="yes"
 # 29.)
 # Trust level of IPsec packets.
 #
+# You do not need to change this if you do not intend to run
+# services that should only be available trough an IPsec tunnel.
+#
 # The value specifies how much IPsec packets are trusted. 'int', 'ext' or 'dmz'
 # are the respective zones. 'yes' is the same as 'int. 'no' means that IPsec
 # packets belong to the same zone as the interface they arrive on.
@@ -870,7 +873,7 @@ FW_IPv6_REJECT_OUTGOING="yes"
 # Note: you still need to explicitely allow IPsec traffic.
 # Example:
 #   FW_IPSEC_TRUST="int"
-#   FW_SERVICES_INT_IP="esp"
+#   FW_SERVICES_EXT_IP="esp"
 #   FW_SERVICES_EXT_UDP="isakmp"
 #   FW_PROTECT_FROM_INT="no"
 #

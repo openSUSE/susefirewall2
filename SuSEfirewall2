@@ -474,8 +474,20 @@ function rulelog()
 
 function allow_basic_related()
 {
-    for iptables in $IPTABLES $IP6TABLES; do
-	$iptables -A OUTPUT -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED
+    # needed for dhcp and dns replies
+    local iptables
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	    $LAA $iptables -A INPUT -j LOG ${LOG}"-IN-ACC-RELATED " -m state --state ESTABLISHED,RELATED
+	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+
+	    # if two hosts have a tcp connection on fixed ports and
+	    # one of the hosts crashes it will send a SYN to the
+	    # peer if it comes back up. The peer sends back ACK as
+	    # it thinks there is already a connection established.
+	    # This ACK is INVALID and must be answered with RST
+	    # otherwise long timeouts may occur (#46818).
+	    $LDA $iptables -A INPUT -j LOG ${LOG}"-IN-REJECT-ACK " -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
+	    $iptables -A INPUT -j "$REJECT" -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
     done
 }
 
@@ -553,23 +565,7 @@ function set_basic_rules()
 	IP6TABLES=":" # disable further rules
     fi
 
-    # needed for dhcp and dns replies
-    local iptables
-    for iptables in "$IPTABLES" "$IP6TABLES"; do
-	    $LAA $iptables -A INPUT -j LOG ${LOG}"-IN-ACC-RELATED " -m state --state RELATED -p tcp
-	    $LAA $iptables -A INPUT -j LOG ${LOG}"-IN-ACC-RELATED " -m state --state RELATED -p udp
-	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp
-	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p udp
-
-	    # if two hosts have a tcp connection on fixed ports and
-	    # one of the hosts crashes it will send a SYN to the
-	    # peer if it comes back up. The peer sends back ACK as
-	    # it thinks there is already a connection established.
-	    # This ACK is INVALID and must be answered with RST
-	    # otherwise long timeouts may occur (#46818).
-	    $LDA $iptables -A INPUT -j LOG ${LOG}"-IN-REJECT-ACK " -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
-	    $iptables -A INPUT -j "$REJECT" -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
-    done
+    allow_basic_related
 }
 
 handle_initscripts()
@@ -589,177 +585,17 @@ handle_initscripts()
     esac
 }
 
-# $1 protocol
-# $2 port
-# $3 type
-#
-# Where type can be any of
-#  Minimize-Delay 16 (0x10)
-#  Maximize-Throughput 8 (0x08)
-#  Maximize-Reliability 4 (0x04)
-#  Minimize-Cost 2 (0x02)
-#  Normal-Service 0 (0x00)
-set_tos()
-{
-    local i
-    local tables="OUTPUT"
-
-    [ "$FW_ROUTE" = yes ] && tables="OUTPUT PREROUTING"
-
-    for i in $tables; do
-	$IPTABLES -A $i -j TOS -t mangle -p "$1" --sport "$2" --set-tos "$3"
-	$IPTABLES -A $i -j TOS -t mangle -p "$1" --dport "$2" --set-tos "$3"
-    done
-}
-
-apply_tos_settings() {
-    set_tos tcp  20 Maximize-Throughput # FTP Data
-    set_tos tcp  80 Maximize-Throughput # HTTP
-    set_tos tcp  53 Minimize-Delay # DNS
-    set_tos udp  53 Minimize-Delay # DNS
-    set_tos udp 161 Maximize-Reliability # SNMP
-    set_tos udp 162 Maximize-Reliability # SNMP Trap
-    set_tos udp 514 Maximize-Reliability # Syslog
-}
-
 # set $ip and $net to list of ips and ip/prefix separated by space. set $dev to actual name of device
 getdevinfo()
 {
-    ip=
-    net=
-    dev=`getcfg-interface "$1"`
-    if [ "$?" -ne 0 -o -z "$dev" ]; then
-	dev=""
+    local dev=`getcfg-interface "$1"`
+
+    if [ "$?" -ne 0 -o -z "$dev" -o ! -e /proc/sys/net/ipv4/conf/"$dev" ]; then
 	return 1
     fi
 
-    while read -a a; do
-	set -- "${a[@]}"
-
-	while [ $# -gt 0 ]; do
-	    if [ "$1" = "inet" ]; then
-		ip="$ip ${2%%/*}"
-		net="$net $2"
-		break
-	    else
-		shift
-	    fi
-	done
-    done < <(ip -o -4 addr show dev $dev 2>/dev/null)
-
+    echo "$dev"
     return 0
-}
-
-#
-# tune the upload stream a little bit
-# with DSL for example, you have the problem, that your
-# downstream collapses if your upstream is full.
-# After this tuning this should not happen anymore.
-# interactive SSH and VPN are faster too, because they
-# get some extra bandwidth besides the bulk traffic
-#
-# variabel from sysconfig:
-#   FW_HTB_TUNE_DEV="DEV1,BANDWIDTH1 DEV2,BANDWIDTH2 ..."
-#
-# any questions about this to uwe.gansert@suse.de
-#
-do_qdisc_settings() {
-    if [ -n "$FW_HTB_TUNE_DEV" ]; then
-	modprobe sch_htb 2> /dev/null
-    fi
-    clear_qdisc_settings
-    for DEVICE_DATA in $FW_HTB_TUNE_DEV; do
-        IFS="," read DEV BANDWIDTH < <(echo "$DEVICE_DATA")
-
-	getdevinfo "$DEV"
-	DEV="$dev"
-
-        # sanity check
-        if [ -n "$DEV" -a -n "$BANDWIDTH" ]; then
-            # reserve about 15% for small packets (TCP ACK),
-            # interactive SSH from and to us and DNS querys.
-            # We don't need too much bandwidth but we need it fast.
-            SMALL_PACKET_BW=$(( $BANDWIDTH / 7 ))
-            if [ "$SMALL_PACKET_BW" -eq 0 ]; then
-                warning "illegal bandwidth settings for $DEV in FW_HTB_TUNE_DEV"
-            fi
-
-            # reserve 25% for VPN traffic. Never mind if we don't have
-            # a VPN. No bandwidth will be wasted
-            VPN_BW=$(( $BANDWIDTH / 4 ))
-            if [ "$VPN_BW" -eq 0 ];then
-                warning "illegal bandwidth settings for $DEV in FW_HTB_TUNE_DEV"
-            fi
-
-            # bulk traffic
-            REST_BW=$(( ${BANDWIDTH}-${SMALL_PACKET_BW}-${VPN_BW} ))
-
-            $TC qdisc add dev $DEV root handle 1:0 htb default 20       # adding the queing discipline
-
-	    # adding the root class 1:1
-            $TC class add dev $DEV parent 1:0 classid 1:1 htb \
-                rate ${BANDWIDTH}kbit ceil ${BANDWIDTH}kbit
-
-            # class for small tcp packets 1:10
-            $TC class add dev $DEV parent 1:1 classid 1:10 htb \
-                rate ${SMALL_PACKET_BW}kbit ceil ${BANDWIDTH}kbit prio 0 quantum 3000 # and interactive SSH
-	    # class for VPN traffic       1:11
-            $TC class add dev $DEV parent 1:1 classid 1:11 htb \
-                rate ${VPN_BW}kbit ceil ${BANDWIDTH}kbit prio 1 quantum 3000
-	    # class for all the rest      1:20
-            $TC class add dev $DEV parent 1:1 classid 1:20 htb \
-                rate ${REST_BW}kbit ceil ${BANDWIDTH}kbit prio 2 quantum 3000
-	    # packets, marked with "10" to queue 1:10
-            $TC filter add dev $DEV parent 1:0 prio 0 protocol ip \
-                handle 10 fw flowid 1:10
-	    # packets, marked with "11" to queue 1:11
-            $TC filter add dev $DEV parent 1:0 prio 1 protocol ip \
-                handle 11 fw flowid 1:11
-
-	    # iptables marks small TCP packets (potentially ACK)
-	    # with 10, so "tc" will send them to queue 1:10
-            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p tcp \
-                      -m length --length :64 -j MARK --set-mark 10
-
-	    # iptables marks SSH interactive ssh traffic
-	    # with 10 too. So it gets to queue 1:10 like
-            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p tcp \
-                      -m tos --tos Minimize-Delay \
-                      -m tcp --dport 22 -j MARK --set-mark 10
-
-	    # like the rule above, but this time we are
-	    # the sshd and want to respond fast, even when
-            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p tcp \
-                      -m tos --tos Minimize-Delay \
-                      -m tcp --sport 22 -j MARK --set-mark 10 
-
-            # same like above for DNS
-            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p udp \
-                      -m udp --dport 53 -j MARK --set-mark 10
-            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p tcp \
-                      -m tcp --dport 53 -j MARK --set-mark 10
-
-	    # iptables marks VPN traffic with 11
-	    # if we don't have VPN, never mind, no bandwidth
-	    # will be wastet and if we need more, then it'll be
-	    # be "borrowed" from the other queues
-            $IPTABLES -A POSTROUTING -t mangle -o $DEV -p 50 \
-                      -j MARK --set-mark 11
- 
-        else
-            warning "illegal settings in FW_HTB_TUNE_DEV=\"$FW_HTB_TUNE_DEV\", skipped device \"$DEV\""
-        fi
-    done
-}
-
-ifacenotactive() {
-    test -z "$DEV" || {
-	case "$DEV" in
-	    *ppp*) ;;
-	    *) warning "interface $DEV is not active."
-		 ;;
-	esac
-    }
 }
 
 # find interface name for hardware description
@@ -852,47 +688,40 @@ fw_custom_before_denyall() { true; }
 
 evaluateinterfaces()
 {
-    devs=""
-    dev_any=""
-    ips=""
-    nets=""
+    local devs=""
+    local dev_any=""
     local dev
     for dev in "$@" ; do
-	if [ "$dev" = "any" ]; then
-	    dev_any="yes"
+	if [ "$dev" = 'any' ]; then
+	    dev_any='any'
 	    continue
 	fi
-	getdevinfo "$dev" || continue
+	dev=`getdevinfo "$dev"` || continue
 	case "$dev" in *:*) continue; ;; esac
 
-	[ -z "$ip" ] && { ifacenotactive; continue; }
-
-	ips="$ips $ip"
-	nets="$nets $net"
 	devs="$devs $dev"
     done
+    echo $dev_any $devs
 }
 
 parse_interfaces()
 {
-    evaluateinterfaces $FW_DEV_INT
-    FW_DEV_int="$devs"
-    DEV_int="$ips"
-    DEV_int_NET="$nets"
+    local zone devs var
 
-    evaluateinterfaces $FW_DEV_DMZ
-    FW_DEV_dmz="$devs"
-    DEV_dmz="$ips"
-    DEV_dmz_NET="$nets"
+    for zone in $all_zones; do
+	eval devs="\$FW_DEV_`cibiz $zone`"
+	set -- `evaluateinterfaces $devs`
+	if [ "$1" = 'any' ]; then
+	    eval DEV_${zone}_ANY="yes"
+	    shift
+	fi
+	eval FW_DEV_$zone="\"$*\""
+    done
 
-    evaluateinterfaces $FW_DEV_EXT
-    FW_DEV_ext="$devs"
-    DEV_ext_ANY="$dev_any"
-    DEV_ext="$ips"
-    DEV_ext_NET="$nets"
+    set -- `evaluateinterfaces $FW_MASQ_DEV`
+    [ "$1" = 'any' ] &&	shift
+    FW_MASQ_DEV="$*"
 
-    evaluateinterfaces $FW_MASQ_DEV
-    FW_MASQ_DEV="$devs"
 }
 
 load_customrules()
@@ -909,17 +738,12 @@ load_customrules()
 
 check_interfaces()
 {
-    set -- $DEV_ext $DEV_int $DEV_dmz
-    test -z "$1" && warning 'no interface active'
-
-    set -- $DEV_ext
-    test -z "$1" && { DEV_ext=""; DEV_ext_NET=""; }
-
-    set -- $DEV_int
-    test -z "$1" && { DEV_int=""; DEV_EXT_INT=""; }
-
-    set -- $DEV_dmz
-    test -z "$1" && { DEV_dmz=""; DEV_EXT_DMZ=""; }
+    local v
+    for zone in $all_zones; do
+	eval v="\$FW_DEV_$zone"
+	[ -n "$v" ] && return
+    done
+    warning 'no interface active'
 }
 
 verify_parameters()
@@ -952,8 +776,7 @@ switch_on_ip_forwarding()
     fi
 }
 
-# warn user if device to masquerade is  from a non private network,
-# add the net to DEV_MASQ_NET which is used for anti-spoof later.
+# warn user if device to masquerade is  from a non private network
 # 0/0 has to be skipped here, otherwise the spoof rules would block
 # anything
 verify_masq_nets()
@@ -975,8 +798,6 @@ verify_masq_nets()
 	    *) warning "The network $net1 you want to masquerade is not from a private network " \
 		    'like 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16'
 	esac
-
-	DEV_MASQ_NET="$DEV_MASQ_NET $net1"
     done
 }
 
@@ -1056,7 +877,7 @@ parse_broadcast()
 		    ;;
 	    esac
 	done
-	unset FW_IGNORE_FW_BROADCAST
+	unset FW_ALLOW_FW_BROADCAST
     fi
 
     if [ -n "$FW_IGNORE_FW_BROADCAST" ]; then
@@ -1228,8 +1049,8 @@ finish_chains()
 	$LDAC $iptables -A INPUT -j LOG ${LOG}"-IN-ILL-TARGET " 
 	$iptables -A INPUT -j "$DROP"
 
+	$LDAC $iptables -A FORWARD -j LOG ${LOG}"-FWD-ILL-ROUTING "
 	if [ "$FW_ROUTE" = yes ]; then
-	    $LDAC $iptables -A FORWARD -j LOG ${LOG}"-FWD-ILL-ROUTING "
 	    $iptables -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
 	fi
 
@@ -1791,17 +1612,14 @@ drop_all()
     for chain in $chains; do
 	# some packet types are considered critical
 	if [ -z "$LDC" ]; then
-	    $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p tcp --syn
-	    $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p tcp --syn
-	    for itype in "source-quench" "redirect" "echo-request" "timestamp-request" "address-mask-request" "2"; do
-		$IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT " -p icmp --icmp-type $itype
-	    done
-	    for itype in "redirect" "echo-request"; do
-		$IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-ICMP-CRIT "  -p icmpv6 --icmpv6-type $itype
-	    done
-	    $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p udp
-	    $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -p udp
-	    $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
+	    local log=${LOG}"-`rulelog $chain`-DROP-DEFLT "
+	    $IPTABLES  -A $chain -j LOG $log -p tcp --syn
+	    $IP6TABLES -A $chain -j LOG $log -p tcp --syn
+	    $IPTABLES  -A $chain -j LOG $log -p icmp
+	    $IP6TABLES -A $chain -j LOG $log -p icmpv6
+	    $IPTABLES  -A $chain -j LOG $log -p udp
+	    $IP6TABLES -A $chain -j LOG $log -p udp
+	    $IPTABLES  -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
 	    $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
 	fi
 	# log anything else
@@ -1833,15 +1651,9 @@ if [ "$ACTION" = "basic" ]; then
     # Reset the filter rules
     set_basic_rules
 
-    # Setting filter rules
-    # 1. allow anything which is established or related
-    allow_basic_related
+    $IPTABLES -A OUTPUT -j "$ACCEPT"
+    $IP6TABLES -A OUTPUT -j "$ACCEPT"
 
-    # 2. allow dhcp replies from servers
-    # not needed!?
-    #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
-
-    # 3. allow echo requests
     $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
 
     # log incoming tcp connection requests. also logging udp etc would just flood the log
@@ -1872,11 +1684,10 @@ fi
 if [ "$ACTION" = "close" ]; then
     set_basic_rules
     setproc 0 /proc/sys/net/ipv4/ip_forward
-    allow_basic_related
-    #$IPTABLES -A INPUT -j "$ACCEPT" -p udp --sport 67 -d 255.255.255.255/32 --dport 68
 
-    # XXX should we?
-    #$IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
+    $IPTABLES -A OUTPUT -j "$ACCEPT"
+    $IP6TABLES -A OUTPUT -j "$ACCEPT"
+
     die 0 "Firewall rules set to CLOSE."
 fi
 
@@ -1925,7 +1736,7 @@ load_customrules
 check_interfaces
 
 verify_parameters
-verify_masq_nets
+#verify_masq_nets
 
 parse_ipsec
 
@@ -1934,7 +1745,7 @@ check_required_zones
 input_zones="$all_zones"
 saved_input_zones="$input_zones" # need that for fork_to_chains
 
-create_zones_hash
+#create_zones_hash
 
 # Set default rules + flush
 set_basic_rules
@@ -2012,13 +1823,13 @@ drop_all
 
 finish_chains
 
-# Optimisation Rules
-apply_tos_settings
-
 [ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
 
 # HTB settings
-[ -n "$FW_HTB_TUNE_DEV" ] && do_qdisc_settings
+if [ -n "$FW_HTB_TUNE_DEV" ]; then
+    need qdisc
+    do_qdisc_settings
+fi
 
 handle_initscripts
 
