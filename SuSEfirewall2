@@ -284,20 +284,9 @@ mark_redir=1
 
 ### zones
 
-int_zones="int"
-ext_zones="ext"
-dmz_zones="dmz"
-all_zones="$int_zones $ext_zones $dmz_zones"
-
-forward_int_zones="$int_zones"
-forward_dmz_zones="$dmz_zones"
-forward_ext_zones="$ext_zones"
-forward_all_zones="$forward_int_zones $forward_ext_zones $forward_dmz_zones"
-
-input_int_zones="$int_zones"
-input_dmz_zones="$dmz_zones"
-input_ext_zones="$ext_zones"
-input_all_zones="$input_int_zones $input_ext_zones $input_dmz_zones"
+all_zones="int ext dmz"
+forward_zones="$all_zones"
+input_zones="$all_zones"
 
 # convert if built in zone, eg ext -> EXT
 cibiz()
@@ -1089,7 +1078,7 @@ drop_broadcast()
     local ignore
     local port
 
-    for zone in $input_all_zones; do
+    for zone in $input_zones; do
 	eval allow="\$FW_ALLOW_BROADCAST_$zone"
 	eval ignore="\$FW_IGNORE_BROADCAST_$zone"
 
@@ -1145,7 +1134,7 @@ fork_to_chains()
     local any
 
     for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for zone in $input_all_zones; do
+	for zone in $input_zones; do
 	    eval devs="\$FW_DEV_$zone"
 	    for dev in $devs; do
 		$iptables -A INPUT -j input_$zone -i $dev
@@ -1156,7 +1145,7 @@ fork_to_chains()
 	    fi
 	done
 	if [ "$FW_ROUTE" = yes ]; then
-	    for zone in $forward_all_zones; do
+	    for zone in $forward_zones; do
 		eval devs="\$FW_DEV_$zone"
 		for dev in $devs; do
 		    $iptables -A FORWARD -j forward_$zone -i $dev
@@ -1196,12 +1185,23 @@ finish_chains()
 # Protect the firewall from the internal network? #
 protect_from_internal()
 {
-    [ "$FW_PROTECT_FROM_INTERNAL" != no ] && return
-
     local iptables chain
-    for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for chain in $input_int_zones; do
-	    chain=input_$chain
+    for chain in $input_zones; do
+
+	if [ "$chain" = "int" -a "$FW_PROTECT_FROM_INTERNAL" = "no" ]; then
+	    val="no"
+	    warning "FW_PROTECT_FROM_INTERNAL is deprecated, use FW_PROTECT_FROM_INT instead"
+	else
+	    var="FW_PROTECT_FROM_`cibiz $chain`"
+	    eval val="\"\$$var\""
+	fi
+
+	[ -z "$val" -o "$val" != no ] && continue
+
+	eval devs="\$FW_DEV_$zone"
+
+	chain=input_$chain
+	for iptables in "$IPTABLES" "$IP6TABLES"; do
 	    $LAA $iptables -A $chain -j LOG ${LOG}"-INint-ACC-ALL-INT " 
 	    $iptables -A $chain -j "$ACCEPT"
 	done
@@ -1214,7 +1214,7 @@ allow_icmp()
     local chain dev itype zone devs
     # INPUT ICMP rules
     if [ "$FW_ALLOW_FW_SOURCEQUENCH" != "no" ]; then
-	for chain in $input_all_zones; do
+	for chain in $input_zones; do
 	    chain=input_$chain
 	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-INext-ACC-SOURCEQUENCH "  -p icmp --icmp-type source-quench
 	    $IPTABLES -A $chain -j "$ACCEPT" -p icmp --icmp-type source-quench
@@ -1222,7 +1222,7 @@ allow_icmp()
     fi
 
     if [ "$FW_ALLOW_PING_FW" = yes ]; then
-	for chain in $input_all_zones; do
+	for chain in $input_zones; do
 	    chain=input_$chain
 	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request
 	    $IPTABLES -A $chain -j "$ACCEPT" -p icmp --icmp-type echo-request
@@ -1233,7 +1233,7 @@ allow_icmp()
     fi
     local icmp_types="$safe_icmp_replies"
     for itype in $icmp_types; do
-	for chain in $input_all_zones; do
+	for chain in $input_zones; do
 	    chain=input_$chain
 	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-ICMP "  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
 	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
@@ -1241,7 +1241,7 @@ allow_icmp()
     done
     icmp_types="$safe_icmpv6_replies"
     for itype in $icmp_types; do
-	for chain in $input_all_zones; do
+	for chain in $input_zones; do
 	    chain=input_$chain
 	    $LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-ICMP " -m state --state ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
 	    $IP6TABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
@@ -1252,7 +1252,7 @@ allow_icmp()
     # state matching for these seems to be broken
     icmp_types="router-solicitation router-advertisement neighbour-solicitation neighbour-advertisement"
     for itype in $icmp_types; do
-	for chain in $input_all_zones; do
+	for chain in $input_zones; do
 	    chain=input_$chain
 	    $LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-ICMP " -p icmpv6 --icmpv6-type $itype
 	    $IP6TABLES -A $chain -j "$ACCEPT" -p icmpv6 --icmpv6-type $itype
@@ -1267,7 +1267,7 @@ allow_forward_icmp_echo()
     local zone chain var val
 
     # FORWARD ICMP rules
-    for zone in $forward_all_zones; do
+    for zone in $forward_zones; do
 	var="FW_ALLOW_PING_`cibiz $zone`"
 	eval val="\"\$$var\""
 
@@ -1276,7 +1276,7 @@ allow_forward_icmp_echo()
 	eval devs="\$FW_DEV_$zone"
 
 	for dev in $devs; do
-	    for chain in $forward_all_zones; do
+	    for chain in $forward_zones; do
 		[ "$chain" = "$zone" ] && continue
 
 		chain=forward_$chain
@@ -1311,7 +1311,7 @@ process_trusted_nets()
 	elif [ -z "$net" ]; then
 	    error "network parameter of FW_TRUSTED_NETS is empty -> $nets"
 	elif check_proto_port "$proto" "$port" 'FW_TRUSTED_NETS'; then
-	    for chain in $input_all_zones; do # trusted networks can be on any interface ...
+	    for chain in $input_zones; do # trusted networks can be on any interface ...
 		chain=input_$chain
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST " -m state --state NEW -s $net $proto $port
 		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST " -s $net $proto $port
@@ -1341,7 +1341,7 @@ reject_or_drop_services()
 
     eval target=\$$action
 
-    for zone in $input_all_zones; do
+    for zone in $input_zones; do
 	chain=input_$zone
 	var="FW_SERVICES_${action}_`cibiz $zone`"
 	eval services="\"\$$var\""
@@ -1378,7 +1378,7 @@ allow_tcp_highports()
 	[Dd][Nn][Ss]) warning "FW_ALLOW_INCOMING_HIGHPORTS_TCP=DNS no longer supported" ;;
 	no) ;;
 	yes)
-	    for chain in $input_all_zones; do
+	    for chain in $input_zones; do
 		chain=input_$chain
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiTCP " -p tcp --dport 1024: --syn
 		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiTCP " -p tcp --dport 1024:
@@ -1387,7 +1387,7 @@ allow_tcp_highports()
 	    break;
 	    ;;
 	*)
-	    for chain in $input_all_zones; do
+	    for chain in $input_zones; do
 		chain=input_$chain
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HIGH " -p tcp --sport $j --dport 1024: --syn
 		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HIGH " -p tcp --sport $j --dport 1024:
@@ -1401,7 +1401,7 @@ allow_tcp_highports()
 allow_rpc_services()
 {
     local zone chain ports
-    for zone in $input_all_zones; do
+    for zone in $input_zones; do
 	chain=input_$zone
 	eval ports="\$FW_SERVICES_`cibiz $zone`_RPC"
 	rpcservicerules $ports | while read ARG; do
@@ -1416,7 +1416,7 @@ allow_ip_services()
 {
     local proto zone iptables protos
 
-    for zone in $input_all_zones; do
+    for zone in $input_zones; do
 	chain=input_$zone
 	eval protos="\$FW_SERVICES_`cibiz $zone`_IP"
 	for iptables in "$IPTABLES" "$IP6TABLES"; do
@@ -1432,7 +1432,7 @@ allow_tcp_services()
 {
     local port zone iptables ports
 
-    for zone in $input_all_zones; do
+    for zone in $input_zones; do
 	chain=input_$zone
 	eval ports="\$FW_SERVICES_`cibiz $zone`_TCP"
 	for iptables in "$IPTABLES" "$IP6TABLES"; do
@@ -1450,7 +1450,7 @@ allow_udp_services()
 {
     local port zone iptables ports
 
-    for zone in $input_all_zones; do
+    for zone in $input_zones; do
 	chain=input_$zone
 	eval ports="\$FW_SERVICES_`cibiz $zone`_UDP"
 	for iptables in "$IPTABLES" "$IP6TABLES"; do
@@ -1473,7 +1473,7 @@ allow_highports_udp()
 		    ;;
 	    no) ;;
 	    yes)
-		for CHAIN in $input_all_zones; do
+		for CHAIN in $input_zones; do
 		    chain=input_$chain
 		    $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --dport 1024:
 		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp --dport 1024:
@@ -1482,7 +1482,7 @@ allow_highports_udp()
 		break;
 		;;
 	    *)
-		for CHAIN in $input_all_zones; do
+		for CHAIN in $input_zones; do
 		    chain=input_$chain
 		    $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --sport $j --dport 1024:
 		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp --sport $j --dport 1024:
@@ -1523,7 +1523,7 @@ redirect_rules()
     done
 
     if [ -n "$redirectinstalled" ]; then
-	for chain in $input_all_zones; do
+	for chain in $input_zones; do
 	    chain=input_$chain
 	    $LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REDIR " -m mark --mark $mark_redir -m state --state NEW
 	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REDIR " -m mark --mark $mark_redir -m state --state NEW,ESTABLISHED,RELATED
@@ -1541,7 +1541,7 @@ allow_class_routing()
     [ "$FW_ALLOW_CLASS_ROUTING" != yes ] && return
 
     local chain dev devs zone
-    for zone in $forward_all_zones; do
+    for zone in $forward_zones; do
 	eval devs="\$FW_DEV_$zone"
 	chain=forward_$zone
 	for dev in $devs; do
@@ -1555,7 +1555,7 @@ allow_related_forward_icmp()
 {
     local chain itype
 
-    for chain in $forward_all_zones; do
+    for chain in $forward_zones; do
 	chain=forward_$chain
 	for itype in $safe_icmp_replies; do
 	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-FWD-RELA"  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
@@ -1597,7 +1597,7 @@ forwarding_rules()
 	fi
 
 	if [ -n "$net1" -a -n "$net2" ]; then
-	    for chain in $forward_all_zones; do
+	    for chain in $forward_zones; do
 		chain=forward_$chain
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args
 		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args
@@ -1634,7 +1634,7 @@ masquerading_rules()
 	    fi
 
 	    for dev in $FW_MASQ_DEV; do
-		for chain in $forward_all_zones; do
+		for chain in $forward_zones; do
 		    chain=forward_$chain
 		    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-MASQ "  -s $net1 $net2 $proto $port -o $dev
 		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 $net2 $proto $port -o $dev
@@ -1687,7 +1687,7 @@ forward_masquerading_rules()
 	    for dev in $FW_MASQ_DEV; do
 		$IPTABLES -A PREROUTING -j DNAT -t nat $proto $net1 $lip $port1 --to-destination ${net2}${port2} -i $dev
 	    done
-	    for chain in $forward_all_zones; do
+	    for chain in $forward_zones; do
 		chain=forward_$chain
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1 -d $net2 $dport2 -m state --state NEW
 		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1 -d $net2 $dport2
@@ -1704,12 +1704,12 @@ drop_all()
     local itype
     local chains
 
-    for chain in $input_all_zones; do
+    for chain in $input_zones; do
 	chains="$chains input_$chain"
     done
 
     if [ "$FW_ROUTE" = yes ]; then
-	for chain in $forward_all_zones; do
+	for chain in $forward_zones; do
 	    chains="$chains forward_$chain"
 	done
     fi
