@@ -327,6 +327,7 @@ function getdevinfo() {
 
 # Provide empty functions for transparent hook support for customised rules
 fw_custom_before_antispoofing() { true; }
+fw_custom_after_antispoofing() { true; }
 fw_custom_before_port_handling() { true; }
 fw_custom_before_masq() { true; }
 fw_custom_before_denyall() { true; }
@@ -891,6 +892,11 @@ done
 test "$FW_ROUTE" = yes && for DEV in $FW_DEV_INT $FW_DEV_EXT $FW_DEV_DMZ; do
     $IPTABLES -A FORWARD -j "$ACCEPT" -i $DEV -o $DEV
 done
+
+####################################################
+# Customary hook: fw_custom_after_antispoofing()   #
+####################################################
+fw_custom_after_antispoofing
 
 #####################################
 # Rule split up - forking to chains #

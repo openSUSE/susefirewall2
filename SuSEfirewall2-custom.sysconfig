@@ -29,7 +29,7 @@ fw_custom_before_antispoofing() {
    true
 }
 
-fw_custom_before_port_handling() { # could also be named "after_antispoofing()"
+fw_custom_after_antispoofing() { # could also be named "before_port_splitting()"
     # these rules will be loaded after the anti-spoofing and icmp handling
     # but before any IP protocol or TCP/UDP port allow/protection rules
     # will be set.
@@ -45,6 +45,19 @@ fw_custom_before_port_handling() { # could also be named "after_antispoofing()"
 #        iptables -A $chain -j $target -p udp --dport 12345:12346
 #    done
 #done
+
+    true
+}
+
+fw_custom_before_port_handling() { 
+    # these rules will be loaded after the anti-spoofing and icmp handling
+    # and after the input has been redirected to the input_XXX and 
+    # forward_XXX chains and some basic chain-specific anti-circumvention
+    # rules have been set,
+    # but before any IP protocol or TCP/UDP port allow/protection rules
+    # will be set.
+    # You can use this hook to allow/deny certain IP protocols or TCP/UDP
+    # ports before the SuSEfirewall2 generated rules are hit.
 
     true
 }
