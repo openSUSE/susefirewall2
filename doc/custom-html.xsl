@@ -9,8 +9,9 @@
   <xsl:param name="section.autolabel" select="1"/>
   <xsl:param name="section.label.includes.component.label" select="1"/>
 
-  <!-- Use shade for verbatim environments -->
+  <!-- Use shade for verbatim environments
   <xsl:param name="shade.verbatim" select="1"></xsl:param>
+  -->
 
   <xsl:param name="html.stylesheet">susebooks.css</xsl:param>
 

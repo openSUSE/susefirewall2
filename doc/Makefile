@@ -16,8 +16,12 @@ all-single: $(DESTDIR)$(stylesheet_out) $(allhtml)
 all-txt: $(alltxt)
 
 $(DESTDIR)$(stylesheet_out): $(stylesheet)
-	cat < $< > $@
-	#sed "s/sect1/section/g" < $< > $@
+	@cat < $< > $@
+	@if ! grep -q 'pre\\.programlisting' $@; then \
+		echo "add programlisting to stylesheet"; \
+		echo 'pre.programlisting { background-color: #E0E0E0; }' >> $@; \
+	fi
+#sed "s/sect1/section/g" < $< > $@
 
 
 $(DESTDIR)%.html: %.xml $(DESTDIR)$(stylesheet_out)
