@@ -543,8 +543,8 @@ function allow_basic_related()
 	    # it thinks there is already a connection established.
 	    # This ACK is INVALID and must be answered with RST
 	    # otherwise long timeouts may occur (#46818).
-	    $LDA $iptables -A INPUT -j LOG ${LOG}"-IN-REJECT-ACK " -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
-	    $iptables -A INPUT -j "$REJECT" -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
+#	    $LDA $iptables -A INPUT -j LOG ${LOG}"-IN-REJECT-ACK " -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
+#	    $iptables -A INPUT -j "$REJECT" -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
     done
 }
 

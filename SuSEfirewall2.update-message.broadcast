@@ -1,5 +1,5 @@
 FW_ALLOW_FW_BROADCAST and FW_IGNORE_FW_BROADCAST in
-/etc/sysconfig/SuSEfirewall2 are now obsolete and are replaced by zone
-specific variables (like e.g. FW_ALLOW_FW_BROADCAST_EXT). Your old settings
-have been converted to the new syntax as far as possible. Please verify
-that the firewall configuration still suits your needs.
+/etc/sysconfig/SuSEfirewall2 are now obsolete and are replaced by
+zone-specific variables, like FW_ALLOW_FW_BROADCAST_EXT. Your old
+settings have been converted to the new syntax as far as possible.
+Verify that the firewall configuration still suits your needs.

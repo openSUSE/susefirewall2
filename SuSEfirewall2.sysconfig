@@ -687,11 +687,20 @@ FW_ALLOW_FW_SOURCEQUENCH=""
 #
 # Note that if you allow specifc ports here it just means that broadcast
 # packets for that port are not dropped. You still need to set
-# FW_SERVICES_*_UDP to actually allow the packets to reach the applications.
+# FW_SERVICES_*_UDP to actually allow regular unicast packets to
+# reach the applications.
 #
-# Format: "yes", "no" or list of udp ports
+# Format: either
+#           - "yes" or "no"
+#           - list of udp destination ports
 #
-# Example: "631 137"
+# Examples: - "631 137" allow broadcast packets on port 631 and 137
+#              to enter the machine but drop any other broadcasts
+#           - "yes" do not install any extra drop rules for
+#              broadcast packets. They'll be treated just as unicast
+#              packets in this case.
+#           - "no" drop all broadcast packets before other filtering
+#              rules
 #
 # defaults to "no" if not set
 #
@@ -712,9 +721,17 @@ FW_ALLOW_FW_BROADCAST_DMZ=""
 # Suppress logging of dropped broadcast packets. Useful if you don't allow
 # broadcasts on a LAN interface.
 #
-# Format: "yes", "no" or list of udp ports
+# This setting only affects packets that are not allowed according
+# to FW_ALLOW_FW_BROADCAST_*
 #
-# Example: "631 137"
+# Format: either
+#           - "yes" or "no"
+#           - list of udp destination ports
+#
+# Examples: - "631 137" silently drop broadcast packets on port 631 and 137
+#           - "yes" do not log dropped broadcast packets
+#           - "no" log all dropped broadcast packets
+#
 #
 # defaults to "no" if not set
 FW_IGNORE_FW_BROADCAST_EXT="yes"
