@@ -56,6 +56,7 @@ The \"file FILENAME\" option my be used with the start, test and debug options.\
 }
 
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
+PERSFWCONFIG="/etc/sysconfig/personal-firewall"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
 FW_CUSTOMRULES=""
 
@@ -77,6 +78,63 @@ test -z "$1" -o "$1" = easy -o "$1" = novice -o "$1" = force -o "$1" = file -o "
         exit 6
     }
     test "$1" = easy || . $FWCONFIG
+
+# SuSEpersonal-firewall legacy support. Allow for a single-variable configuration,
+# according to /etc/sysconfig/personal-firewall.
+test -e $PERSFWCONFIG && . $PERSFWCONFIG
+REJECT_ALL_INCOMING_CONNECTIONS=`echo $REJECT_ALL_INCOMING_CONNECTIONS`
+if [ -z "$REJECT_ALL_INCOMING_CONNECTIONS" ]; then
+    REJECT_ALL_INCOMING_CONNECTIONS="no"
+fi
+if [ "$REJECT_ALL_INCOMING_CONNECTIONS" = "no" ]; then
+    :		# do nothing.
+else
+    # values for REJECT_ALL_INCOMING_CONNECTIONS override settings
+    # for SuSEfirewall2 from $FWCONFIG
+    # first check if "modem" is selected, and provide wildcard "ppp+"
+    # also check if we should do masquerading.
+    RAIC=""
+    for iname in $REJECT_ALL_INCOMING_CONNECTIONS; do
+	case "$iname" in
+	    masq|MASQ)
+		PFW_MASQ=yes
+		;;
+	    modem)
+		RAIC="$RAIC ppp+"
+		PFW_HAVE_IFACE=yes
+		;;
+	    all|ALL) # not supported any more. We need a list.
+		{
+		echo "You have set \$REJECT_ALL_INCOMING_CONNECTIONS to the"
+		echo "value \"all\". This is not supported any more."
+		echo "Please provide interface names in a space-seperated"
+		echo "list in /etc/sysconfig/personal-firewall or go through"
+		echo "the configuration of SuSEfirewall2 (the file is"
+		echo "/etc/sysconfig/SuSEfirewall2)."
+		} | logger -s -t "SuSEfirewall2" -p err 
+		exit 1
+		;;
+	    *)
+		RAIC="$RAIC $iname"
+		PFW_HAVE_IFACE=yes
+		;;
+	esac
+    done
+    REJECT_ALL_INCOMING_CONNECTIONS="$RAIC"
+
+    # we have an interface, unless only "masq" is stated. Use the default route iface.
+    if [ "$PFW_HAVE_IFACE" = "" ]; then
+	FW_DEV_EXT=`/sbin/ip route show | $AWK '/^default / { print $5 ;} { next; }'`
+    else
+	FW_DEV_EXT="$REJECT_ALL_INCOMING_CONNECTIONS"
+    fi
+    if [ "$PFW_MASQ" = yes ]; then
+	FW_MASQ_DEV="$FW_DEV_EXT"
+    fi
+
+    FW_QUICKMODE=yes
+fi
+
 
 #    test "$START_FW2" = yes -o "$1" = easy -o "$1" = stop -o "$1" = status \
 #          -o "$1" = close -o "$1" = force -o "$2" = force -o "$3" = force \
