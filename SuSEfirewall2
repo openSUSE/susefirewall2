@@ -517,6 +517,26 @@ function getdevinfo() {
     #test -z "$DEV_MASK" && DEV_MASK=`$IFCONFIG $DEVNM 2>/dev/null|$AWK '/ Mask:/ {print $3}'|$SED 's/Mask://'`
 }
 
+auto_detect_done=0
+auto_detect_interfaces()
+{
+    [ "$auto_detect_done" = 1 ] && return
+    local zone
+    while read line; do
+	set -- $line
+	zone="$1"
+	shift
+	case "$zone" in
+	    External:)
+		FW_DEV_EXT_AUTO="$*"
+	    ;;
+	    Internal:)
+		FW_DEV_INT_AUTO="$*"
+	    ;;
+	esac
+    done < <(/etc/sysconfig/scripts/SuSEfirewall2-autointerface.sh)
+    auto_detect_done=1
+}
 
 # Provide empty functions for transparent hook support for customised rules
 fw_custom_before_antispoofing() { true; }
@@ -665,6 +685,23 @@ test "$1" = start -o "$1" = test -o -z "$1" -o "$1" = debug || {
     echo -e "Error: unknown option $1. Try \"$0 help\"."
     exit 1
 }
+
+#########################
+# auto device detection #
+#########################
+if [ "$FW_DEV_EXT" = "auto" ]; then
+    auto_detect_interfaces
+    FW_DEV_EXT="$FW_DEV_EXT_AUTO"
+fi
+
+if [ "$FW_DEV_INT" = "auto" ]; then
+    auto_detect_interfaces
+    FW_DEV_INT="$FW_DEV_INT_AUTO"
+fi
+
+if [ "$FW_MASQ_DEV" = "auto" ]; then
+    FW_MASQ_DEV="$FW_DEV_EXT"
+fi
 
 ###################
 # Important check #
@@ -998,6 +1035,7 @@ test "$FW_ROUTE" = yes && echo 1 > /proc/sys/net/ipv4/ip_forward
  for i in /proc/sys/net/ipv4/conf/*; do
      echo 0 > $i/accept_redirects 2> /dev/null
      echo 0 > $i/accept_source_route 2> /dev/null
+     echo 0 > $i/rp_filter 2> /dev/null
      test -z "$FW_DEV_IPSEC" && echo 1 > $i/rp_filter 2> /dev/null
      echo 0 > $i/mc_forwarding 2> /dev/null
  done

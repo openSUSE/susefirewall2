@@ -116,15 +116,19 @@
 FW_QUICKMODE="no"
 
 ## Type:	string
+## Default:	auto
 # 2.)
 # Which is the interface that points to the internet/untrusted networks?
 #
 # Enter all the network devices here which are untrusted.
 #
-# Choice: any number of devices, seperated by a space
-# e.g. "eth0", "ippp0 ippp1 eth0:1"
+# Choice: any number of device names, separated by a space. The
+# keyword "auto" means to use the device of the default route.
+# e.g. "eth0", "ippp0 ippp1", "auto"
 #
-FW_DEV_EXT=""
+# Note: alias interfaces (like eth0:1) are ignored
+#
+FW_DEV_EXT="auto"
 
 ## Type:	string
 #
@@ -136,7 +140,7 @@ FW_DEV_EXT=""
 # dialup) leave this empty.
 #
 # Choice: leave empty or any number of devices, seperated by a space
-# e.g. "tr0", "eth0 eth1 eth1:1" or ""
+# e.g. "tr0", "eth0 eth1 eth1" or ""
 #
 FW_DEV_INT=""
 
@@ -155,7 +159,7 @@ FW_DEV_INT=""
 # which should be available to the internet and set FW_ROUTE to yes.
 #
 # Choice: leave empty or any number of devices, seperated by a space
-# e.g. "tr0", "eth0 eth1 eth1:1" or ""
+# e.g. "tr0", "eth0 eth1 eth1" or ""
 #
 FW_DEV_DMZ=""
 
