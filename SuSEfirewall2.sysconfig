@@ -252,30 +252,14 @@ FW_MASQ_NETS="0/0"
 # Do you want to protect the firewall from the internal network?
 # Requires: FW_DEV_INT
 #
-# If you set this to "yes", internal machines may only access services on
-# the firewall you explicitly allow. They will be also affected from the
-# FW_AUTOPROTECT_SERVICES option. If you set this to "no", any
-# internal user can connect (and attack) any service on the
-# firewall.
+# If you set this to "yes", internal machines may only access
+# services on the firewall you explicitly allow. If you set this to
+# "no", any internal user can connect (and attack) any service on
+# the firewall.
 #
 # defaults to "yes" if not set
 # 
 FW_PROTECT_FROM_INTERNAL="no"
-
-## Type:	yesno
-## Default:	no
-#
-# 8.)
-# Do you want to create explicit drop rules for all running network
-# services on the firewall?
-#
-# If set to "yes", all network access to services TCP and UDP on this machine
-# will be explicitely prevented (except to those which you
-# explicitly allow, see below: FW_SERVICES_{EXT,DMZ,INT}_{TCP,UDP})
-#
-# defaults to "yes" if not set
-#
-FW_AUTOPROTECT_SERVICES="no"
 
 ## Type:	string
 #
@@ -578,8 +562,8 @@ FW_FORWARD_MASQ=""
 #
 # Example: "10.0.0.0/8,0/0,tcp,80,3128 0/0,172.20.1.1,tcp,80,8080"
 #
-# Please note that you still have to open the local port in
-# FW_SERVICES_* or FW_TRUSTED_NETS to actually permit access
+# Note: contrary to previous SuSEfirewall2 versions it is no longer necessary
+# to additionally open the local port
 FW_REDIRECT=""
 
 ## Type:	yesno
@@ -668,26 +652,13 @@ FW_LOG=""
 # configuration which works for you. Then set this to "yes" and keep it
 # if everything still works. (It should!) ;-)
 #
-# Warning: do not set FW_KERNEL_SECURITY and FW_ANTISPOOF to "no" at the same
-# time, otherwise you won't have any spoof protection!
+# Warning! This is for expert users only that know what rp_filter is
+# for. Do not disable FW_KERNEL_SECURITY, otherwise you won't have
+# any spoof protection!
 #
 # Choice: "yes" or "no", if not set defaults to "yes"
 #
 FW_KERNEL_SECURITY="yes"
-
-## Type:	yesno
-## Default:	no
-#
-# 17a.)
-#
-# Setup anti-spoofing rules?
-# Anti-Spoofing rules shouldn't be necessary with rp_filter set. They only
-# cause headaches with dynamic interfaces.
-#
-# Warning: do not set FW_KERNEL_SECURITY and FW_ANTISPOOF to "no" at the same
-# time, otherwise you won't have any spoof protection!
-#
-FW_ANTISPOOF="no"
 
 ## Type:	yesno
 ## Default:	no
