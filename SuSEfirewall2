@@ -604,7 +604,7 @@ function set_basic_rules()
     # needed for dhcp and dns replies
     local iptables
     for iptables in "$IPTABLES" "$IP6TABLES"; do
-	    $LAA $iptables -A INPUT-j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state RELATED -p tcp
+	    $LAA $iptables -A INPUT -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state RELATED -p tcp
 	    $LAA $iptables -A INPUT -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-RELATED " -m state --state RELATED -p udp
 	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p tcp
 	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p udp
