@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #####################################################
 # Firewall Script v3.1 by Marc Heuse <marc@suse.de> #
@@ -244,6 +244,28 @@ function check_srv() {
     test -L /etc/init.d/rc${RLVL}.d/S??$1 && return 0
     return 1
 }
+
+#############################################
+# Get device info via ifconfig and parse it #
+#############################################
+function getdevinfo() {
+    DEVNM=$1
+    DEV_TMP=`$IFCONFIG $DEVNM 2>/dev/null`
+    DEV_IP=${DEV_TMP##*inet addr:}
+    DEV_IP=${DEV_IP%% *}
+    DEV_MASK=${DEV_TMP##*ask:}
+    DEV_MASK=${DEV_MASK%% *}
+    DEV_BCAST=${DEV_TMP##*cast:}
+    DEV_BCAST=${DEV_BCAST%% *}
+    test "$DEV_IP" = "$DEVNM" && DEV_IP=""
+    test "$DEV_MASK" = "$DEVNM" && DEV_MASK=""
+    test "$DEV_BCAST" = "$DEVNM" && DEV_BCAST=""
+    #DEV_IP="`$IFCONFIG $DEVNM  2>/dev/null|$AWK '/inet addr:/ {print $2}'|$SED 's/addr://'`"
+    #DEV_MASK=`$IFCONFIG $DEVNM 2>/dev/null|$AWK '/ Mask:/ {print $4}'|$SED 's/Mask://'`
+    #DEV_BCAST=`$IFCONFIG $DEVNM 2>/dev/null|$AWK '/cast:/ {print $3}'|$SED 's/.*cast://'`
+    #test -z "$DEV_MASK" && DEV_MASK=`$IFCONFIG $DEVNM 2>/dev/null|$AWK '/ Mask:/ {print $3}'|$SED 's/Mask://'`
+}
+
 
 # Provide empty functions for transparent hook support for customised rules
 fw_custom_before_antispoofing() { true; }
@@ -541,17 +563,7 @@ You still have to allow tcp port 139 on internal, dmz and/or external.'
 
 NEW_FW_DEV_INT=""
 for DEV in $FW_DEV_INT ; do
-    DEV_TMP=`$IFCONFIG $DEV 2>/dev/null`
-    DEV_IP=${DEV_TMP/*addr:/}
-    DEV_IP=${DEV_IP/ */}
-    DEV_MASK=${DEV_TMP/*ask:/}
-    DEV_MASK=${DEV_MASK/ */}
-    DEV_BCAST=${DEV_TMP/*cast:/}
-    DEV_BCAST=${DEV_BCAST/ */}
-    #DEV_IP="`$IFCONFIG $DEV  2>/dev/null|$AWK '/inet addr:/ {print $2}'|$SED 's/addr://'`"
-    #DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $4}'|$SED 's/Mask://'`
-    #DEV_BCAST=`$IFCONFIG $DEV 2>/dev/null|$AWK '/cast:/ {print $3}'|$SED 's/.*cast://'`
-    #test -z "$DEV_MASK" && DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $3}'|$SED 's/Mask://'`
+    getdevinfo $DEV
     if [ "$DEV_IP" = "" ]; then
 	faulty_int
     else
@@ -567,17 +579,7 @@ done
 FW_DEV_INT="$NEW_FW_DEV_INT"
 NEW_FW_DEV_DMZ=""
 for DEV in $FW_DEV_DMZ ; do
-    DEV_TMP=`$IFCONFIG $DEV 2>/dev/null`
-    DEV_IP=${DEV_TMP/*addr:/}
-    DEV_IP=${DEV_IP/ */}
-    DEV_MASK=${DEV_TMP/*ask:/}
-    DEV_MASK=${DEV_MASK/ */}
-    DEV_BCAST=${DEV_TMP/*cast:/}
-    DEV_BCAST=${DEV_BCAST/ */}
-    #DEV_IP="`$IFCONFIG $DEV  2>/dev/null|$AWK '/inet addr:/ {print $2}'|$SED 's/addr://'`"
-    #DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $4}'|$SED 's/Mask://'`
-    #DEV_BCAST=`$IFCONFIG $DEV 2>/dev/null|$AWK '/cast:/ {print $3}'|$SED 's/.*cast://'`
-    #test -z "$DEV_MASK" && DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $3}'|$SED 's/Mask://'`
+    getdevinfo $DEV
     if [ "$DEV_IP" = "" ]; then
          faulty_int
     else
@@ -593,17 +595,7 @@ done
 FW_DEV_DMZ="$NEW_FW_DEV_DMZ"
 NEW_FW_DEV_EXT=""
 for DEV in $FW_DEV_EXT ; do
-    DEV_TMP=`$IFCONFIG $DEV 2>/dev/null`
-    DEV_IP=${DEV_TMP/*addr:/}
-    DEV_IP=${DEV_IP/ */}
-    DEV_MASK=${DEV_TMP/*ask:/}
-    DEV_MASK=${DEV_MASK/ */}
-    DEV_BCAST=${DEV_TMP/*cast:/}
-    DEV_BCAST=${DEV_BCAST/ */}
-    #DEV_IP="`$IFCONFIG $DEV  2>/dev/null|$AWK '/inet addr:/ {print $2}'|$SED 's/addr://'`"
-    #DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $4}'|$SED 's/Mask://'`
-    #DEV_BCAST=`$IFCONFIG $DEV 2>/dev/null|$AWK '/cast:/ {print $3}'|$SED 's/.*cast://'`
-    #test -z "$DEV_MASK" && DEV_MASK=`$IFCONFIG $DEV 2>/dev/null|$AWK '/ Mask:/ {print $3}'|$SED 's/Mask://'`
+    getdevinfo $DEV
     if [ "$DEV_IP" = "" ]; then
          faulty_int
     else
@@ -628,7 +620,7 @@ FW_MASQ_DEV="$NEW_FW_MASQ_DEV"
 # 0/0 has to be skipped here, otherwise the spoof rules would block
 # anything
 for NET in $FW_MASQ_NETS ; do
-    DEV_IP=${NET/,*/}
+    DEV_IP=${NET%%,*}
     #`echo $NET | $AWK -F, '{print $1}'`
     # skip 0/0
     test "$DEV_IP" = "0/0" && continue
@@ -1029,11 +1021,7 @@ fw_custom_before_port_handling
 # Trusted Networks Handling #
 #############################
 for NETS in $FW_TRUSTED_NETS; do
-    #NET=`echo $NETS | $AWK -F, '{print $1}'`
-    NET=${NETS/,*/}
-    PROTO=`echo $NETS | $AWK -F, '{print $2}'`
-    PORT=`echo $NETS | $AWK -F, '{print $3}'`
-    ERROR=`echo $NETS | $AWK -F, '{print $4}'`
+    IFS="," read NET PROTO PORT ERROR < <(echo "$NETS")
     test -z "$4" || {
 	echo "Error: Too many arguments in FW_TRUSTED_NETS -> $NETS"
 	NET=""
@@ -1390,14 +1378,9 @@ fw_custom_before_masq
 # IP FORWARDING STUFF (evil!) #
 ###############################
 for NETS in $FW_REDIRECT; do
-    #NET1=`echo $NETS | $AWK -F, '{print $1}'`
-    NET1=${NETS/,*/}
-    NET2=`echo $NETS | $AWK -F, '{print $2}' | sed -e 's/!/! /'`
-    PROTO=`echo $NETS | $AWK -F, '{print $3}'`
-    PORT1=`echo $NETS | $AWK -F, '{print $4}'`
-    PORT2=`echo $NETS | $AWK -F, '{print $5}'`
-    ERROR=`echo $NETS | $AWK -F, '{print $6}'`
-    test -z "$6" || {
+    IFS="," read NET1 NET2 PROTO PORT1 PORT2 ERROR < <(echo "$NETS")
+    NET2=${NET2/\!/\! }
+    test -z "$ERROR" || {
 	echo "Error: Too many arguments in FW_REDIRECT -> $NETS"
 	NET1=""
     }
@@ -1457,12 +1440,7 @@ test "$FW_ROUTE" = yes && {
  }
 
  for NETS in $FW_FORWARD; do
-    #NET1=`echo $NETS | $AWK -F, '{print $1}'`
-    NET1=${NETS/,*/}
-    NET2=`echo $NETS | $AWK -F, '{print $2}'`
-    PROTO=`echo $NETS | $AWK -F, '{print $3}'`
-    PORT=`echo $NETS | $AWK -F, '{print $4}'`
-    ERROR=`echo $NETS | $AWK -F, '{print $5}'`
+    IFS="," read NET1 NET2 PROTO PORT ERROR < <(echo "$NETS")
     test -z "$ERROR" || {
 	echo "Error: Too many arguments in FW_FORWARD -> $NETS"
 	NET1=""
@@ -1498,13 +1476,8 @@ test "$FW_ROUTE" = yes && {
 
  test "$FW_MASQUERADE" = yes && {
     for NETS in $FW_MASQ_NETS; do
-        #NET1=`echo $NETS | $AWK -F, '{print $1}'`
-	NET1=${NETS/,*/}
-        NET2=`echo $NETS | $AWK -F, '{print $2}'`
-        PROTO=`echo $NETS | $AWK -F, '{print $3}'`
-        PORT=`echo $NETS | $AWK -F, '{print $4}'`
-        ERROR=`echo $NETS | $AWK -F, '{print $5}'`
-        test -z "$5" || {
+	IFS="," read NET1 NET2 PROTO PORT ERROR < <(echo "$NETS")
+        test -z "$ERROR" || {
    	    echo "Error: Too many arguments in FW_MASQ_NETS -> $NETS"
 	    NET1=""
         }
@@ -1546,14 +1519,7 @@ test "$FW_ROUTE" = yes && {
     done
 
     for NETS in $FW_FORWARD_MASQ; do
-        #NET1=`echo $NETS | $AWK -F, '{print $1}'`
-        NET1=${NETS/,*/}
-        NET2=`echo $NETS | $AWK -F, '{print $2}'`
-        PROTO=`echo $NETS | $AWK -F, '{print $3}'`
-        PORT1=`echo $NETS | $AWK -F, '{print $4}'`
-        PORT2=`echo $NETS | $AWK -F, '{print $5}'`
-        LIP=`echo $NETS | $AWK -F, '{print $6}'`
-        ERROR=`echo $NETS | $AWK -F, '{print $7}'`
+	IFS="," read NET1 NET2 PROTO PORT1 PORT2 LIP ERROR < <(echo "$NETS")
         test -z "$ERROR" || {
    	    echo "Error: Too many arguments in FW_FORWARD_MASQ -> $NETS"
 	    NET2=""
