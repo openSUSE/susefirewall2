@@ -5,12 +5,12 @@
 
 
 Q: I have a problem setting up the config file
-A: read the files
+A: Carefully read the files
 	/etc/sysconfig/SuSEfirewall2
 	/usr/share/doc/packages/SuSEfirewall2/EXAMPLES
 	/usr/share/doc/packages/SuSEfirewall2/FAQ
-	/usr/share/doc/packages/SuSEfirewall2/SuSEfirewall2.conf.EXAMPLE
-   if you have any problems. And read them carefully.
+	/usr/share/doc/packages/SuSEfirewall2/SuSEfirewall2.sysconfig
+   if you have any problems.
 
 Q: I still don't know how to set up the SuSEfirewall2
 A: Read some good books about TCP/IP and firewalls
@@ -75,11 +75,6 @@ Q: I want to allow access to application XYZ on my internal windows machine
    If you still have got problems - sorry, you are on your own here. Ask
    your friends. The EXAMPLES file shows you the syntax and some uses.
 
-Q: I want to do IPSEC - what do I have to configure?
-A: a) put the ipsec* devices into the same interface group (e.g. FW_DEV_EXT)
-      where the real ipsec traffic ends on.
-   b) you might want to set FW_FORWARD rules to allow access
-
 Q: How can I reduce the generated rule set as most as possible?
 A: 1. Only put in the network interfaces you really need.
    2. Disable Logging
@@ -95,9 +90,8 @@ A: 1. Only put in the network interfaces you really need.
 
 Q: How can I be sure that after I dial-in to the internet, that the firewall
    rules are active?
-A: If you have SuSE 7.3+, the /etc/ppp/ip-up will take care of this, however
-   the INSTALL file of SuSEfirewall2 exchanges the ip-up anyway if no
-   SuSEfirewall2 support is detected. so don't care.
+A: If you have SuSE 7.3+, the /etc/ppp/ip-up will take care of this. Make sure
+   that /etc/sysconfig/network/config contains FIREWALL=yes
 
 Q: I'm still not feeling sure if my SuSEfirewall2 setup really protects me!
 A: Run a port scanner against your firewall from the internet.
@@ -147,9 +141,8 @@ A: Run SuSEfirewall2 in test mode: "SuSEfirewall2 test". Then try to connect
    to the service in a way which failed before. It will work because
    SuSEfirewall2 will *not* filter any packets. However, it will log all
    packets to syslog it normally would have filtered.
-   So just check out the last lines in /var/log/firewall to see which ports
-   you have to open/forward to get the service running with SuSEfirewall2.
+   So just check out the last lines in /var/log/messages to see which ports you
+   have to open/forward to get the service running with SuSEfirewall2.
 
 Q: This is cool. All my problems are solved.
 A: fine.
-

@@ -1,7 +1,7 @@
 VERSION=3.2
 NAME=SuSEfirewall2
 NVER=$(NAME)-$(VERSION)
-ARCHIVE=$(NVER).tar.gz
+ARCHIVE=$(NVER).tar.bz2
 
 DESTDIR=
 
@@ -27,7 +27,7 @@ $(ARCHIVE): $(allfiles)
 	for i in $(allfiles); do \
 		ln $$i $(NVER)/$$i; \
 	done
-	tar --owner=root --group=root -czf $(ARCHIVE) $(NVER)
+	tar --owner=root --group=root -cjf $(ARCHIVE) $(NVER)
 	rm -rf $(NVER)
 
 install:

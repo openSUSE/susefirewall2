@@ -2,7 +2,7 @@
 -> NOTE: All options *not* mentioned in a scenario should be left as they
 ->       are in the default sysconfig/SuSEfirewall2 config file!
 ->       Backup default config:
-->           /usr/share/doc/packages/SuSEfirewall2/SuSEfirewall2.conf
+->           /usr/share/doc/packages/SuSEfirewall2/SuSEfirewall2.sysconfig
 
 
 ###########

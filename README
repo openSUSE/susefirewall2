@@ -7,94 +7,70 @@
 
 
 
-WHAT IS SuSEFIREWALL
+WHAT IS SuSEFIREWALL2
 --------------------
-SuSEfirewall is a wrapper for the firewall setup tool for the kernel.
+SuSEfirewall2 is a wrapper for the firewall setup tool for the
+kernel.
 
-Setting up proper filter rules is difficult and time consuming. Therefore
-this script was developed to
+Setting up proper filter rules is difficult and time consuming.
+Therefore this script was developed to
 	a) set up highly secure filter rules
 	b) be easy to configure itself
-So it is a very good tool for both novice users and firewall experts.
-
-Since 5 years, one of my main job functions are setting up or verifying
-firewall configurations. So trust me, this is really the best frontend you
-can find on the internet.
-
-SuSEfirewall comes in two flavours, v1 and v2.
-SuSEfirewall v1 (or generally just termed "SuSEfirewall" is for the 2.2
-kernel. It can also be used with the 2.4 kernel but then it can't make use
-of additional security features.
-SuSEfirewall v2 (or generally just termed "SuSEfirewall2" is solely for the
-2.4 kernel and uses all available security functionality.
-
+So it is a very good tool for both novice users and firewall
+experts.
 
 HOW DO I SET UP SuSEFIREWALL
 ----------------------------
-First use the runlevel editor to enable SuSEfirewall2 in your runlevel (3 or
-5 most likely). It sets the symlinks for the SuSEfirewall2_* scripts in the 
-/etc/init.d/rc?.d/ directories.
+First use the runlevel editor to enable SuSEfirewall2 in your
+runlevel (3 or 5 most likely). It sets the symlinks for the
+SuSEfirewall2_* scripts in the /etc/init.d/rc?.d/ directories.
 
 Well, then you just edit /etc/sysconfig/SuSEfirewall2 with your
-favourite editor. Read the commented lines carefully. They give you many hints
-and tips for the configuration!
-If you are stuck or need additional hints, take a look at the
-/usr/share/doc/packages/SuSEfirewall2/EXAMPLES file and the sample config file
-/usr/share/doc/packages/SuSEfirewall2/SuSEfirewall2.conf.EXAMPLE
-
-These two files should help even the most novice user to set up their basic
-but highly secure firewall rules.
+favourite editor. Read the commented lines carefully. They give you
+many hints and tips for the configuration! If you are stuck or need
+additional hints, take a look at the
+/usr/share/doc/packages/SuSEfirewall2/EXAMPLES file
 
 Most problems will arise in two areas.
 a) "I want to allow access to my application XYZ on my firewall"
-These need to be set in FW_SERVICES_EXT_TCP etc. but the common problem is
-about the port the application uses. Let's say you are running an irc daemon
-and want to allow this service. Execute "lsof -i -n -P" and look for irc.
-You will see a line like this:
-ircd       1275 irc     5u  IPv4   3097       TCP *:6667 (LISTEN)
-This 6667 is the number you are looking for. Put this into e.g.
+These need to be set in FW_SERVICES_EXT_TCP etc. but the common
+problem is about the port the application uses. Let's say you are
+running an irc daemon and want to allow this service. Execute "lsof
+-i -n -P" and look for irc. You will see a line like this: ircd
+1275 irc     5u  IPv4   3097       TCP *:6667 (LISTEN) This 6667 is
+the number you are looking for. Put this into e.g.
 FW_SERVICES_EXT_TCP and execute SuSEfirewall2 again.
 
-b) "I want to allow access to application XYZ on my internal windows machine"
-For this you have to use FW_FORWARD_MASQ and again, you need to find out the
-port numbers to put in there. Read the documentation of the application or
-run something like tcpdump to find this out.
-If you still have got problems - sorry, you are on your own here. Ask your
-friends. The EXAMPLES file shows you the syntax and some uses.
+b) "I want to allow access to application XYZ on my internal windows
+machine" For this you have to use FW_FORWARD_MASQ and again, you
+need to find out the port numbers to put in there. Read the
+documentation of the application or run something like tcpdump to
+find this out. If you still have got problems - sorry, you are on
+your own here. Ask your friends. The EXAMPLES file shows you the
+syntax and some uses.
 
 
 A WORD ABOUT SECURITY
 ---------------------
-As the SuSEfirewall scripts (v1 and v2) are just frontends for
-ipchains/iptables which set up the kernel filters - this is not the best
-security you can get.
-If you have to protect a company network, you have to set up a proper
-security infrastructure with multi-tier security. Get a book (e.g. Building
-Internet Firewalls, O'Reilly, Chapman & Zwicky) or a professional consultant
-(e.g. SuSE or KPMG :-)
-It is important in such a setup is that you are not doing masquerading or
-routing with this firewall server. All communication with the internet and
-other networks should only run via chrooted proxies, or machines in the DMZ.
-If you already do not know what I am talking about: read the book and/or get
-a consultant.
+As the SuSEfirewall scripts are just frontends for ipchains/iptables
+which set up the kernel filters - this is not the best security you
+can get. If you have to protect a company network, you have to set
+up a proper security infrastructure with multi-tier security. Get a
+book (e.g. Building Internet Firewalls, O'Reilly, Chapman & Zwicky)
+or a professional consultant (e.g. SuSE or KPMG :-). It is important
+in such a setup is that you are not doing masquerading or routing
+with this firewall server. All communication with the internet and
+other networks should only run via chrooted proxies, or machines in
+the DMZ. If you already do not know what I am talking about: read
+the book and/or get a consultant.
 
 
 I FOUND A BUG
 -------------
-Send me your bug report: marc@suse.de
+Report any problems via http://www.suse.de/feedback
 
 
 HAVE A LOT OF FUN!
 
 Greets,
 	Marc
-
-
-
-
-
-
-
-
-
-
