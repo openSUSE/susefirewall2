@@ -187,6 +187,7 @@ LOGGER=`which logger`	   || LOGGER="/usr/bin/logger"
 GREP=`which grep`          || GREP="/usr/bin/grep"
 TC=`which tc`              || TC="/usr/sbin/tc"
 modinfo=`which modinfo`    || modinfo="/sbin/modinfo"
+rpcinfo=`which rpcinfo`    || rpcinfo="/usr/sbin/rpcinfo"
 
 for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
     test -x $i || { echo "I need $i for running but can not find it, aborting."
@@ -536,6 +537,41 @@ auto_detect_interfaces()
 	esac
     done < <(/etc/sysconfig/scripts/SuSEfirewall2-autointerface.sh)
     auto_detect_done=1
+}
+
+# determine port numbers of rpc services and generate a suitable iptables
+# parameter fragment
+#
+# parameters: names of rpc services, e.g. ypbind mountd
+rpcservicerules()
+{
+	[ -z "$*" ] && return
+
+	$rpcinfo -p localhost | RPCSERVS="$*" $AWK \
+	'
+	BEGIN {
+		split(ENVIRON["RPCSERVS"], rpc, " ");
+		for (s in rpc)
+		{
+			serv[rpc[s]]=1;
+		}
+	}
+	NR > 1 {
+		if($5 in serv)
+		{
+			if($3 == "udp")
+				udp[$4]=1;
+			if($3 == "tcp")
+				tcp[$4]=1;
+		}
+	}
+	END {
+		for (port in udp)
+			print "-p udp --dport " port;
+		for (port in tcp)
+			print "-p tcp --dport " port;
+	}
+	'
 }
 
 # Provide empty functions for transparent hook support for customised rules
@@ -1471,6 +1507,25 @@ for PORT in $FW_SERVICES_INT_TCP; do
     $LAC $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-TCP " -p tcp --dport $PORT --syn
     $LAA $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-TCP " -p tcp --dport $PORT
     $IPTABLES -A input_int -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -p tcp --dport $PORT
+done
+
+#############
+# RPC stuff #
+#############
+rpcservicerules "$FW_SERVICES_EXT_RPC" | while read ARG; do
+    $LAC $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-RPC " -m state --state NEW $ARG
+    $LAA $IPTABLES -A input_ext -j LOG ${LOG}"-INext-ACC-RPC " -m state --state ESTABLISHED,RELATED $ARG
+    $IPTABLES -A input_ext -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED $ARG
+done
+rpcservicerules "$FW_SERVICES_DMZ_RPC" | while read ARG; do
+    $LAC $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-ACC-RPC " -m state --state NEW $ARG
+    $LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-INdmz-ACC-RPC " -m state --state ESTABLISHED,RELATED $ARG
+    $IPTABLES -A input_dmz -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED $ARG
+done
+rpcservicerules "$FW_SERVICES_INT_RPC" | while read ARG; do
+    $LAC $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-RPC " -m state --state NEW $ARG
+    $LAA $IPTABLES -A input_int -j LOG ${LOG}"-INint-ACC-RPC " -m state --state ESTABLISHED,RELATED $ARG
+    $IPTABLES -A input_int -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED $ARG
 done
 
 # If port 113 (auth/identd) was not allowed above, outgoing mail would

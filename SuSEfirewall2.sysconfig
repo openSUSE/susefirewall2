@@ -293,6 +293,13 @@ FW_SERVICES_EXT_UDP=""	# Common: domain
 # For VPN/Routing which END at the firewall!!
 FW_SERVICES_EXT_IP=""
 
+## Type:        string
+# Port numbers of RPC services are dynamically assigned by the portmapper.
+# Therefore "rpcinfo -p localhost" is used to automatically determine the
+# currently assigned port for the services specified here.
+# Typical choice: mountd nfs
+FW_SERVICES_EXT_RPC=""
+
 ## Type:	string
 #
 # Common: smtp domain
@@ -306,6 +313,13 @@ FW_SERVICES_DMZ_UDP=""
 # For VPN/Routing which END at the firewall!!
 FW_SERVICES_DMZ_IP=""
 
+## Type:        string
+# Port numbers of RPC services are dynamically assigned by the portmapper.
+# Therefore "rpcinfo -p localhost" is used to automatically determine the
+# currently assigned port for the services specified here.
+# Typical choice: mountd nfs
+FW_SERVICES_DMZ_RPC=""
+
 ## Type:	string
 #
 # Common: ssh smtp domain
@@ -317,6 +331,13 @@ FW_SERVICES_INT_UDP=""
 
 # For VPN/Routing which END at the firewall!!
 FW_SERVICES_INT_IP=""
+
+## Type:        string
+# Port numbers of RPC services are dynamically assigned by the portmapper.
+# Therefore "rpcinfo -p localhost" is used to automatically determine the
+# currently assigned port for the services specified here.
+# Typical choice: mountd nfs
+FW_SERVICES_INT_RPC=""
 
 ## Type:	string
 # 9a.)
