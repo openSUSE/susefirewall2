@@ -53,6 +53,7 @@ stateful packet filter rules generator for iptables.
 
 $0 start|test|debug [file FILENAME] [batch]
 $0 basic|stop|close|status|help
+$0 on|off
 
 Options:
   start	  generate and load the firewall filter rules from 
@@ -66,6 +67,8 @@ Options:
   debug   print the iptables command to stdout instead of executing them
   log     show SuSEfirewall2 related syslog messages in a better readable format
   help    this output
+  on      add SuSEfirwall2 initscripts to boot process and start
+  off     remove SuSEfirwall2 initscripts from boot process and stop
 
   file FILENAME  same as "start" but load alternate config file FILENAME
 
@@ -138,6 +141,7 @@ IP6TABLES_HAVE_REJECT=1
 
 ACTION="start"
 MODE="standard"
+INITSCRIPTS="" # on|off
 needconfig=
 
 case $1 in
@@ -150,6 +154,8 @@ case $1 in
     status) ACTION="status" ;;
     log) ACTION="showlog" ;;
     help) help ;;
+    off) ACTION="stop"; needconfig=1; INITSCRIPTS="off" ;;
+    on) ACTION="start"; needconfig=1; INITSCRIPTS="on" ;;
     *) help ;;
 esac
 shift
@@ -575,6 +581,23 @@ function set_basic_rules()
     fi
 }
 
+handle_initscripts()
+{
+    local i
+    case "$INITSCRIPTS" in
+	on)
+	    for i in SuSEfirewall2_init SuSEfirewall2_setup SuSEfirewall2_final; do
+		/sbin/insserv -f $i
+	    done
+	    ;;
+	off)
+	    for i in SuSEfirewall2_final SuSEfirewall2_setup SuSEfirewall2_init; do
+		/sbin/insserv -r -f $i
+	    done
+	    ;;
+    esac
+}
+
 # $1 protocol
 # $2 port
 # $3 type
@@ -858,6 +881,7 @@ fi
 	
 if [ "$ACTION" = "stop" ]; then
     reset_rules
+    handle_initscripts
     die 0 "Firewall rules unloaded."
 fi
 
@@ -2129,6 +2153,8 @@ fi
 
 # HTB settings
 [ -n "$FW_HTB_TUNE_DEV" ] && do_qdisc_settings
+
+handle_initscripts
 
 # END #
 die 0 "Firewall rules successfully set from $FWCONFIG"
