@@ -1181,20 +1181,37 @@ test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A FORWARD -j
 test "$FW_ROUTE" = yes && $IPTABLES -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
 # anti ip spoofing rules
 for SPOOF in $DEV_EXT_NET $DEV_DMZ_NET; do
-    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_int -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
+    # special case for internal ipsec devices that have the same ip as the
+    # external device
+    for net in $DEV_INT_NET; do
+	if [ "$net" = "$SPOOF" ]; then
+	    echo "$net is internal and external, no spoof protection possible from internal"
+	    continue 2
+	fi
+    done
+
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_int -j LOG ${LOG}"-DROP-ANTI-SPOOF-iint " -s $SPOOF
     test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_int -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
     $IPTABLES -A input_int -j "$DROP" -s $SPOOF
     test "$FW_ROUTE" = yes && $IPTABLES -A forward_int -j "$DROP" -s $SPOOF
 done
 for SPOOF in $DEV_EXT_NET $DEV_INT_NET; do
-    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_dmz -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_dmz -j LOG ${LOG}"-DROP-ANTI-SPOOF-idmz " -s $SPOOF
     test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_dmz -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
     $IPTABLES -A input_dmz -j "$DROP" -s $SPOOF
     test "$FW_ROUTE" = yes && $IPTABLES -A forward_dmz -j "$DROP" -s $SPOOF
 done
 # those devices must not be 0/0!
 for SPOOF in $DEV_INT_NET $DEV_DMZ_NET $DEV_MASQ_NET; do
-    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_ext -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
+    # special case for internal ipsec devices that have the same ip as the
+    # external device
+    for net in $DEV_EXT_NET; do
+	if [ "$net" = "$SPOOF" ]; then
+	    echo "$net is internal and external, no spoof protection possible from external"
+	    continue 2
+	fi
+    done
+    test -z "$LDC" -o -z "$LDA" && $IPTABLES -A input_ext -j LOG ${LOG}"-DROP-ANTI-SPOOF-iext " -s $SPOOF
     test "$FW_ROUTE" = yes && test -z "$LDC" -o -z "$LDA" && $IPTABLES -A forward_ext -j LOG ${LOG}"-DROP-ANTI-SPOOF " -s $SPOOF
     $IPTABLES -A input_ext -j "$DROP" -s $SPOOF
     test "$FW_ROUTE" = yes && $IPTABLES -A forward_ext -j "$DROP" -s $SPOOF
@@ -1560,7 +1577,7 @@ test "$FW_AUTOPROTECT_SERVICES" = no || {
     OPENED_INT=`echo "$FW_SERVICES_INT_UDP $DNS_PORT $SQUID_PORT" | $SED 's/ /|/g'`
     PROTECT_INT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_INT"`
     for PORT in $PROTECT_INT; do
-	$LAA $IPTABLES -A input_int -j LOG ${LOG}"-DROP " -p udp --dport $PORT
+	$LDA $IPTABLES -A input_int -j LOG ${LOG}"-DROP " -p udp --dport $PORT
 	$IPTABLES -A input_int -j "$DROP" -p udp --dport $PORT
     done
    }
@@ -1568,14 +1585,14 @@ test "$FW_AUTOPROTECT_SERVICES" = no || {
     OPENED_DMZ=`echo "$FW_SERVICES_DMZ_UDP $DNS_PORT $SQUID_PORT" | $SED 's/ /|/g'`
     PROTECT_DMZ=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_DMZ"`
     for PORT in $PROTECT_DMZ; do
-	$LAA $IPTABLES -A input_dmz -j LOG ${LOG}"-DROP " -p udp --dport $PORT
+	$LDA $IPTABLES -A input_dmz -j LOG ${LOG}"-DROP " -p udp --dport $PORT
 	$IPTABLES -A input_dmz -j "$DROP" -p udp --dport $PORT
     done
     PROTECT=`for S in $PROTECT_EXT $PROTECT_GLOBAL; do echo $S; done | $SORT -n`
     OPENED_EXT=`echo "$FW_SERVICES_EXT_UDP $DNS_PORT $SQUID_PORT" | $SED 's/ /|/g'`
     PROTECT_EXT=`for S in $PROTECT; do echo $S; done | $GREP -Evw "$OPENED_EXT"`
     for PORT in $PROTECT_EXT; do
-	$LAA $IPTABLES -A input_ext -j LOG ${LOG}"-DROP " -p udp --dport $PORT
+	$LDA $IPTABLES -A input_ext -j LOG ${LOG}"-DROP " -p udp --dport $PORT
 	$IPTABLES -A input_ext -j "$DROP" -p udp --dport $PORT
     done
 }
