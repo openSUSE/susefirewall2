@@ -400,6 +400,8 @@ do_qdisc_settings() {
     for DEVICE_DATA in $FW_HTB_TUNE_DEV; do
         IFS="," read DEV BANDWIDTH < <(echo "$DEVICE_DATA")
 
+	getdevinfo "$DEV"
+
         # sanity check
         if [ -n "$DEV" -a -n "$BANDWIDTH" ]; then
             # reserve about 15% for small packets (TCP ACK),
@@ -497,21 +499,32 @@ function check_srv() {
     return 1
 }
 
+# find interface name for hardware description
+function getcfg-interface()
+{
+    if [ -x /sbin/getcfg-interface ]; then
+	/sbin/getcfg-interface "$1" || echo "$1"
+    else
+	echo "$1"
+    fi
+}
+
 #############################################
 # Get device info via ifconfig and parse it #
 #############################################
+# require hw info or interface as $1, sets $DEV to real interface name
 function getdevinfo() {
-    DEVNM=$1
-    DEV_TMP=`$IFCONFIG $DEVNM 2>/dev/null`
+    DEV=`getcfg-interface "$1"`
+    DEV_TMP=`$IFCONFIG $DEV 2>/dev/null`
     DEV_IP=${DEV_TMP##*inet addr:}
     DEV_IP=${DEV_IP%% *}
     DEV_MASK=${DEV_TMP##*ask:}
     DEV_MASK=${DEV_MASK%% *}
     DEV_BCAST=${DEV_TMP##*cast:}
     DEV_BCAST=${DEV_BCAST%% *}
-    test "$DEV_IP" = "$DEVNM" && DEV_IP=""
-    test "$DEV_MASK" = "$DEVNM" && DEV_MASK=""
-    test "$DEV_BCAST" = "$DEVNM" && DEV_BCAST=""
+    test "$DEV_IP" = "$DEV" && DEV_IP=""
+    test "$DEV_MASK" = "$DEV" && DEV_MASK=""
+    test "$DEV_BCAST" = "$DEV" && DEV_BCAST=""
     #DEV_IP="`$IFCONFIG $DEVNM  2>/dev/null|$AWK '/inet addr:/ {print $2}'|$SED 's/addr://'`"
     #DEV_MASK=`$IFCONFIG $DEVNM 2>/dev/null|$AWK '/ Mask:/ {print $4}'|$SED 's/Mask://'`
     #DEV_BCAST=`$IFCONFIG $DEVNM 2>/dev/null|$AWK '/cast:/ {print $3}'|$SED 's/.*cast://'`
@@ -948,6 +961,8 @@ done
 FW_DEV_EXT="$NEW_FW_DEV_EXT"
 NEW_FW_MASQ_DEV=""
 for DEV in $FW_MASQ_DEV; do
+    getdevinfo "$DEV"
+    [ -z "$DEV_IP" ] && continue
     test -z `echo "$DEV"|$GREP -E ':|!|\*'` && NEW_FW_MASQ_DEV="$DEV $NEW_FW_MASQ_DEV"
 done
 FW_MASQ_DEV="$NEW_FW_MASQ_DEV"
