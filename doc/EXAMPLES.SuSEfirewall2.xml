@@ -52,6 +52,26 @@ FW_MASQ_NETS="192.168.10.0/24"</programlisting>
 
   </section>
 
+  <section><title>Small home network with additional WLAN</title>
+    <para>
+      Same network as above but additionally the Firewall is also connected to
+      a wireless network. Hosts in the wireless network should get internet
+      access but are not allowed to communicate with the internal network. The
+      address of the WLAN is 192.168.20.0/24.
+
+      <informalexample><programlisting>FW_ZONES="wlan"
+FW_DEV_EXT="dsl0"
+FW_DEV_INT="eth0"
+FW_DEV_wlan="wlan0"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_MASQ_NETS="192.168.10.0/24 192.168.20.0/24"</programlisting>
+      </informalexample>
+
+    </para>
+
+  </section>
+
   <section>
     <title>Small company with external mail and web server</title>
 
