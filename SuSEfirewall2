@@ -282,30 +282,16 @@ REJECT="reject_func"
 
 mark_redir=1
 
+# ipsec
+
+ipsec_chain=""
+IPSEC_MATCH=""
+
 ### zones
 
 all_zones="int ext dmz"
-forward_zones="$all_zones"
-input_zones="$all_zones"
-
-create_zones_hash()
-{
-    need bashhash
-    for i in $all_zones; do
-	hashadd zones $i 1
-    done
-}
-
-# convert if built in zone, eg ext -> EXT
-cibiz()
-{
-    case $1 in
-	int) echo INT ;;
-	ext) echo EXT ;;
-	dmz) echo DMZ ;;
-	*)   echo "$1" ;;
-    esac
-}
+forward_zones=
+input_zones=
 
 #### constants
 
@@ -1033,12 +1019,13 @@ set_proc_stuff()
 # Make input/forward chains
 create_chains()
 {
-    local iptables
+    local iptables chain
     for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for TARGET in input forward; do
-	    for CHAIN in ext dmz int; do
-		$iptables -N ${TARGET}_${CHAIN}
-	    done
+	for chain in $input_zones; do
+	    $iptables -N input_$chain
+	done
+	for chain in $forward_zones; do
+	    $iptables -N forward_$chain
 	done
     done
 }
@@ -1111,14 +1098,17 @@ drop_broadcast()
 	local match="-A input_$zone -m pkttype --pkt-type broadcast"
 
 	for port in $allow; do
+	    [ $port = no ] && continue
 	    $LAA $IPTABLES $match -p udp --dport $port -j LOG ${LOG}"-ACC-BCAST${zone:0:1} "
 	    $IPTABLES $match -p udp --dport $port -j "$ACCEPT"
 	done
-	for port in $ignore; do
-	    $IPTABLES $match -p udp --dport $port -j DROP
-	done
 
 	if [ "$ignore" != yes ]; then
+	    for port in $ignore; do
+		[ $port = no ] && continue
+		$IPTABLES $match -p udp --dport $port -j DROP
+	    done
+
 	    $LDA $IPTABLES $match -j LOG ${LOG}"-DROP-BCAST${zone:0:1} "
 	fi
 
@@ -1126,20 +1116,71 @@ drop_broadcast()
     done
 }
 
+### zones ###
+
+check_required_zones()
+{
+    local zone zones devs
+    for zone in $all_zones; do
+	eval devs="\$FW_DEV_$zone"
+	if [ -n "$devs" -o "$ipsec_chain" = $zone ]; then
+	    if [ -z "$zones" ]; then
+		zones=$zone
+	    else
+		zones="$zones $zone"
+	    fi
+	fi
+    done
+
+    [ "$all_zones" != "$zones" ] && all_zones="$zones"
+}
+
+create_zones_hash()
+{
+    local zone
+    need bashhash
+    for zone in $all_zones; do
+	hashadd zones $zone 1
+    done
+}
+
+# convert if built in zone, eg ext -> EXT
+cibiz()
+{
+    case $1 in
+	int) echo INT ;;
+	ext) echo EXT ;;
+	dmz) echo DMZ ;;
+	*)   echo "$1" ;;
+    esac
+}
+
 ### IPsec ###
+
+parse_ipsec()
+{
+    if [ "$FW_IPSEC_TRUST" = yes ]; then
+	ipsec_chain="int"
+    elif [ "$FW_IPSEC_TRUST" = no ]; then
+	:
+    elif [ -n "$FW_IPSEC_TRUST" ]; then
+	for zone in $all_zones; do
+	    if [ "$FW_IPSEC_TRUST" = "$zone" ]; then
+		ipsec_chain="$zone"
+		break;
+	    fi
+	done
+	if [ -z "$ipsec_chain" ]; then
+	    warning "FW_IPSEC_TRUST: $FW_IPSEC_TRUST is no valid zone"
+	fi
+    fi
+
+    [ -n "$ipsec_chain" ] && IPSEC_MATCH="-m policy --dir in --pol ipsec --proto esp"
+}
 
 allow_ipsec()
 {
-    ipsec_chain=""
-    case "$FW_IPSEC_TRUST" in
-	yes|int) ipsec_chain=int ;;
-	ext) ipsec_chain=ext ;;
-	dmz) ipsec_chain=dmz ;;
-    esac
-
-    IPSEC_MATCH=
     if [ -n "$ipsec_chain" ]; then
-	IPSEC_MATCH="-m policy --dir in --pol ipsec --proto esp"
 	$IPTABLES -A INPUT -j "input_$ipsec_chain" $IPSEC_MATCH
 	$IPTABLES -A FORWARD -j "forward_$ipsec_chain" $IPSEC_MATCH
     fi
@@ -1193,17 +1234,17 @@ finish_chains()
 	    $iptables -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
 	fi
 
-	# MSS stuff needs this?
-	if [ "$FW_ROUTE" = yes ]; then
-	    $IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
-	fi
-
 	$iptables -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
 	$iptables -A OUTPUT -j LOG ${LOG}"-OUT-ERROR " 
 	# we want to let locally generated packets out since our task is not
 	# to protect the world from us, but protect us from the world ;)
 	$iptables -A OUTPUT -j ACCEPT
     done
+
+    # MSS stuff needs this?
+    if [ "$FW_ROUTE" = yes ]; then
+	$IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+    fi
 }
 
 # Protect the firewall from the internal network? #
@@ -1230,7 +1271,7 @@ protect_from_internal()
 	    eval devs="\$FW_DEV_$zone"
 	    chain=input_$chain
 	    for iptables in "$IPTABLES" "$IP6TABLES"; do
-		$LAA $iptables -A $chain -j LOG ${LOG}"-INint-ACC-ALL-INT " 
+		$LAA $iptables -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-ALL " 
 		$iptables -A $chain -j "$ACCEPT"
 	    done
 	fi
@@ -1247,7 +1288,7 @@ allow_icmp()
     if [ "$FW_ALLOW_FW_SOURCEQUENCH" != "no" ]; then
 	for chain in $input_zones; do
 	    chain=input_$chain
-	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-INext-ACC-SOURCEQUENCH "  -p icmp --icmp-type source-quench
+	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-SOURCEQUENCH "  -p icmp --icmp-type source-quench
 	    $IPTABLES -A $chain -j "$ACCEPT" -p icmp --icmp-type source-quench
 	done
     fi
@@ -1874,16 +1915,23 @@ fi
 
 ### main mode ###
 
-create_zones_hash
-
 auto_detect_all_interfaces
 
 parse_interfaces
 load_customrules
 
 check_interfaces
+
 verify_parameters
 verify_masq_nets
+
+parse_ipsec
+
+check_required_zones
+[ "$FW_ROUTE" = 'yes' ] && forward_zones="$all_zones"
+input_zones="$all_zones"
+
+create_zones_hash
 
 # Set default rules + flush
 set_basic_rules
