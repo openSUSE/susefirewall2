@@ -310,6 +310,11 @@ cibiz()
     esac
 }
 
+#### constants
+
+safe_icmp_replies="echo-reply destination-unreachable time-exceeded parameter-problem timestamp-reply address-mask-reply protocol-unreachable"
+safe_icmpv6_replies="echo-reply destination-unreachable time-exceeded parameter-problem"
+
 ###############
 
 parse_logging()
@@ -1226,7 +1231,7 @@ allow_icmp()
 	    $IP6TABLES -A $chain -j "$ACCEPT" -p icmpv6 --icmpv6-type echo-request
 	done
     fi
-    local icmp_types="echo-reply destination-unreachable time-exceeded parameter-problem timestamp-reply address-mask-reply protocol-unreachable"
+    local icmp_types="$safe_icmp_replies"
     for itype in $icmp_types; do
 	for chain in $input_all_zones; do
 	    chain=input_$chain
@@ -1234,7 +1239,7 @@ allow_icmp()
 	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
 	done
     done
-    icmp_types="echo-reply destination-unreachable time-exceeded parameter-problem"
+    icmp_types="$safe_icmpv6_replies"
     for itype in $icmp_types; do
 	for chain in $input_all_zones; do
 	    chain=input_$chain
@@ -1557,13 +1562,18 @@ allow_class_routing()
 
 forward_icmp()
 {
-    local chain
+    local chain itype
+
     for chain in $forward_all_zones; do
 	chain=forward_$chain
-	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-FWD-RELA "  -m state --state RELATED -p icmp --icmp-type destination-unreachable
-	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-FWD-RELA "  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type echo-reply
-	$IPTABLES -A $chain -j "$ACCEPT" -m state --state RELATED -p icmp --icmp-type destination-unreachable
-	$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type echo-reply
+	for itype in $safe_icmp_replies; do
+	    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-FWD-RELA"  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
+	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
+	done
+	for itype in $safe_icmpv6_replies; do
+	    $LAA $IP6TABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-FWD-RELA " -m state --state ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
+	    $IP6TABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
+	done
     done
 }
 
