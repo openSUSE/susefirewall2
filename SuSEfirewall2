@@ -485,7 +485,7 @@ faulty_int() {
     test -z "$DEV" || {
 	case "$DEV" in
 	    *ppp*) ;;
-	    *) echo -en "\n Warning: interface $DEV is not (yet?) active."
+	    *) echo "Warning: interface $DEV is not active."
 		 ;;
 	esac
     }
@@ -1025,7 +1025,7 @@ test -z "$FW_CUSTOMRULES" || {
 ########################
 INTERFACE_OK=`echo "$DEV_EXT $DEV_INT $DEV_DMZ" | $SED 's/ //g'`
 test -z "$INTERFACE_OK" && { 
-    echo -en '\n Warning: No interface active (yet?)'
+    echo 'Warning: No interface active'
     #reset_rules ; 
     # Remember that we should be active
     # $IPTABLES -N reject_func
