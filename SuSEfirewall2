@@ -1019,13 +1019,12 @@ set_proc_stuff()
 # Make input/forward chains
 create_chains()
 {
-    local iptables chain
+    local iptables
     for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for chain in $input_zones; do
-	    $iptables -N input_$chain
-	done
-	for chain in $forward_zones; do
-	    $iptables -N forward_$chain
+	for TARGET in input forward; do
+	    for CHAIN in $all_zones; do
+		$iptables -N ${TARGET}_${CHAIN}
+	    done
 	done
     done
 }
@@ -1199,7 +1198,7 @@ fork_to_chains()
     local any
 
     for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for zone in $input_zones; do
+	for zone in $saved_input_zones; do
 	    eval devs="\$FW_DEV_$zone"
 	    for dev in $devs; do
 		$iptables -A INPUT -j input_$zone -i $dev
@@ -1277,7 +1276,10 @@ protect_from_internal()
 	fi
     done
 
-    [ "$input_zones" != "$newzones" ] && input_zones="$newzones"
+    if [ "$input_zones" != "$newzones" ]; then 
+	saved_input_zones="$input_zones" # need that for fork_to_chains
+	input_zones="$newzones"
+    fi
 }
 
 # ICMP stuff
@@ -1930,6 +1932,7 @@ parse_ipsec
 check_required_zones
 [ "$FW_ROUTE" = 'yes' ] && forward_zones="$all_zones"
 input_zones="$all_zones"
+saved_input_zones="$input_zones" # need that for fork_to_chains
 
 create_zones_hash
 
