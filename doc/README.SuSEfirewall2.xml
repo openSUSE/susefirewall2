@@ -193,6 +193,18 @@
 
   </section>
 
+  <section>
+    <title>Links</title>
+
+    <para>
+      <ulink url="EXAMPLES.html">Examples</ulink>
+    </para>
+    <para>
+      <ulink url="FAQ.html">Frequently Asked Questions</ulink>
+    </para>
+
+  </section>
+
 </article>
 
 <!-- vim:set sw=2: -->

@@ -33,6 +33,7 @@ $(ARCHIVE): $(allfiles) doc
 	for i in $(allfiles); do \
 		ln $$i $(NVER)/$$i; \
 	done
+	ln doc/SuSEfirewall2-doc.desktop $(NVER)/SuSEfirewall2-doc.desktop
 	for i in doc/*.html; do \
 		dest=$${i/.SuSEfirewall2/}; \
 		dest=$${dest##*/}; \
