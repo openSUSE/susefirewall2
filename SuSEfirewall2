@@ -283,6 +283,8 @@ else
     if ! $IP6TABLES -m state --help >/dev/null 2>&1 || ! $modinfo ip6t_state >/dev/null 2>&1; then
 	warning "ip6tables does not support state matching. Extended IPv6 support disabled."
 	IP6TABLES_HAVE_STATE=0
+	# drop incoming packets if not specified otherwise
+	[ "$FW_IPv6" != 'no' -a "$FW_IPv6" != 'reject' ] && FW_IPv6='drop'
     fi
 
     $modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
@@ -618,7 +620,7 @@ function set_basic_rules()
 	else
 	    $IP6TABLES -A INPUT -j "$REJECT"
 	fi
-	if [ "$IP6TABLES_HAVE_REJECT" != 1 -o "$FW_IPv6_REJECT_OUTGOING" != "yes" ]; then
+	if [ "$IP6TABLES_HAVE_REJECT" != 1 -o "$FW_IPv6_REJECT_OUTGOING" = "no" ]; then
 	    $IP6TABLES -A OUTPUT -j "$DROP"
 	else
 	    $IP6TABLES -A OUTPUT -j "$REJECT"
@@ -976,10 +978,11 @@ parse_zones()
 
 remove_unused_zones()
 {
-    local zone zones devs
+    local zone zones devs any
     for zone in $all_zones; do
 	eval devs="\$FW_DEV_$zone"
-	if [ -n "$devs" -o "$ipsec_chain" = $zone ]; then
+	eval any="\$DEV_${zone}_ANY"
+	if [ -n "$devs" -o "$ipsec_chain" = $zone -o "$any" = 'yes' ]; then
 	    if [ -z "$zones" ]; then
 		zones=$zone
 	    else
