@@ -927,19 +927,21 @@ parse_broadcast()
     local i zone
 
     if [ -n "$FW_ALLOW_FW_BROADCAST" ]; then
-	warning "FW_ALLOW_FW_BROADCAST is deprecated, use FW_ALLOW_FW_BROADCAST_* instead"
 	for i in $FW_ALLOW_FW_BROADCAST; do
 	    case "$i" in
 		no) ;;
 		yes)
+		    warning "FW_ALLOW_FW_BROADCAST=yes is deprecated, use FW_ALLOW_FW_BROADCAST_{INT,EXT,DMZ}=yes instead"
 		    for zone in $all_zones; do
 			eval FW_ALLOW_FW_BROADCAST_`cibiz $zone`=yes
 		    done
 		    ;;
 		int|ext|dmz)
+			warning "FW_ALLOW_FW_BROADCAST=$i is deprecated, use FW_ALLOW_FW_BROADCAST_`cibiz $i`=yes instead"
 			eval FW_ALLOW_FW_BROADCAST_`cibiz $i`=yes
 		    ;;
 		*)
+		    warning "FW_ALLOW_FW_BROADCAST=$i is deprecated, use FW_ALLOW_FW_BROADCAST_{INT,EXT,DMZ}=$i instead"
 		    for zone in $all_zones; do
 			eval FW_ALLOW_FW_BROADCAST_`cibiz $zone`="$i"
 		    done
@@ -951,19 +953,21 @@ parse_broadcast()
 
     if [ -n "$FW_IGNORE_FW_BROADCAST" ]; then
 	# backward compat
-	warning "FW_IGNORE_FW_BROADCAST is deprecated, use FW_IGNORE_FW_BROADCAST_* instead"
 	for i in $FW_IGNORE_FW_BROADCAST; do
 	    case "$i" in
 		no) ;;
 		yes)
+		    warning "FW_IGNORE_FW_BROADCAST=yes is deprecated, use FW_IGNORE_FW_BROADCAST_{INT,EXT,DMZ}=yes instead"
 		    for zone in $all_zones; do
 			eval FW_IGNORE_FW_BROADCAST_`cibiz $zone`=yes
 		    done
 		    ;;
 		int|ext|dmz)
+			warning "FW_IGNORE_FW_BROADCAST=$i is deprecated, use FW_IGNORE_FW_BROADCAST_`cibiz $i`=yes instead"
 			eval FW_IGNORE_FW_BROADCAST_`cibiz $i`=yes
 		    ;;
 		*)
+		    warning "FW_IGNORE_FW_BROADCAST=$i is deprecated, use FW_IGNORE_FW_BROADCAST_{INT,EXT,DMZ}=$i instead"
 		    for zone in $all_zones; do
 			eval FW_IGNORE_FW_BROADCAST_`cibiz $zone`="$i"
 		    done
@@ -1385,7 +1389,7 @@ allow_tcp_highports()
     local j chain
     for j in $FW_ALLOW_INCOMING_HIGHPORTS_TCP; do
 	case "$j" in
-	[Dd][Nn][Ss]) warning "FW_ALLOW_INCOMING_HIGHPORTS_TCP=DNS no longer supported" ;;
+	[Dd][Nn][Ss]) warning "FW_ALLOW_INCOMING_HIGHPORTS_TCP=DNS is no longer supported" ;;
 	no) ;;
 	yes)
 	    for chain in $input_zones; do
@@ -1475,7 +1479,7 @@ allow_highports_udp()
     for j in $FW_ALLOW_INCOMING_HIGHPORTS_UDP; do
 	case "$j" in
 	    [Dd][Nn][Ss])
-		    warning "FW_ALLOW_INCOMING_HIGHPORTS_UDP=DNS no longer supported"
+		    warning "FW_ALLOW_INCOMING_HIGHPORTS_UDP=DNS is no longer supported"
 		    ;;
 	    no) ;;
 	    yes)
