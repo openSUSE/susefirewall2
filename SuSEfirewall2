@@ -1222,6 +1222,24 @@ if [ "$FW_ALLOW_BROADCAST_INT" = no ]; then
     done
 fi
 
+
+ipsec_chain=""
+case "$FW_IPSEC_TRUST" in
+    yes|int) ipsec_chain=int ;;
+    ext) ipsec_chain=ext ;;
+    dmz) ipsec_chain=dmz ;;
+esac
+
+if [ -n "$ipsec_chain" ]; then
+    [ -z "$FW_IPSEC_MARK" ] && FW_IPSEC_MARK="0x1701d"
+    $IPTABLES -A INPUT -j "input_$ipsec_chain" -m mark --mark "$FW_IPSEC_MARK"
+    # this would fail, forward_* contains device names
+    $IPTABLES -A FORWARD -j "forward_$ipsec_chain" -m mark --mark "$FW_IPSEC_MARK"
+    #$LAA $IPTABLES -A FORWARD -j LOG ${LOG}"-FWD$ipsec_chain-ACC-ALL " -m mark --mark "$FW_IPSEC_MARK"
+    #$IPTABLES -A FORWARD -j ACCEPT -m mark --mark "$FW_IPSEC_MARK"
+    $IPTABLES -A INPUT -t mangle -p esp -j MARK --set-mark "$FW_IPSEC_MARK"
+fi
+
 #####################################
 # Rule split up - forking to chains #
 #####################################

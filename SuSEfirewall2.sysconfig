@@ -810,3 +810,32 @@ FW_IPv6=""
 # does only make sense with FW_IPv6 != no
 #
 FW_IPv6_REJECT_OUTGOING="yes"
+
+## Type:	list(yes,no,int,ext,dmz)
+## Default:	no
+#
+# 29.)
+# Trust level of IPsec packets.
+#
+# The value specifies how much IPsec packets are trusted. 'int', 'ext' or 'dmz'
+# are the respective zones. 'yes' is the same as 'int. 'no' means that IPsec
+# packets belong to the same zone as the interface they arrive on.
+#
+# Note: you still need to explicitely allow IPsec traffic.
+# Example:
+#   FW_IPSEC_TRUST="int"
+#   FW_SERVICES_INT_IP="esp"
+#   FW_SERVICES_EXT_UDP="isakmp"
+#   FW_PROTECT_FROM_INTERNAL="no"
+#
+FW_IPSEC_TRUST="no"
+
+## Type:	string
+#
+# 29a.)
+# fwmark used for IPsec packets
+#
+# Default is 0x1701d. You normally don't need to change that unless you use
+# your own mark rules which use the same number already
+#
+FW_IPSEC_MARK=""
