@@ -243,18 +243,36 @@ if [ "$MODE" = debug ]; then
     {
 	echo modprobe "$@"
     }
-elif [ -n "$USE_IPTABLES_BATCH" ]; then
-    IPTABLES=iptables
-    IP6TABLES=ip6tables
 else
     IPTABLES="/usr/sbin/iptables"
     IP6TABLES="/usr/sbin/ip6tables"
+
+    ### ipv6 checks
+    case "$FW_IPv6" in
+	    drop|reject) IP6TABLES_HAVE_STATE=0 ;;
+	    no) IP6TABLES=":" ;;
+	    *) FW_IPv6="" ;;
+    esac
+
 
     # Do we have a kernel with IPv6 enabled?
     $IP6TABLES -nvL >/dev/null 2>&1 || IP6TABLES=:
     if ! $IP6TABLES -m state --help >/dev/null 2>&1 || ! $modinfo ip6t_state >/dev/null 2>&1; then
 	warning "ip6tables does not support state matching. Extended IPv6 support disabled."
 	IP6TABLES_HAVE_STATE=0
+    fi
+
+    $modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
+
+    if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
+	-a "$IP6TABLES" != ":" -a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
+	    warning "Kernel lacks support for IPv6 REJECT target! Using DROP for IPv6 instead."
+    fi
+    ####
+
+    if [ -n "$USE_IPTABLES_BATCH" ]; then
+	IPTABLES=iptables
+	[ "$IP6TABLES" != ":" ] && IP6TABLES=ip6tables
     fi
 fi
 AWK="/bin/awk"
@@ -352,23 +370,6 @@ parse_logging()
     [ "$LAA" = ':' ] && LOG="$FW_LOG_LIMIT $LOG"
 }
 
-check_ipv6()
-{
-    ### ipv6 checks
-    case "$FW_IPv6" in
-	    drop|reject) IP6TABLES_HAVE_STATE=0 ;;
-	    no) IP6TABLES=":" ;;
-	    *) FW_IPv6="" ;;
-    esac
-
-    $modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
-
-    if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
-	-a "$IP6TABLES" != ":" -a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
-	    warning "Kernel lacks support for IPv6 REJECT target! Using DROP for IPv6 instead."
-    fi
-}
-
 ### Functions
 function setproc()
 {
@@ -450,7 +451,7 @@ function reset_rules() {
         clear_qdisc_settings
 }
 
-function load_module()
+function load_modules()
 {
     local i
     for i in "$@"; do
@@ -493,7 +494,11 @@ function allow_basic_related()
 
 function set_basic_rules()
 {
-    load_module ip_tables ip_conntrack ip_conntrack_ftp ip_nat_ftp ip6table_filter ip6table_mangle
+    load_modules ip_tables ip_conntrack ip_conntrack_ftp ip_nat_ftp
+
+    if [ "$FW_IPv6" != no ]; then
+	load_modules ip6table_filter ip6table_mangle
+    fi
     
     # determine policy
     local DROP_JUMP
@@ -1698,21 +1703,15 @@ if [ "$ACTION" = "status" ]; then
     if ! $IPTABLES -nL reject_func >/dev/null 2>&1; then
 	die 1 "SuSEfirewall2 not active"
     fi
-    echo
-    echo "###### iptables ######"
-    echo
     # yes we need cat here, while read ... does no work :-(
     for i in `sort < /proc/net/ip_tables_names`; do
-	echo "### $i ###"
+	echo "### iptables $i ###"
 	$IPTABLES -t $i -vnL
 	echo ""
     done
     if [ "$IP6TABLES" != ":" ]; then
-	echo
-	echo "###### ip6tables ######"
-	echo
 	for i in `sort /proc/net/ip6_tables_names`; do
-	    echo "### $i ###"
+	    echo "### ip6tables $i ###"
 	    $IP6TABLES -t $i -vnL
 	    echo ""
 	done
