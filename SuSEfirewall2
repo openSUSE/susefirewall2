@@ -362,8 +362,7 @@ check_ipv6()
 
     if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
 	-a "$IP6TABLES" != ":" -a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
-	    warning "Kernel lacks support for IPv6 REJECT target! Using DROP instead."
-	    DROP="DROP"
+	    warning "Kernel lacks support for IPv6 REJECT target! Using DROP for IPv6 instead."
     fi
 }
 
@@ -1168,6 +1167,9 @@ finish_chains()
 
 	$iptables -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
 	$iptables -A OUTPUT -j LOG ${LOG}"-OUT-ERROR " 
+	# we want to let locally generated packets out since our task is not
+	# to protect the world from us, but protect us from the world ;)
+	$iptables -A OUTPUT -j ACCEPT
     done
 }
 
@@ -1209,7 +1211,7 @@ allow_icmp()
 	    $IP6TABLES -A $chain -j "$ACCEPT" -p icmpv6 --icmpv6-type echo-request
 	done
     fi
-    local icmp_types="echo-reply destination-unreachable time-exceeded parameter-problem timestamp-reply address-mask-reply"
+    local icmp_types="echo-reply destination-unreachable time-exceeded parameter-problem timestamp-reply address-mask-reply protocol-unreachable"
     for itype in $icmp_types; do
 	for chain in $input_all_zones; do
 	    chain=input_$chain
@@ -1236,26 +1238,6 @@ allow_icmp()
 	    $IP6TABLES -A $chain -j "$ACCEPT" -p icmpv6 --icmpv6-type $itype
 	done
     done
-
-    # OUTPUT ICMP rules
-    $LA $IPTABLES -A OUTPUT -j LOG ${LOG}"-OUT-TRACERT-ATTEMPT "  -p icmp --icmp-type time-exceeded
-    if [ "$FW_ALLOW_FW_TRACEROUTE" = "yes" ]; then
-	$IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type time-exceeded
-	$IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type port-unreachable
-    else
-	$IPTABLES -A OUTPUT -j "$DROP" -p icmp --icmp-type time-exceeded
-	$IP6TABLES -A OUTPUT -j "$DROP" -p icmpv6 --icmpv6-type time-exceeded
-    fi
-
-# XXX what about other types?
-    for itype in fragmentation-needed network-prohibited host-prohibited communication-prohibited; do
-	$IPTABLES -A OUTPUT -j "$ACCEPT" -p icmp --icmp-type $itype
-    done
-    $IPTABLES -A OUTPUT -j "$DROP" -p icmp --icmp-type destination-unreachable # we deny all other icmp type 3 codes
-    
-# XXX hmm, maybe additional restrictions here like for IPv4?
-    $LAA $IP6TABLES -A OUTPUT -j LOG ${LOG}"-OUT-ICMP " -p icmpv6
-    $IP6TABLES -A OUTPUT -j "$ACCEPT" -p icmpv6
 
     # FORWARD ICMP rules
     # FIXME hardcoded flow directio
@@ -1524,12 +1506,16 @@ redirect_rules()
 # anyways, we don't need the -i parameter
 allow_class_routing()
 {
-    local chain="forward_$1"
-    shift
-    local iface
-    for iface in $*; do
-	$LAA $IPTABLES -A $chain -j LOG $LOG"-`rulelog $chain`-ACC-CLASS "  -o $iface
-	$IPTABLES -A $chain -j "$ACCEPT" -o $iface
+    [ "$FW_ALLOW_CLASS_ROUTING" != yes ] && return
+
+    local chain dev devs zone
+    for zone in $forward_all_zones; do
+	eval devs="\$FW_DEV_$zone"
+	chain=forward_$zone
+	for dev in $devs; do
+	    $LAA $IPTABLES -A $chain -j LOG $LOG"-`rulelog $chain`-ACC-CLASS "  -o $iface
+	    $IPTABLES -A $chain -j "$ACCEPT" -o $iface
+	done
     done
 }
 
@@ -1903,11 +1889,7 @@ if [ "$FW_ROUTE" = yes ]; then
 
     forward_icmp
 
-    if [ "$FW_ALLOW_CLASS_ROUTING" = yes ]; then
-	allow_class_routing int $FW_DEV_int
-	allow_class_routing ext $FW_DEV_ext
-	allow_class_routing dmz $FW_DEV_dmz
-    fi
+    allow_class_routing
 
     forwarding_rules
 
