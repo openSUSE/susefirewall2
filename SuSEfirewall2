@@ -1523,11 +1523,11 @@ allow_class_routing()
 {
     [ "$FW_ALLOW_CLASS_ROUTING" != yes ] && return
 
-    local chain dev devs zone
+    local chain iface devs zone
     for zone in $forward_zones; do
 	eval devs="\$FW_DEV_$zone"
 	chain=forward_$zone
-	for dev in $devs; do
+	for iface in $devs; do
 	    $LAA $IPTABLES -A $chain -j LOG $LOG"-`rulelog $chain`-ACC-CLASS "  -o $iface
 	    $IPTABLES -A $chain -j "$ACCEPT" -o $iface
 	done
