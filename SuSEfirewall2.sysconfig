@@ -586,9 +586,9 @@ FW_ALLOW_CLASS_ROUTING="no"
 # Do you want to load customary rules from a file?
 #
 # This is really an expert option. NO HELP WILL BE GIVEN FOR THIS!
-# READ THE EXAMPLE CUSTOMARY FILE AT /etc/sysconfig/SuSEfirewall2-custom
+# READ THE EXAMPLE CUSTOMARY FILE AT /etc/sysconfig/scripts/SuSEfirewall2-custom
 #
-#FW_CUSTOMRULES="/etc/sysconfig/SuSEfirewall2-custom"
+#FW_CUSTOMRULES="/etc/sysconfig/scripts/SuSEfirewall2-custom"
 FW_CUSTOMRULES=""
 
 #

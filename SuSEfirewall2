@@ -74,7 +74,7 @@ test -z "$1" -o "$1" = easy -o "$1" = novice -o "$1" = force -o "$1" = file -o "
 
     test -e "$FWCONFIG" -o "$1" = easy || { 
         echo "SuSEfirewall2: Can not find $FWCONFIG, aborting ..."
-        exit 1
+        exit 6
     }
     test "$1" = easy || . $FWCONFIG
 
@@ -233,7 +233,7 @@ faulty_int() {
     test -z "$DEV" || {
 	case "$DEV" in
 	    *ppp*) ;;
-	    *) echo "Warning: interface $DEV is not active."
+	    *) echo -en "\n Warning: interface $DEV is not (yet?) active."
 		 ;;
 	esac
     }
@@ -390,10 +390,10 @@ test "$1" = start -o "$1" = test -o -z "$1" -o "$1" = debug || {
 # Important check #
 ###################
 test -z "$FW_DEV_EXT" && {
-    echo -e "The Firewall script needs to know the external (internet) interface.
-Set FW_DEV_EXT in $FWCONFIG"
+    echo -e "\n The Firewall script needs to know the external (internet) interface."
+    echo -en " Set FW_DEV_EXT in $FWCONFIG"
     reset_rules
-    exit 1
+    exit 6
 }
 
 #####################################################################
@@ -652,7 +652,7 @@ test -z "$FW_CUSTOMRULES" || {
         echo "Error: Can not read custom rules file: $FW_CUSTOMRULES"
         test -x "$LOGGER" && \
             $LOGGER -p kern.error -t SuSEfirewall2 "Firewall customary rules file can not be read: $FW_CUSTOMRULES"
-        exit -1
+        exit 1
     }
     . "$FW_CUSTOMRULES"
     test -x "$LOGGER" && \
@@ -663,8 +663,13 @@ test -z "$FW_CUSTOMRULES" || {
 # Should I really run? #
 ########################
 INTERFACE_OK=`echo "$DEV_EXT $DEV_INT $DEV_DMZ" | $SED 's/ //g'`
-test -z "$INTERFACE_OK" && { echo 'No external interface active! Exiting ...'
-    reset_rules ; exit 0 ; }
+test -z "$INTERFACE_OK" && { 
+    echo -en '\n Warning: No interface active (yet?)'
+    #reset_rules ; 
+    # Remember that we should be active
+    # $IPTABLES -N reject_func
+    #exit 6 ;
+}
 # prevent errors due to missing interfaces
 INTERFACE_OK=`echo "$DEV_EXT" | $SED 's/ //g'`
 test -z "$INTERFACE_OK" && { DEV_EXT=""; DEV_EXT_NET=""; }

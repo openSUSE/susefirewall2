@@ -7,12 +7,12 @@
 #
 ### BEGIN INIT INFO
 # Provides: SuSEfirewall2_final
-# Required-Start: SuSEfirewall2_setup rpc named sshd inetd dhcp nscd nessusd wpmd squid ipsec
-# X-UnitedLinux-Should-Start: $ALL
+# Required-Start: SuSEfirewall2_setup 
+# X-UnitedLinux-Should-Start: $ALL $portmap ipsec named dhcpd
 # Required-Stop: SuSEfirewall2_setup
 # X-UnitedLinux-Should-Stop: $ALL
-# Default-Start: 2 3 4 5
-# Default-Stop:
+# Default-Start: 3 4 5
+# Default-Stop: 
 # Short-Description: SuSEfirewall2 phase 3
 # Description: SuSEfirewall2_final does finally set all the firewalling
 #	rules. Phase 3 of 3 of SuSEfirewall setup.
@@ -23,27 +23,27 @@ SUSEFWALL="/sbin/SuSEfirewall2"
 test -x $SUSEFWALL || exit 5
 test -r /etc/sysconfig/SuSEfirewall2 || exit 6
 
-test -e /etc/rc.status && . /etc/rc.status
-
-# The echo return value for success (defined in /etc/rc.config).
-return=$rc_done
+. /etc/rc.status
+rc_reset
 
 case "$1" in
     start)
 	echo -n "Starting Firewall Initialization "
 	echo -n '(phase 3 of 3) '
-	$SUSEFWALL start || return=$rc_failed
-	echo -e "$return"
+	$SUSEFWALL start
+	rc_status -v
 	;;
     stop)
 	#echo -e "$0 is not for stopping SuSEfirewall2 - use \"SuSEfirewall2 stop\" or the SuSEfirewall2_setup script."
 	;;
     restart|force-reload)
-	$0 start  ||  return=$rc_failed
+	$0 start
+	rc_status
 	;;
     try-restart|reload)
 	($0 status) >/dev/null 2>&1 || exit 7
-	$0 start  ||  return=$rc_failed
+	$0 start
+	rc_status
 	;;
     restart2)
 	# the restart2 argument is used by yast2 to not open any ports
@@ -56,8 +56,7 @@ case "$1" in
 	;;
     status)
 	echo "Checking the status of the Firewall "
-	$SUSEFWALL status || return=$rc_failed
-	test "$return" = "$rc_failed" && exit 3
+	$SUSEFWALL status || rc_failed 3
 	;;
     *)
 	echo "Usage: $0 {start|stop|status|restart|reload|force-reload}"
@@ -66,5 +65,4 @@ case "$1" in
 esac
 
 # Set exit status
-test "$return" = "$rc_failed" && exit 1
-exit 0
+rc_exit
