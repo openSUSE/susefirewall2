@@ -7,7 +7,7 @@
 #
 ### BEGIN INIT INFO
 # Provides: SuSEfirewall2_setup
-# Required-Start: boot.SuSEfirewall2 $network $local_fs
+# Required-Start: SuSEfirewall2_init $network $local_fs
 # Should-Start: $ALL
 # Required-Stop: $local_fs
 # X-UnitedLinux-Should-Stop: 
