@@ -1153,7 +1153,6 @@ set_proc_stuff()
     setproc 1 /proc/sys/net/ipv4/tcp_syncookies 
     setproc 1 /proc/sys/net/ipv4/ip_always_defrag  # XXX not there?
     setproc 0 /proc/sys/net/ipv4/tcp_ecn 
-    setproc 16384 /proc/sys/net/ipv4/ip_conntrack_max
     for i in /proc/sys/net/ipv4/conf/*; do
 	setproc 0 $i/accept_redirects 
 	setproc 0 $i/accept_source_route 
