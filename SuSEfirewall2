@@ -68,6 +68,12 @@ test "$1" = file && FWCONFIG="$2"
 test "$2" = file && FWCONFIG="$3"
 test "$3" = file && FWCONFIG="$4"
 
+USE_IPTABLES_BATCH=
+if test "$1" = batch; then
+	shift
+	USE_IPTABLES_BATCH=1
+fi
+
 test -e /etc/rc.config && . /etc/rc.config
 
 test -z "$1" -o "$1" = easy -o "$1" = novice -o "$1" = force -o "$1" = file -o "$1" = stop -o "$1" = start -o "$1" = test -o "$1" = debug && {
@@ -157,6 +163,58 @@ test "$1" = force && shift
 test "$1" = file && { shift; shift; }
 test "$1" = force && shift
 
+removefiles=()
+declare -a  removefiles
+removeonexit()
+{
+	removefiles[${#removefiles[@]}]="$1"
+}
+cleanup()
+{
+	local file
+	for file in "${removefiles[@]}"; do
+		rm -f "$file"
+	done
+}
+trap cleanup EXIT
+
+if [ -n "$USE_IPTABLES_BATCH" ]; then
+	IPTABLES_BATCH=`type -p iptables-batch`
+	IP6TABLES_BATCH=`type -p ip6tables-batch`
+	if [ -z "$IPTABLES_BATCH" ]; then
+		echo "iptables-batch missing, batch support disabled."
+		USE_IPTABLES_BATCH=""
+	elif [ -z "$IP6TABLES_BATCH" ]; then
+		echo "ip6tables-batch missing, batch support disabled."
+		USE_IPTABLES_BATCH=""
+	fi
+fi
+
+if [ -n "$USE_IPTABLES_BATCH" ]; then
+	iptables_batchfile=`mktemp -t SuSEfirewall2_iptables.XXXXXXXX` || exit 1
+	removeonexit "$iptables_batchfile"
+	exec 4> "$iptables_batchfile"
+	echo "#!$IPTABLES_BATCH" >&4
+	iptables()
+	{
+		local i
+		echo -n "iptables" >&4
+		for i in "$@"; do echo -n " \"$i\""; done >&4
+		echo >&4
+	}
+	ip6tables_batchfile=`mktemp -t SuSEfirewall2_ip6tables.XXXXXXXX` || exit 1
+	removeonexit "$ip6tables_batchfile"
+	exec 6> "$ip6tables_batchfile"
+	echo "#!$IP6TABLES_BATCH" >&6
+	ip6tables()
+	{
+		local i
+		echo -n "ip6tables" >&6
+		for i in "$@"; do echo -n " \"$i\""; done >&6
+		echo >&6
+	}
+fi
+
 #######################
 #                     #
 # Definitions - fixed #
@@ -171,12 +229,20 @@ export RC_LC_MESSAGES=""
 export LC_ALL=en_US
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 alias which='type -p'
-IPTABLES=`which iptables`  || IPTABLES="/usr/sbin/iptables"
-#IPTABLES="echo iptables "                                 # For debugging only
-DEBUG="echo iptables "
-IP6TABLES=`which ip6tables`  || IP6TABLES="/usr/sbin/iptables"
-#IPTABLES="echo ip6tables "                                 # For debugging only
-DEBUG6="echo ip6tables "
+if [ -n "$USE_IPTABLES_BATCH" ]; then
+	IPTABLES=iptables
+	IP6TABLES=ip6tables
+else
+	IPTABLES=`which iptables`  || IPTABLES="/usr/sbin/iptables"
+	#IPTABLES="echo iptables "                                 # For debugging only
+	DEBUG="echo iptables "
+	IP6TABLES=`which ip6tables`  || IP6TABLES="/usr/sbin/iptables"
+	#IPTABLES="echo ip6tables "                                 # For debugging only
+	DEBUG6="echo ip6tables "
+
+	# Do we have a kernel with IPv6 enabled?
+	$IP6TABLES -nvL >/dev/null 2>&1 || IP6TABLES=:
+fi
 AWK=`which awk`            || AWK="/usr/bin/awk"
 SED=`which sed`            || SED="/usr/bin/sed"
 IFCONFIG=`which ifconfig`  || IFCONFIG="/sbin/ifconfig"
@@ -203,10 +269,10 @@ NEED_LSOF=no
 test "$NEED_LSOF" = yes -a '!' -x "$LSOF" && { 
     echo "I need $LSOF for running but can not find it, aborting."
     exit 1 ; }
-test -x "$IPTABLES" -o "$IPTABLES" = "echo iptables " || \
-    echo "Warning: Can not find iptables - debug function? (\"$IPTABLES\")"
-test -x "$IP6TABLES" -o "$IP6TABLES" = "echo ip6tables " || \
-    echo "Warning: Can not find ip6tables - debug function? (\"$IP6TABLES\")"
+#test -x "$IPTABLES" -o "$IPTABLES" = "echo iptables " || \
+#    echo "Warning: Can not find iptables - debug function? (\"$IPTABLES\")"
+#test -x "$IP6TABLES" -o "$IP6TABLES" = "echo ip6tables " || \
+#    echo "Warning: Can not find ip6tables - debug function? (\"$IP6TABLES\")"
 
 ACCEPT="ACCEPT"
 DROP="DROP"
@@ -616,7 +682,8 @@ test -e "$LOCKFILE" && {
 	rm -f "$LOCKFILE"
     }
 }
-trap "rm -f $LOCKFILE" 0 1 2 3 13 15
+#trap "rm -f $LOCKFILE" 0 1 2 3 13 15
+removeonexit "$LOCKFILE"
 set -o noclobber
 echo "$$" > $LOCKFILE || exit 1
 set +o noclobber
@@ -624,9 +691,6 @@ set +o noclobber
 # Set NAMESERVER variable
 test -e /etc/resolv.conf && NAMESERVERS=`$AWK '/^nameserver/ {print $2}' /etc/resolv.conf| \
     $GREP -iv yast 2> /dev/null`
-
-# Do we have a kernel with IPv6 enabled?
-$IP6TABLES -nvL >/dev/null 2>&1 || IP6TABLES=:
 
 ##########################
 #                        #
@@ -2036,8 +2100,13 @@ done
 # MSS stuff needs this?
 $IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
+if [ -n "$USE_IPTABLES_BATCH" ]; then
+	iptables-batch "$iptables_batchfile"
+	ip6tables-batch "$ip6tables_batchfile"
+fi
+
 # HTB settings
-do_qdisc_settings
+[ -n "$FW_HTB_TUNE_DEV" ] && do_qdisc_settings
 
 # Log entry
 test -x "$LOGGER" && \
