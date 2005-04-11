@@ -111,7 +111,7 @@ syslog()
 	pri="-p auth.warn"
     fi
     shift
-    logger $dashs $pri -t SuSEfirewall2 "$*"
+    $LOGGER $dashs $pri -t SuSEfirewall2 "$*"
 }
 
 message()
@@ -172,7 +172,7 @@ if test -x /usr/bin/tty && ! /usr/bin/tty -s; then
     quiet=1
 fi
 
-getopttmp=`getopt -o hq --long help,scriptsdir:,batch,file:,debug,test,bootlock,quiet \
+getopttmp=`/usr/bin/getopt -o hq --long help,scriptsdir:,batch,file:,debug,test,bootlock,quiet \
      -n 'SuSEfirewall2' -- "$@"`
 
 [ $? != 0 ] && die 1 "getopt error"
