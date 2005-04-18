@@ -111,7 +111,7 @@ syslog()
 	pri="-p auth.warn"
     fi
     shift
-    $LOGGER $dashs $pri -t SuSEfirewall2 "$*"
+    /bin/logger $dashs $pri -t SuSEfirewall2 "$*"
 }
 
 message()
@@ -304,7 +304,6 @@ SED="/bin/sed"
 IFCONFIG="/sbin/ifconfig"
 NETSTAT="/bin/netstat"
 SORT="/bin/sort"
-LOGGER="/bin/logger"
 GREP="/bin/grep"
 PERL="/usr/bin/perl"
 
