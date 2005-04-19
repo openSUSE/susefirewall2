@@ -1765,13 +1765,14 @@ fi
 if [ "$ACTION" = "stop" ]; then
     reset_rules
     handle_initscripts
+    [ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
     die 0 "Firewall rules unloaded."
 fi
 
 if [ "$ACTION" = "close" ]; then
     set_basic_rules
     setproc 0 /proc/sys/net/ipv4/ip_forward
-
+    [ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
     die 0 "Firewall rules set to CLOSE."
 fi
 
@@ -1865,6 +1866,8 @@ allow_ip_services
 
 allow_tcp_services
 
+allow_udp_services
+
 allow_rpc_services
 
 accept_services
@@ -1874,8 +1877,6 @@ reject_or_drop_services DROP
 reject_or_drop_services REJECT
 
 allow_tcp_highports
-
-allow_udp_services
 
 allow_highports_udp
 

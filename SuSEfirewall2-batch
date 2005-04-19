@@ -61,6 +61,7 @@ check_iptables_batch()
 commit_iptables_batch()
 {
     if [ -n "$USE_IPTABLES_BATCH" ]; then
+	message "batch committing..."
 	iptables-batch "$iptables_batchfile"
 	ip6tables-batch "$ip6tables_batchfile"
     fi
