@@ -20,13 +20,13 @@
 check_iptables_batch()
 {
     if [ -n "$USE_IPTABLES_BATCH" ]; then
-	    IPTABLES_BATCH=`type -p iptables-batch`
-	    IP6TABLES_BATCH=`type -p ip6tables-batch`
+	    IPTABLES_BATCH=/usr/sbin/iptables-batch
+	    IP6TABLES_BATCH=/usr/sbin/ip6tables-batch
 	    if [ -z "$IPTABLES_BATCH" ]; then
-		    echo "iptables-batch missing, batch support disabled."
+		    [ "$USE_IPTABLES_BATCH" != 'auto' ] && echo "iptables-batch missing, batch support disabled."
 		    USE_IPTABLES_BATCH=""
 	    elif [ -z "$IP6TABLES_BATCH" ]; then
-		    echo "ip6tables-batch missing, batch support disabled."
+		    [ "$USE_IPTABLES_BATCH" != 'auto' ] && echo "ip6tables-batch missing, batch support disabled."
 		    USE_IPTABLES_BATCH=""
 	    fi
     fi
@@ -58,12 +58,17 @@ check_iptables_batch()
     fi
 }
 
+iptables_batch_commitpoint()
+{
+    echo commit >&6
+}
+
 commit_iptables_batch()
 {
     if [ -n "$USE_IPTABLES_BATCH" ]; then
 	message "batch committing..."
-	iptables-batch "$iptables_batchfile"
-	ip6tables-batch "$ip6tables_batchfile"
+	$IPTABLES_BATCH "$iptables_batchfile"
+	$IP6TABLES_BATCH "$ip6tables_batchfile"
     fi
 }
 

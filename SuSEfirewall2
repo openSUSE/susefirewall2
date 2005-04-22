@@ -3,6 +3,7 @@
 # SuSEfirewall2 - stateful packetfilter rules generator
 # Copyright (C) 2000-2002 Marc Heuse <marc@suse.de>
 # Copyright (C) 2003,2004 SUSE Linux AG
+# Copyright (C) 2005 SUSE LINUX Products GmbH
 #
 # Author:     Marc Heuse
 # Maintainer: Ludwig Nussel
@@ -47,11 +48,11 @@
 
 help() {
 cat <<EOF
-SuSEfirewall2 3.3, Copyright (C) 2004  SUSE Linux AG
+SuSEfirewall2 3.4, Copyright (C) 2005  SUSE LINUX Products GmbH
 
 stateful packet filter rules generator for iptables.
 
-$0 start|test|debug [file FILENAME] [batch]
+$0 start|test|debug [file FILENAME]
 $0 basic|stop|close|status|help
 $0 open ZONE TYPE services...
 $0 on|off
@@ -152,7 +153,7 @@ LOCKFILE="/var/lock/SuSEfirewall2.pid"
 BOOTLOCKFILE="/var/lock/SuSEfirewall2.booting"
 FW_CUSTOMRULES=""
 
-USE_IPTABLES_BATCH=""
+USE_IPTABLES_BATCH=''
 
 # whether ip6tables supports state matching
 IP6TABLES_HAVE_STATE=1
@@ -172,7 +173,7 @@ if test -x /usr/bin/tty && ! /usr/bin/tty -s; then
     quiet=1
 fi
 
-getopttmp=`/usr/bin/getopt -o hq --long help,scriptsdir:,batch,file:,debug,test,bootlock,quiet \
+getopttmp=`/usr/bin/getopt -o hq --long help,scriptsdir:,batch,nobatch,file:,debug,test,bootlock,quiet \
      -n 'SuSEfirewall2' -- "$@"`
 
 [ $? != 0 ] && die 1 "getopt error"
@@ -182,7 +183,8 @@ eval set -- "$getopttmp"
 while true ; do
         case "$1" in
 		--file) FWCONFIG="$2"; shift 2 ;;
-		--batch) USE_IPTABLES_BATCH=1; shift ;;
+		--batch) USE_IPTABLES_BATCH='yes'; shift ;;
+		--nobatch) USE_IPTABLES_BATCH='no'; shift ;;
                 --scriptsdir) SCRIPTSDIR="$2" ; shift 2 ;;
                 --test) MODE="test" ; shift ;;
                 --debug) MODE="debug"; needlock=0 ; shift ;;
@@ -201,7 +203,7 @@ case "$1" in
     easy|novice|basic) ACTION="basic" ;;
     stop|halt|down|shutdown) ACTION="stop"; needconfig=1 ;;
     close) ACTION="close" ;;
-    status) ACTION="status"; needlock=0 ;;
+    status) ACTION="status"; USE_IPTABLES_BATCH='no'; needlock=0 ;;
     open) ACTION="open"; needlock=0 ;;
     log) ACTION="showlog" ;;
     help) help ;;
@@ -216,8 +218,7 @@ case "$ACTION" in
 	while [ $# -gt 0 ]; do
 	    case "$1" in
 		file) FWCONFIG="$2"; shift 2 ;;
-		batch) USE_IPTABLES_BATCH=1; shift;;
-		force) shift ;;  # unused, for compatability
+		force|batch) shift ;;  # unused, for compatability
 		*) echo "invalid option: $1"; exit 1 ;;
 	    esac
 	done
@@ -232,7 +233,15 @@ elif [ -n "$needconfig" ]; then
     die 6 " Can not read $FWCONFIG"
 fi
 
-if [ -n "$USE_IPTABLES_BATCH" ]; then
+if [ -z "$USE_IPTABLES_BATCH" ]; then
+    case "$FW_USE_IPTABLES_BATCH" in
+	no) USE_IPTABLES_BATCH='' ;;
+	yes) USE_IPTABLES_BATCH='yes' ;;
+	''|auto) USE_IPTABLES_BATCH='auto' ;;
+    esac
+fi
+
+if [ -n "$USE_IPTABLES_BATCH" -a "$USE_IPTABLES_BATCH" != 'no' ]; then
     need batch
     check_iptables_batch
 fi
@@ -640,6 +649,9 @@ function set_basic_rules()
     fi
 
     allow_basic_related
+
+    # make sure basic rules get committed even if there are errors later
+    [ -n "$USE_IPTABLES_BATCH" ] && iptables_batch_commitpoint
 }
 
 handle_initscripts()
@@ -1748,6 +1760,8 @@ if [ "$ACTION" = "basic" ]; then
 
     # reject anything else
     $IPTABLES -A INPUT -j "$DROP"
+
+    [ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
 
     die 0 "Firewall rules successfully set in simple mode"
 fi

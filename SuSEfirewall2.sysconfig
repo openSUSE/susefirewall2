@@ -908,3 +908,23 @@ FW_IPSEC_TRUST=""
 #   FW_ALLOW_FW_BROADCAST_wlan="yes"
 #
 FW_ZONES=""
+
+## Type:	list(yes,no,auto,)
+## Default:	
+#
+# 31.)
+# Whether to use iptables-batch
+#
+# iptables-batch commits all rules in an almost atomic way similar
+# to iptables-restore. This avoids excessive iptables calls and race
+# conditions.
+#
+# Choice:
+#     - yes: use iptables-batch if available and warn if it isn't
+#     - no: don't use iptables-batch
+#     - auto: use iptables-batch if available, silently fall back to
+#       iptables if it isn't
+#
+# Defaults to "auto" if not set
+#
+FW_USE_IPTABLES_BATCH=""
