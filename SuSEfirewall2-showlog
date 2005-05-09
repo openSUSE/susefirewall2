@@ -17,12 +17,12 @@ if($#ARGV >= 0 && $ARGV[0] eq '-N')
 
 if($#ARGV < 0)
 {
-    $ARGV[0] = '/var/log/messages';
+    $ARGV[0] = '/var/log/firewall';
 }
 elsif($ARGV[0] eq '--help' || $ARGV[0] eq '-h')
 {
     print "Usage: $0 FILES\n";
-    print "    /var/log/messages will be used if no file is specified\n";
+    print "    /var/log/firewall will be used if no file is specified\n";
     print "    specify - as file to read from STDIN\n";
     exit 0;
 }
