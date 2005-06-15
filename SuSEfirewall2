@@ -1458,6 +1458,7 @@ allow_udp_services()
 
 allow_highports_udp()
 {
+    local j chain
     # checking "yes" in the loop allows you to log individual services plus
     # allowing all
     for j in $FW_ALLOW_INCOMING_HIGHPORTS_UDP; do
@@ -1467,20 +1468,20 @@ allow_highports_udp()
 		    ;;
 	    no) ;;
 	    yes)
-		for CHAIN in $input_zones; do
+		for chain in $input_zones; do
 		    chain=input_$chain
-		    $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --dport 1024:
-		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp --dport 1024:
-		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p udp --dport 1024:
+		    $LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m state --state NEW -p udp --dport 1024:
+		    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiUDP " -p udp --dport 1024:
+		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p udp --dport 1024:
 		done
 		break;
 		;;
 	    *)
-		for CHAIN in $input_zones; do
+		for chain in $input_zones; do
 		    chain=input_$chain
-		    $LAC $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -m state --state NEW -p udp --sport $j --dport 1024:
-		    $LAA $IPTABLES -A $CHAIN -j LOG ${LOG}"-`rulelog $CHAIN`-ACC-HiUDP " -p udp --sport $j --dport 1024:
-		    $IPTABLES -A $CHAIN -j "$ACCEPT" -m state --state NEW -p udp --sport $j --dport 1024:
+		    $LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m state --state NEW -p udp --sport $j --dport 1024:
+		    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiUDP " -p udp --sport $j --dport 1024:
+		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p udp --sport $j --dport 1024:
 		done
 		;;
 	esac
