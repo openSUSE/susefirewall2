@@ -299,6 +299,54 @@ FW_FORWARD_MASQ="0/0,10.0.10.2,tcp,80 0/0,10.0.10.2,tcp,443 \
       </informalexample>
     </para>
   </section>
+
+  <section>
+    <title>Laptop in private network but with additional public IP adresses</title>
+    
+    <para>
+
+      <screen>
+Internet
+|
+|
+|
+Router
+|
+|
+LAN -- Laptop with SuSEfirewall2
+|
+|
+LAN Server
+      </screen>
+
+      The LAN uses private IP addresses, masquerading is performed by a
+      hardware router or another SuSEfirewall2 host. In addition to the LAN IP
+      the laptop got an official IP address as well. The laptop has only one
+      network interface and wants to offer ssh. The router forwards all traffic
+      for that IP address to the laptop.
+
+      <simplelist>
+	<member>network interface: eth0</member>
+	<member>official IP of laptop: 200.200.200.200</member>
+	<member>internal LAN: 192.168.1.0/24</member>
+      </simplelist>
+
+      Since all traffic is forwarded to the laptop <literal>eth0</literal> must
+      be considered untrustworthy, i.e. external.
+
+      <informalexample>
+	<programlisting>FW_DEV_EXT="eth0"
+FW_SERVICES_EXT_TCP="ssh"
+FW_TRUSTED_NETS="192.168.1.0/24"</programlisting>
+      </informalexample>
+
+      Note that broadcasts are blocked in the external zone by default. You may
+      change that to allow them in this scenario.
+
+      </para>
+
+    </section>
+
 </article>
 
 <!-- vim:set sw=2: -->
