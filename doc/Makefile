@@ -9,7 +9,7 @@ naviggfx := /usr/share/doc/manual/suselinux-adminguide_de/html/navig/
 stylesheet := /usr/share/xml/docbook/custom/susedtd/*/stylesheet/susebooks.css
 stylesheet_out := susebooks.css
 
-all: all-single all-txt
+all: all-single all-txt links
 
 all-single: $(DESTDIR)$(stylesheet_out) $(allhtml)
 
@@ -35,4 +35,15 @@ $(DESTDIR)%.html: %.xml $(DESTDIR)$(stylesheet_out)
 clean:
 	rm -rf $(allhtml) $(DESTDIR)html $(DESTDIR)$(stylesheet_out) $(alltxt)
 
-.PHONY: clean html
+EXAMPLES.html:
+	ln -s EXAMPLES.SuSEfirewall2.html EXAMPLES.html
+
+README.html:
+	ln -s README.SuSEfirewall2.html README.html
+
+FAQ.html:
+	ln -s FAQ.SuSEfirewall2.html FAQ.html
+
+links: EXAMPLES.html FAQ.html README.html
+
+.PHONY: clean html links
