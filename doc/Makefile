@@ -46,4 +46,7 @@ FAQ.html:
 
 links: EXAMPLES.html FAQ.html README.html
 
-.PHONY: clean html links
+sync:
+	rsync -rptLvP susebooks.css {README,FAQ,EXAMPLES}.html forgeftp.novell.com:susefirewall2/homepage
+
+.PHONY: clean html links sync
