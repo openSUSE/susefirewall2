@@ -1262,7 +1262,9 @@ process_trusted_nets()
 	    error "Too many arguments in FW_TRUSTED_NETS -> $nets"
 	elif [ -z "$net" ]; then
 	    error "network parameter of FW_TRUSTED_NETS is empty -> $nets"
-	elif check_proto_port "$proto" "$port" "" 'FW_TRUSTED_NETS'; then
+	elif [ -z "$proto" -a -n "$port" ]; then
+	    error "need to specify protocol for port $port in FW_TRUSTED_NETS"
+	elif [ -z "$proto" ] || check_proto_port "$proto" "$port" "" 'FW_TRUSTED_NETS'; then
 	    for chain in $input_zones; do # trusted networks can be on any interface ...
 		chain=input_$chain
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-TRUST " -m state --state NEW -s $net $proto $port
