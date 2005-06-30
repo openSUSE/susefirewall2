@@ -408,6 +408,11 @@ FW_TRUSTED_NETS=""
 #
 # defaults to "no" if not set (good choice)
 #
+# Note: Use of this variable is deprecated and it will likely be
+# removed in the future. If you think it should be kept please
+# report your use case at
+# http://forge.novell.com/modules/xfmod/project/?susefirewall2
+#
 FW_ALLOW_INCOMING_HIGHPORTS_TCP=""
 
 ## Type:	string
@@ -416,6 +421,12 @@ FW_ALLOW_INCOMING_HIGHPORTS_TCP=""
 # See FW_ALLOW_INCOMING_HIGHPORTS_TCP
 #
 # defaults to "no" if not set (good choice)
+#
+# Note: Use of this variable is deprecated and it will likely be
+# removed in the future. If you think it should be kept please
+# report your use case at
+# http://forge.novell.com/modules/xfmod/project/?susefirewall2
+#
 FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
 
 ## Type:	string

@@ -125,6 +125,13 @@ warning()
     syslog -1 "Warning:" "$*"
 }
 
+deprecated()
+{
+    warning "$@ is deprecated and will likely be removed in the future."
+    warning "If you think it should be kept please report your use case at"
+    warning "http://forge.novell.com/modules/xfmod/project/?susefirewall2"
+}
+
 error()
 {
     syslog -2 "Error:" "$*"
@@ -1378,6 +1385,7 @@ allow_tcp_highports()
 	[Dd][Nn][Ss]) warning "FW_ALLOW_INCOMING_HIGHPORTS_TCP=DNS is no longer supported" ;;
 	no) ;;
 	yes)
+	    deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_TCP'
 	    for chain in $input_zones; do
 		chain=input_$chain
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiTCP " -p tcp --dport 1024: --syn
@@ -1387,6 +1395,7 @@ allow_tcp_highports()
 	    break;
 	    ;;
 	*)
+	    deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_TCP'
 	    for chain in $input_zones; do
 		chain=input_$chain
 		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HIGH " -p tcp --sport $j --dport 1024: --syn
@@ -1470,6 +1479,7 @@ allow_highports_udp()
 		    ;;
 	    no) ;;
 	    yes)
+		deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_UDP'
 		for chain in $input_zones; do
 		    chain=input_$chain
 		    $LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m state --state NEW -p udp --dport 1024:
@@ -1479,6 +1489,7 @@ allow_highports_udp()
 		break;
 		;;
 	    *)
+		deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_UDP'
 		for chain in $input_zones; do
 		    chain=input_$chain
 		    $LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m state --state NEW -p udp --sport $j --dport 1024:
