@@ -1293,7 +1293,7 @@ rpcservicerules()
     local chain="$1"
     shift
     [ -z "$1" ] && return
-    $PERL "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" | while read ARG; do
+    $PERL "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" 2>/dev/null | while read ARG; do
 	$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " -m state --state NEW $ARG
 	$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
 	$IPTABLES -A $chain -j "$ACCEPT" $ARG
