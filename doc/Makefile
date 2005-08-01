@@ -1,39 +1,7 @@
-xsl_html := custom-html.xsl
 allhtml := $(patsubst %.xml,%.html,$(wildcard *.xml))
 alltxt := $(patsubst %.xml,%.txt,$(wildcard *.xml))
 
-DESTDIR := ./
-
-admongfx := /usr/share/doc/manual/suselinux-adminguide_de/html/admon/
-naviggfx := /usr/share/doc/manual/suselinux-adminguide_de/html/navig/
-stylesheet := /usr/share/xml/docbook/custom/susedtd/*/stylesheet/susebooks.css
-stylesheet_out := susebooks.css
-
-all: all-single all-txt links
-
-all-single: $(DESTDIR)$(stylesheet_out) $(allhtml)
-
-all-txt: $(alltxt)
-
-$(DESTDIR)$(stylesheet_out): $(stylesheet)
-	@cat < $< > $@
-	@if ! grep -q 'pre\\.programlisting' $@; then \
-		echo "add programlisting to stylesheet"; \
-		echo 'pre.programlisting { background-color: #E0E0E0; }' >> $@; \
-	fi
-#sed "s/sect1/section/g" < $< > $@
-
-
-$(DESTDIR)%.html: %.xml $(DESTDIR)$(stylesheet_out)
-	xmllint --nonet --valid --noout $<
-	xsltproc --nonet \
-	       	--output $@ $(xsl_html) $<
-
-%.txt: %.html
-	w3m -dump $< > $@
-
-clean:
-	rm -rf $(allhtml) $(DESTDIR)html $(DESTDIR)$(stylesheet_out) $(alltxt)
+-include Make.rules
 
 EXAMPLES.html:
 	ln -s EXAMPLES.SuSEfirewall2.html EXAMPLES.html
@@ -47,6 +15,6 @@ FAQ.html:
 links: EXAMPLES.html FAQ.html README.html
 
 sync:
-	rsync -rptLvP susebooks.css {README,FAQ,EXAMPLES}.html forgeftp.novell.com:susefirewall2/homepage
+	rsync -rptLvP susebooks.css {README,FAQ,EXAMPLES}.html forgeftp.novell.com:susefirewall2/web
 
-.PHONY: clean html links sync
+.PHONY: links sync
