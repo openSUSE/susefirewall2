@@ -939,3 +939,14 @@ FW_ZONES=""
 # Defaults to "auto" if not set
 #
 FW_USE_IPTABLES_BATCH=""
+
+## Type:	string
+## Default:	
+#
+# 32.)
+# Which additional kernel modules to load at startup
+#
+# Example:
+#   FW_LOAD_MODULES="ip_conntrack_ftp ip_nat_ftp"
+#
+FW_LOAD_MODULES=

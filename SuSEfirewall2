@@ -569,7 +569,7 @@ function allow_basic_related()
 
 function set_basic_rules()
 {
-    load_modules ip_tables ip_conntrack ip_conntrack_ftp ip_nat_ftp
+    load_modules ip_tables ip_conntrack $FW_LOAD_MODULES
 
     if [ "$FW_IPv6" != no ]; then
 	load_modules ip6table_filter ip6table_mangle
