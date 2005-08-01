@@ -261,6 +261,8 @@ export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 
 modinfo="/sbin/modinfo"
 TC="/usr/sbin/tc"
+IPTABLES_BIN="/usr/sbin/iptables"
+IP6TABLES_BIN="/usr/sbin/ip6tables"
 if [ "$MODE" = debug ]; then
     IPTABLES="iptables"
     iptables()
@@ -282,8 +284,8 @@ if [ "$MODE" = debug ]; then
 	echo modprobe "$@"
     }
 else
-    IPTABLES="/usr/sbin/iptables"
-    IP6TABLES="/usr/sbin/ip6tables"
+    IPTABLES="$IPTABLES_BIN"
+    IP6TABLES="$IP6TABLES_BIN"
 
     ### ipv6 checks
     case "$FW_IPv6" in
@@ -616,13 +618,14 @@ function set_basic_rules()
     $IP6TABLES -t mangle -F
     $IP6TABLES -t mangle -X
     $IP6TABLES -N reject_func
-    if [ "$IP6TABLES_HAVE_REJECT" != 1 ]; then
-	$IP6TABLES -A reject_func -j DROP
-    else
+    if [ "$IP6TABLES_HAVE_REJECT" = 1 ]; then
 	$IP6TABLES -A reject_func -p tcp -j REJECT --reject-with tcp-reset
 	$IP6TABLES -A reject_func -p udp -j REJECT --reject-with port-unreach
 	$IP6TABLES -A reject_func        -j REJECT --reject-with addr-unreach # know anything better?
     fi
+    # sometimes the above lines do not work despite prior checks, so add drop
+    # always to be on the safe side
+    $IP6TABLES -A reject_func -j DROP
 
     # loopback is always allowed
     $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo

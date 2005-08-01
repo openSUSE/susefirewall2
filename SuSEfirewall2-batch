@@ -67,8 +67,18 @@ commit_iptables_batch()
 {
     if [ -n "$USE_IPTABLES_BATCH" ]; then
 	message "batch committing..."
-	$IPTABLES_BATCH "$iptables_batchfile"
-	$IP6TABLES_BATCH "$ip6tables_batchfile"
+	if ! $IPTABLES_BATCH "$iptables_batchfile"; then
+	    error "iptables-batch failed, re-running using iptables"
+	    iptables() { $IPTABLES_BIN "$@"; }
+	    commit() { :; }
+	    . $iptables_batchfile
+	fi
+	if ! $IP6TABLES_BATCH "$ip6tables_batchfile"; then
+	    error "ip6tables-batch failed, re-running using ip6tables"
+	    ip6tables() { $IP6TABLES_BIN "$@"; }
+	    commit() { :; }
+	    . $ip6tables_batchfile
+	fi
     fi
 }
 
