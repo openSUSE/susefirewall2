@@ -1,7 +1,8 @@
 VERSION=3.4
 NAME=SuSEfirewall2
 NVER=$(NAME)-$(VERSION)
-ARCHIVE=$(NVER).tar.bz2
+SVNVER=$(shell svnversion .)
+ARCHIVE=$(NVER)_SVNr$(SVNVER).tar.bz2
 SCRIPTS=SuSEfirewall2-batch \
 	SuSEfirewall2-open \
 	SuSEfirewall2-showlog \
