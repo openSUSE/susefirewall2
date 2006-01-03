@@ -53,21 +53,18 @@ case "$1" in
 	;;
     restart|force-reload)
 	$0 start
-	rc_status -v
 	;;
     try-restart|reload)
 	if ($0 status) >/dev/null 2>&1; then
 	    $0 start
 	else
-	    rc_failed 7
+	    rc_reset
 	fi
-	rc_status -v
 	;;
     long-status)
 	echo "Checking the status of SuSEfirewall2 "
 	if ! $SUSEFWALL status; then
 		rc_failed 3
-		rc_status -v
 	fi
 	;;
     status)

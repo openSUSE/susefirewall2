@@ -35,23 +35,21 @@ case "$1" in
 	rc_status -v
 	;;
     stop)
-	rc_failed 3
-	rc_status -v
+	rc_failed 0
+	rc_status
 	;;
     restart|force-reload)
 	$0 start
-	rc_status -v
 	;;
     try-restart|reload)
 	if ($0 status) >/dev/null 2>&1; then
 	    $0 start
 	else
-	    rc_failed 7
+	    rc_reset
 	fi
-	rc_status -v
 	;;
     status)
-	echo "Checking the status of the Firewall "
+	echo -n "Checking the status of SuSEfirewall2 "
 	iptables -nL reject_func >/dev/null 2>&1 || rc_failed 3
 	rc_status -v
 	;;
