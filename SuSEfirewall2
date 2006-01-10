@@ -915,9 +915,7 @@ set_proc_stuff()
     if [ "$FW_KERNEL_SECURITY" != no ]; then
 	setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts 
 # test "$FW_ALLOW_PING_FW" = yes || setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_all  # XXX
-	setproc 1 /proc/sys/net/ipv4/tcp_syncookies 
 	setproc 1 /proc/sys/net/ipv4/ip_always_defrag  # XXX not there?
-	setproc 0 /proc/sys/net/ipv4/tcp_ecn 
 	setproc 1 /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses 
 	setproc 5 /proc/sys/net/ipv4/icmp_echoreply_rate 
 	setproc 5 /proc/sys/net/ipv4/icmp_destunreach_rate 
