@@ -1580,6 +1580,7 @@ allow_related_forward_icmp()
     done
 }
 
+# <source network>,<destination network>[,protocol[,port[,flags]]]
 forwarding_rules()
 {
     local nets net1 net2 flags more_args chain
@@ -1663,6 +1664,7 @@ masquerading_rules()
     done
 }
 
+# <source network>,<ip to forward to>,<protocol>,<port>[,redirect port,[destination ip]]
 forward_masquerading_rules()
 {
     local nets net1 net2 proto port1 port2 lip
@@ -1692,7 +1694,6 @@ forward_masquerading_rules()
         elif [ -z "$port1" ]; then
 	    error "Port missing in FW_FORWARD_MASQ -> $nets"
 	else
-	    net1="-s $net1"
 	    proto="-p $proto"
 	    test -z "$port2" && port2="$port1"
 	    port1="--dport $port1"
@@ -1700,13 +1701,20 @@ forward_masquerading_rules()
 	    port2=":${port2/:/-}"
 	    test -n "$lip" && lip="-d $lip"
 	    for dev in $FW_MASQ_DEV; do
-		$IPTABLES -A PREROUTING -j DNAT -t nat $proto $net1 $lip $port1 --to-destination ${net2}${port2} -i $dev
+		$IPTABLES -A PREROUTING -j DNAT -t nat $proto -s $net1 $lip $port1 --to-destination ${net2}${port2} -i $dev
+		# to install minimal rule set we'd need to check if
+		# $net1 is covered by $FW_MASQ_NETS. Not feasible in
+		# bash code so just check for 0/0
+		if [ "$FW_MASQ_NETS" != "0/0" ]; then
+		    $IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $net1 -d $net2 $proto $dport2 -o $dev
+		fi
 	    done
 	    for chain in $forward_zones; do
 		chain=forward_$chain
-		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1 -d $net2 $dport2 -m state --state NEW
-		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1 -d $net2 $dport2
-		$IPTABLES -A $chain -j "$ACCEPT" $proto $net1 -d $net2 $dport2
+		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto -s $net1 -d $net2 $dport2 -m state --state NEW
+		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto -s $net1 -d $net2 $dport2
+		$IPTABLES -A $chain -j "$ACCEPT" $proto -s $net1 -d $net2 $dport2
+		$IPTABLES -A $chain -j "$ACCEPT" $proto -d $net1 -s $net2 -m state --state ESTABLISHED,RELATED
 	    done
 	fi
     done
