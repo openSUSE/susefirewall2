@@ -298,12 +298,12 @@ else
     if [ "$IP6TABLES" != ':' ]; then
 	# Do we have a kernel with IPv6 enabled?
 	$IP6TABLES -nvL >/dev/null 2>&1 || IP6TABLES=:
-	if ! $IP6TABLES -m state --help >/dev/null 2>&1 || \
+	if ! [ -e /proc/net/stat/nf_conntrack ] || ! $IP6TABLES -m state --help >/dev/null 2>&1 || \
 	( ! $modinfo ip6t_state >/dev/null 2>&1 && ! $modinfo xt_state >/dev/null 2>&1); then
 	    warning "ip6tables does not support state matching. Extended IPv6 support disabled."
 	    IP6TABLES_HAVE_STATE=0
-	    # drop incoming packets if not specified otherwise
-	    [ "$FW_IPv6" != 'no' -a "$FW_IPv6" != 'reject' ] && FW_IPv6='drop'
+	    # reject incoming packets if not specified otherwise
+	    [ "$FW_IPv6" != 'no' -a "$FW_IPv6" != 'drop' ] && FW_IPv6='reject'
 	fi
 
 	$modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0

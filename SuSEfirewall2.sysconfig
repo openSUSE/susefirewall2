@@ -851,10 +851,10 @@ FW_HTB_TUNE_DEV=""
 # - no: do not set any IPv6 rules at all. Your Host will allow any IPv6
 #   traffic unless you setup your own rules.
 #
-# - drop: drop all IPv6 packets. This is the default if stateful matching is
-#   not available.
+# - drop: drop all IPv6 packets.
 #
-# - reject: reject all IPv6 packets
+# - reject: reject all IPv6 packets. This is the default if stateful matching is
+#   not available.
 #
 # Disallowing IPv6 packets may lead to long timeouts when connecting to IPv6
 # Adresses. See FW_IPv6_REJECT_OUTGOING to avoid this.
