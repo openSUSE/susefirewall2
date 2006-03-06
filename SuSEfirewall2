@@ -1738,6 +1738,10 @@ drop_all()
     fi
     
     for chain in $chains; do
+	# log and drop multicast packets separately to not flood
+	# other log targets (#155326)
+	$LDC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype --pkt-type multicast
+	$IPTABLES -A $chain -j "$DROP" -m pkttype --pkt-type multicast
 	# some packet types are considered critical
 	if [ -z "$LDC" ]; then
 	    local log=${LOG}"-`rulelog $chain`-DROP-DEFLT"
