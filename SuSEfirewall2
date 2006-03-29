@@ -570,6 +570,16 @@ function allow_basic_related()
     done
 }
 
+xen_forward_hack()
+{
+    local dev iptables
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	for dev in $FW_FORWARD_ALWAYS_INOUT_DEV; do
+	    $iptables -A FORWARD -i $dev -o $dev -j ACCEPT
+	done
+    done
+}
+
 function set_basic_rules()
 {
     load_modules ip_tables ip_conntrack $FW_LOAD_MODULES
@@ -631,6 +641,8 @@ function set_basic_rules()
     # loopback is always allowed
     $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo
     $IP6TABLES -A OUTPUT -j "$ACCEPT" -o lo
+
+    xen_forward_hack
 
     # workaround for ip6tables without state matching
     if [ "$IP6TABLES_HAVE_STATE" != 1 ]; then

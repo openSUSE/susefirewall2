@@ -950,3 +950,20 @@ FW_USE_IPTABLES_BATCH=""
 #   FW_LOAD_MODULES="ip_conntrack_ftp ip_nat_ftp"
 #
 FW_LOAD_MODULES=
+
+## Type:	string
+## Default:	
+#
+# 33.)
+# Bridge interfaces without IP address
+#
+# Traffic on bridge interfaces like the one used by xen appears to
+# enter and leave on the same interface. Add such interfaces here in
+# order to install special permitting rules for them.
+#
+# Format: list of interface names separated by space
+#
+# Example:
+#   FW_FORWARD_ALWAYS_INOUT_DEV="xenbr0"
+#
+FW_FORWARD_ALWAYS_INOUT_DEV=
