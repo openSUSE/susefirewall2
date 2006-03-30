@@ -607,8 +607,10 @@ FW_LOG=""
 # If set to yes, some obscure kernel options are set.
 # (icmp_ignore_bogus_error_responses, icmp_echoreply_rate,
 #  icmp_destunreach_rate, icmp_paramprob_rate, icmp_timeexeed_rate,
-#  ip_local_port_range, log_martians, mc_forwarding, mc_forwarding,
-#  rp_filter, routing flush)
+#  ip_local_port_range, log_martians, rp_filter, routing flush,
+#  bootp_relay, proxy_arp, secure_redirects, accept_source_route
+#  icmp_echo_ignore_broadcasts, ipfrag_time)
+#
 # Tip: Set this to "no" until you have verified that you have got a
 # configuration which works for you. Then set this to "yes" and keep it
 # if everything still works. (It should!) ;-)
