@@ -935,7 +935,6 @@ set_proc_stuff()
 	setproc 5 /proc/sys/net/ipv4/icmp_paramprob_rate 
 	setproc 6 /proc/sys/net/ipv4/icmp_timeexceed_rate 
 	setproc 20 /proc/sys/net/ipv4/ipfrag_time 
-	setproc 1 /proc/sys/net/ipv4/igmp_max_memberships 
 	setproc "1024 29999" /proc/sys/net/ipv4/ip_local_port_range 
 	for i in /proc/sys/net/ipv4/conf/*; do
 	    setproc 1 $i/log_martians 
