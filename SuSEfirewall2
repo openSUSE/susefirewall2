@@ -347,7 +347,8 @@ mark_redir=1
 # ipsec
 
 ipsec_chain=""
-IPSEC_MATCH="-m policy --dir in --pol ipsec --proto esp"
+IPSEC_INPUT_MATCH="-m policy --dir in --pol ipsec --proto esp"
+IPSEC_OUTPUT_MATCH="-m policy --dir out --pol ipsec --proto esp"
 
 ### zones
 
@@ -1080,8 +1081,9 @@ parse_ipsec()
 allow_ipsec()
 {
     if [ -n "$ipsec_chain" ]; then
-	$IPTABLES -A INPUT -j "input_$ipsec_chain" $IPSEC_MATCH
-	$IPTABLES -A FORWARD -j "forward_$ipsec_chain" $IPSEC_MATCH
+	$IPTABLES -A INPUT -j "input_$ipsec_chain" $IPSEC_INPUT_MATCH
+	$IPTABLES -A FORWARD -j "forward_$ipsec_chain" $IPSEC_INPUT_MATCH
+	$IPTABLES -A FORWARD -j "forward_$ipsec_chain" $IPSEC_OUTPUT_MATCH
     fi
 }
 
@@ -1594,7 +1596,7 @@ allow_related_forward_icmp()
 # <source network>,<destination network>[,protocol[,port[,flags]]]
 forwarding_rules()
 {
-    local nets net1 net2 flags more_args chain
+    local nets net1 net2 flags more_args_in more_args_out chain
     for nets in $FW_FORWARD; do
 	IFS=, eval set -- \$nets
 
@@ -1604,12 +1606,14 @@ forwarding_rules()
 	port="$4"
 	flags="$5"
 	rport=""
-	more_args=
+	more_args_in=
+	more_args_out=
 
 	case "$flags" in
 	    "") ;;
 	    ipsec)
-		more_args="$IPSEC_MATCH"
+		more_args_in="$IPSEC_INPUT_MATCH"
+		more_args_out="$IPSEC_OUTPUT_MATCH"
 		;;
 	    *)
 		echo "Error: unsupported flag in FW_FORWARD: $flags"
@@ -1624,10 +1628,16 @@ forwarding_rules()
 	if [ -n "$net1" -a -n "$net2" ]; then
 	    for chain in $forward_zones; do
 		chain=forward_$chain
-		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args
-		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args
-		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args
-		$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args
+		$LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_in
+		$LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args_in
+		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_in
+		$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_in
+		if [ -n "$more_args_out" ]; then
+		    $LAC $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_out
+		    $LAA $IPTABLES -A $chain -j LOG ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args_out
+		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_out
+		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_out
+		fi
 	    done
 	else
 	    error "too few parameters in FW_FORWARD -> $nets"
