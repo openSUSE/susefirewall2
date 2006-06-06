@@ -1098,6 +1098,7 @@ fork_to_chains()
     local dev
     local devs
     local any
+    local anyzone=''
 
     for iptables in "$IPTABLES" "$IP6TABLES"; do
 	for zone in $saved_input_zones; do
@@ -1107,9 +1108,17 @@ fork_to_chains()
 	    done
 	    eval any="\$DEV_${zone}_ANY"
 	    if [ "$any" = 'yes' ]; then
-		$iptables -A INPUT -j input_$zone
+		if [ -n "$anyzone" ]; then
+		    [ "$iptables" != ':' ] && warning "interface 'any' already in zone '$anyzone', ignoring '$zone'"
+		else
+		    anyzone=$zone
+		fi
 	    fi
 	done
+	if [ -n "$anyzone" ]; then
+	    $iptables -A INPUT -j input_$anyzone
+	    anyzone=''
+	fi
 	if [ "$FW_ROUTE" = yes ]; then
 	    for zone in $forward_zones; do
 		eval devs="\$FW_DEV_$zone"
