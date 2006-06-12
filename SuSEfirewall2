@@ -387,7 +387,6 @@ parse_logging()
     LAC=''  # log accept critical
     LAA=''  # log accept all
     LAAC='' # log accept all or critical
-    LA=''   # log any
 
     # 'critical' will be unset if 'all' is set since 'critical' might be a special case of 'all'.
     if [ "$FW_LOG_DROP_ALL" != yes ]; then
@@ -409,9 +408,6 @@ parse_logging()
     else 
 	LAC=':'
     fi
-
-    # LDA and LDC are : if logging is disabled so check if empty
-    [ -z "$LDA" -o -z "$LDC" -o -z "$LDA" -o -z "$LAA" ] || LA=:
 
     [ "$LAA" = ':' ] && LOG="$FW_LOG_LIMIT $LOG"
 }
