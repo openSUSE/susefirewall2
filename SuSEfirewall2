@@ -154,6 +154,7 @@ need()
     . "$SCRIPTSDIR/SuSEfirewall2-$1"
 }
 
+CONFIGURATIONSDIR="/etc/sysconfig/SuSEfirewall2.d"
 SCRIPTSDIR="/etc/sysconfig/scripts"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
@@ -956,6 +957,45 @@ create_chains()
 	    for CHAIN in $all_zones; do
 		$iptables -N ${TARGET}_${CHAIN}
 	    done
+	done
+    done
+}
+
+### configurations ###
+
+parse_configurations()
+{
+    local var zone configurations config
+
+    for zone in $input_zones; do
+	var="FW_CONFIGURATIONS_`cibiz $zone`"
+	eval configurations="\"\$$var\""
+
+	for config in $configurations; do
+	    local TCP=''
+	    local UDP=''
+	    local RPC=''
+	    local IP=''
+	    local BROADCAST=''
+
+	    # XXX: could use a sub shell in order to enforce use of known variables only
+	    if ! . $CONFIGURATIONSDIR/$config; then
+		warning "config '$config' not available"
+		continue
+	    fi
+
+	    for var in TCP UDP RPC IP; do
+		eval [ -n \"\$$var\" ] \&\& FW_SERVICES_`cibiz $zone`_$var="\"\$FW_SERVICES_`cibiz $zone`_$var \$$var\""
+	    done
+
+	    if [ -n "$BROADCAST" ]; then
+		var=FW_ALLOW_FW_BROADCAST_`cibiz $zone`
+		eval allow="\"\$$var\""
+		if [ "$allow" != 'yes' ]; then
+		    # 'no' is ignored later anyways
+		    eval $var="\"\$$var \$BROADCAST\""
+		fi
+	    fi
 	done
     done
 }
@@ -1899,6 +1939,8 @@ input_zones="$all_zones"
 saved_input_zones="$input_zones" # need that for fork_to_chains
 
 #create_zones_hash
+
+parse_configurations
 
 # Set default rules + flush
 set_basic_rules
