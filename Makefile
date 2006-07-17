@@ -1,4 +1,4 @@
-VERSION=3.4
+VERSION=3.5
 NAME=SuSEfirewall2
 SVNVER=$(shell svnversion .)
 NVER=$(NAME)-$(VERSION)_SVNr$(SVNVER)
