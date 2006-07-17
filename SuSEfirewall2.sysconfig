@@ -290,6 +290,19 @@ FW_SERVICES_EXT_IP=""
 # Example: "mountd nfs"
 FW_SERVICES_EXT_RPC=""
 
+## Type:        string
+#
+# Which services _on the firewall_ should be accessible from
+# untrusted networks?
+#
+# Packages can drop a configuration file that specifies all required
+# ports into /etc/sysconfig/SuSEfirewall2.d . That is handy for
+# services that require multiple ports or protocols. Enter the space
+# separated list of configuration files you want to load.
+#
+# Example: "samba-server nfs-server"
+FW_CONFIGURATIONS_EXT=""
+
 ## Type:	string
 #
 # see comments for FW_SERVICES_EXT_TCP
@@ -310,6 +323,11 @@ FW_SERVICES_DMZ_IP=""
 # see comments for FW_SERVICES_EXT_RPC
 FW_SERVICES_DMZ_RPC=""
 
+## Type:        string
+#
+# see comments for FW_CONFIGURATIONS_EXT
+FW_CONFIGURATIONS_DMZ=""
+
 ## Type:	string
 #
 # see comments for FW_SERVICES_EXT_TCP
@@ -329,6 +347,11 @@ FW_SERVICES_INT_IP=""
 #
 # see comments for FW_SERVICES_EXT_RPC
 FW_SERVICES_INT_RPC=""
+
+## Type:        string
+#
+# see comments for FW_CONFIGURATIONS_EXT
+FW_CONFIGURATIONS_INT=""
 
 ## Type: string
 #

@@ -21,6 +21,7 @@ allfiles= \
 	SuSEfirewall2-custom.sysconfig \
 	SuSEfirewall2 \
 	SuSEfirewall2.sysconfig \
+	SuSEfirewall2.sysconfig.d.TEMPLATE \
 	SuSEfirewall2.update-message \
 	SuSEfirewall2.update-message.broadcast \
 	Makefile \
@@ -53,6 +54,7 @@ install:
 	install -d -m 755 $(DESTDIR)/sbin
 	install -d -m 755 $(DESTDIR)/etc/init.d
 	install -d -m 755 $(DESTDIR)/etc/sysconfig/scripts
+	install -d -m 755 $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d
 	install -m 755 SuSEfirewall2 $(DESTDIR)/sbin
 	install -m 755 SuSEfirewall2_init $(DESTDIR)/etc/init.d
 	install -m 755 SuSEfirewall2_setup $(DESTDIR)/etc/init.d
@@ -62,6 +64,7 @@ install:
 		install -m 644 $$i $(DESTDIR)/etc/sysconfig/scripts; \
 	done
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
+	install -m 755 SuSEfirewall2.sysconfig.d.TEMPLATE $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/TEMPLATE
 
 doc:
 	$(MAKE) -C doc
