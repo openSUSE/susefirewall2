@@ -8,6 +8,8 @@
 # the comments for FW_SERVICES_*_EXT in /etc/sysconfig/SuSEfirewall2
 #
 
+## Description: TEMPLATE
+
 # space separated list of allowed TCP ports
 TCP=""
 

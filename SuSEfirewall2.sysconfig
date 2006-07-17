@@ -296,7 +296,7 @@ FW_SERVICES_EXT_RPC=""
 # untrusted networks?
 #
 # Packages can drop a configuration file that specifies all required
-# ports into /etc/sysconfig/SuSEfirewall2.d . That is handy for
+# ports into /usr/share/SuSEfirewall2/services . That is handy for
 # services that require multiple ports or protocols. Enter the space
 # separated list of configuration files you want to load.
 #
