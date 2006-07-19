@@ -254,6 +254,8 @@ if [ -n "$USE_IPTABLES_BATCH" -a "$USE_IPTABLES_BATCH" != 'no' ]; then
     check_iptables_batch
 fi
 
+[ "$USE_IPTABLES_BATCH" = 'no' ] && USE_IPTABLES_BATCH=''
+
 ### Definitions - fixed
 unset ${!LC_*} ${!RC_LC_*} LANGUAGE RC_LANG
 export LANG=en_US
