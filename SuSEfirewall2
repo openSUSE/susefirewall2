@@ -1414,7 +1414,7 @@ accept_services()
     local var
     local services target service proto net
     local iptables zone chain
-    local ipt_recent_update ipt_recent_set
+    local ipt_recent_update ipt_recent_set ipt_recent_rcheck
 
     for zone in $input_zones; do
 	chain=input_$zone
