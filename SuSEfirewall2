@@ -1357,14 +1357,7 @@ process_trusted_nets()
 # parameters: names of rpc services, e.g. ypbind mountd
 rpcservicerules()
 {
-    local chain="$1"
-    shift
-    [ -z "$1" ] && return
-    $PERL "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" 2>/dev/null | while read ARG; do
-	$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " -m state --state NEW $ARG
-	$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
-	$IPTABLES -A $chain -j "$ACCEPT" $ARG
-    done
+    $PERL "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" 2>/dev/null
 }
 
 # parameters: REJECT|DROP
@@ -1390,15 +1383,23 @@ reject_or_drop_services()
 	    fi
 
 	    net="${1:-0/0}"
+	    proto="$2"
+	    port="$3"
+	    sport="$4"
+	    shift 4
+
 	    iptables="$IPTABLES $IP6TABLES"
 	    case "$net" in
 		*:*) iptables="$IP6TABLES" ;;
 		[0-9]*.*.*.*) iptables="$IPTABLES" ;;
 	    esac
 
-	    if [ "$2" = "_rpc_" ]; then
-		rpcservicerules $chain $service
-	    elif check_proto_port "$2" "$3" "$4" "$var"; then
+	    if [ "$proto" = "_rpc_" ]; then
+		rpcservicerules $service | while read ARG; do
+		    $LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-$action " -m state --state NEW $ARG
+		    $IPTABLES -A $chain -j "$target" $ARG
+		done
+	    elif check_proto_port "$proto" "$port" "$sport" "$var"; then
 		for iptables in $iptables; do
 		    $LDA $iptables -A $chain -s $net $proto $port $sport -m state --state NEW ${LOG}"-`rulelog $chain`-$action "
 		    $iptables -A $chain -s $net $proto $port $sport -m state --state NEW -j "$target"
@@ -1413,6 +1414,7 @@ accept_services()
     local var
     local services target service proto net
     local iptables zone chain
+    local ipt_recent_update ipt_recent_set
 
     for zone in $input_zones; do
 	chain=input_$zone
@@ -1420,25 +1422,67 @@ accept_services()
 	eval services="\"\$$var\""
 
 	for service in $services; do
+	    ipt_recent_update=''
+	    ipt_recent_set=''
+	    ipt_recent_rcheck=''
 	    IFS=, eval set -- \$service
 	    if [ "$#" -lt 3 ]; then
 		error "too few parameters in $var -> $service"
 		continue
 	    fi
-
+	    
 	    net="${1:-0/0}"
+	    proto="$2"
+	    port="$3"
+	    shift 3
+	    sport="$1"
+	    [ "$#" -gt 0 ] && shift
+
+	    while [ "$#" -gt 0 ]; do
+		case "$1" in
+		    hitcount=*) ipt_recent_update="$ipt_recent_update --hitcount ${1#*=}"; shift ;;
+		    blockseconds=*) ipt_recent_update="$ipt_recent_update --seconds ${1#*=}"; shift ;;
+		    recentname=*)
+			ipt_recent_update="$ipt_recent_update --name ${1#*=}"
+			ipt_recent_set="$ipt_recent_set --name ${1#*=}"
+			shift
+			;;
+		    *) error "unknown parameter $1 in $var -> $service"; continue 2 ;;
+		esac
+	    done
+
+	    if [ -n "$ipt_recent_update" ]; then
+		ipt_recent_rcheck="-m recent --rcheck$ipt_recent_update"
+		ipt_recent_update="-m recent --update$ipt_recent_update --rttl"
+		ipt_recent_set="-m recent --set$ipt_recent_set"
+	    fi
+
 	    iptables="$IPTABLES $IP6TABLES"
 	    case "$net" in
 		*:*) iptables="$IP6TABLES" ;;
 		[0-9]*.*.*.*) iptables="$IPTABLES" ;;
 	    esac
 
-	    if [ "$2" = "_rpc_" ]; then
-		rpcservicerules $chain $service
-	    elif check_proto_port "$2" "$3" "$4" "$var"; then
+	    if [ "$proto" = "_rpc_" ]; then
+		rpcservicerules $service | while read ARG; do
+		    if [ -n "$ipt_recent_set" ]; then
+			$LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROPr " $ARG -m state --state NEW $ipt_recent_rcheck
+			$IPTABLES -A $chain -j "$DROP" $ARG -m state --state NEW $ipt_recent_update
+		    fi
+		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC " -m state --state NEW $ARG
+		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC " $ARG
+		    [ -n "$ipt_recent_set" ] && $IPTABLES -A $chain -j ACCEPT $ARG -m state --state NEW $ipt_recent_set
+		    $IPTABLES -A $chain -j ACCEPT $ARG
+		done
+	    elif check_proto_port "$proto" "$port" "$sport" "$var"; then
 		for iptables in $iptables; do
+		    if [ -n "$ipt_recent_set" ]; then
+			$LDC $iptables -A $chain ${LOG}"-`rulelog $chain`-DROPr " -s $net $proto $port $sport -m state --state NEW $ipt_recent_rcheck
+			$iptables -A $chain -j "$DROP" -s $net $proto $port $sport -m state --state NEW $ipt_recent_update
+		    fi
 		    $LAC $iptables -A $chain -s $net $proto $port $sport -m state --state NEW ${LOG}"-`rulelog $chain`-ACC "
 		    $LAA $iptables -A $chain -s $net $proto $port $sport ${LOG}"-`rulelog $chain`-ACC "
+		    [ -n "$ipt_recent_set" ] && $iptables -A $chain -s $net $proto $port $sport -j ACCEPT -m state --state NEW $ipt_recent_set
 		    $iptables -A $chain -s $net $proto $port $sport -j ACCEPT
 		done
 	    fi
@@ -1482,7 +1526,11 @@ allow_rpc_services()
     for zone in $input_zones; do
 	chain=input_$zone
 	eval ports="\$FW_SERVICES_`cibiz $zone`_RPC"
-	rpcservicerules $chain $ports
+	rpcservicerules $ports | while read ARG; do
+	    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " -m state --state NEW $ARG
+	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
+	    $IPTABLES -A $chain -j "$ACCEPT" $ARG
+	done
     done
 }
 

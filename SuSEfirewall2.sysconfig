@@ -388,8 +388,16 @@ FW_SERVICES_REJECT_EXT="0/0,tcp,113"
 # Services to allow. This is a more generic form of FW_SERVICES_{IP,UDP,TCP}
 # and more specific than FW_TRUSTED_NETS
 #
-# Format: space separated list of net,protocol[,dport][,sport]
+# Format: space separated list of net,protocol[,dport[,sport[,flags]]]
 # Example: "0/0,tcp,22"
+#
+# Supported flags are
+#   hitcount=NUMBER     : ipt_recent --hitcount parameter
+#   blockseconds=NUMBER : ipt_recent --seconds parameter
+#   recentname=NAME     : ipt_recent --name parameter
+# Example:
+#    Allow max three ssh connects per minute from the same IP address:
+#      "0/0,tcp,22,,hitcount=3,blockseconds=60,recentname=ssh"
 #
 # The special value _rpc_ is recognized as protocol and means that dport is
 # interpreted as rpc service name. See FW_SERVICES_EXT_RPC for
