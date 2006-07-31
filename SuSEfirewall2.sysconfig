@@ -383,7 +383,7 @@ FW_SERVICES_DROP_EXT=""
 FW_SERVICES_REJECT_EXT="0/0,tcp,113"
 
 ## Type: string
-## Default: 0/0,tcp,113
+## Default:
 #
 # Services to allow. This is a more generic form of FW_SERVICES_{IP,UDP,TCP}
 # and more specific than FW_TRUSTED_NETS
