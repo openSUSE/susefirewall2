@@ -225,6 +225,8 @@ FW_MASQ_NETS="0/0"
 # the firewall.
 #
 # defaults to "yes" if not set
+#
+# see also FW_REJECT_INT
 # 
 FW_PROTECT_FROM_INT="no"
 
@@ -840,6 +842,17 @@ FW_CUSTOMRULES=""
 # specific variable, e.g. FW_REJECT_DMZ="yes"
 #
 FW_REJECT=""
+
+## Type:	yesno
+## Default:	no
+#
+# see FW_REJECT for description
+#
+# default config file setting is "yes" assuming that slowing down
+# portscans is not strictly required in the internal zone even if
+# you protect yourself from the internal zone 
+#
+FW_REJECT_INT="yes"
 
 ## Type:	string
 #
