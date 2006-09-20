@@ -587,6 +587,8 @@ xen_forward_hack()
 
 function set_basic_rules()
 {
+    local itype
+
     load_modules ip_tables ip_conntrack $FW_LOAD_MODULES
 
     if [ "$FW_IPv6" != no ]; then
@@ -1845,20 +1847,27 @@ forward_masquerading_rules()
 drop_all()
 {
     local chain
-    local itype
-    local chains
+    local zone
+    local drop
+    local chainprefix='input_'
 
-    for chain in $input_zones; do
-	chains="$chains input_$chain"
-    done
+    for zone in $input_zones '--' $forward_zones; do
 
-    if [ "$FW_ROUTE" = yes ]; then
-	for chain in $forward_zones; do
-	    chains="$chains forward_$chain"
-	done
-    fi
-    
-    for chain in $chains; do
+	if [ "$zone" = '--' ]; then
+	    [ "$FW_ROUTE" != 'yes' ] && break
+	    chainprefix='forward_'
+	    continue
+	fi
+
+	chain="$chainprefix$zone"
+
+	eval drop="\$FW_REJECT_`cibiz $zone`"
+	if [ "$drop" = "yes" ]; then
+	    drop="$REJECT"
+	else
+	    drop="$DROP"
+	fi
+
 	# log and drop multicast packets separately to not flood
 	# other log targets (#155326)
 	$LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype --pkt-type multicast
@@ -1877,9 +1886,9 @@ drop_all()
 	fi
 	# log anything else
 	$LDA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT "
-	$IPTABLES -A $chain -j "$DROP"
+	$IPTABLES -A $chain -j "$drop"
 	$LDA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT "
-	$IP6TABLES -A $chain -j "$DROP"
+	$IP6TABLES -A $chain -j "$drop"
     done
 }
 

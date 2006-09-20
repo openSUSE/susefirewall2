@@ -836,6 +836,9 @@ FW_CUSTOMRULES=""
 #
 # Defaults to "no" if not set
 #
+# You may override this value on a per zone basis by using a zone
+# specific variable, e.g. FW_REJECT_DMZ="yes"
+#
 FW_REJECT=""
 
 ## Type:	string
