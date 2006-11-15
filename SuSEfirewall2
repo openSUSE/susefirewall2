@@ -1190,7 +1190,7 @@ finish_chains()
 	fi
 
 	$iptables -A OUTPUT -j ACCEPT -m state --state NEW,ESTABLISHED,RELATED
-	$iptables -A OUTPUT ${LOG}"-OUT-ERROR " 
+	$LDAC $iptables -A OUTPUT ${LOG}"-OUT-ERROR " 
 	# we want to let locally generated packets out since our task is not
 	# to protect the world from us, but protect us from the world ;)
 	# policy is ACCEPT $iptables -A OUTPUT -j ACCEPT
