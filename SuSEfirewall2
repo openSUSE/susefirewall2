@@ -1319,7 +1319,7 @@ allow_forward_icmp_echo()
 	chain=forward_$zone
 	$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-reply
 	$IPTABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
-	$LAA $IP6TABLES -A $chan ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-reply
+	$LAA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-reply
 	$IP6TABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED -p icmpv6 --icmpv6-type echo-reply
     done
     # drop rule for forwarding chains are at the end of the forwarding rules
@@ -1778,7 +1778,7 @@ masquerading_rules()
 		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-MASQ "  -s $net1 $net2 $proto $port -o $dev
 		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 $net2 $proto $port -o $dev
 		    # we need to allow the replies as well
-		    $LAA $IPTABLES -A $chain -d $net1 $snet2 $proto $rport -i $dev ${LOG}"-`rulelog $CHAIN`-ACC-MASQ " -m state --state ESTABLISHED,RELATED
+		    $LAA $IPTABLES -A $chain -d $net1 $snet2 $proto $rport -i $dev ${LOG}"-`rulelog $chain`-ACC-MASQ " -m state --state ESTABLISHED,RELATED
 		    $IPTABLES -A $chain -d $net1 $snet2 $proto $rport -i $dev -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
 	        done
 		$IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $net1 $net2 $proto $port -o $dev
