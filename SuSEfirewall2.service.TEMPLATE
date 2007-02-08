@@ -8,7 +8,8 @@
 # the comments for FW_SERVICES_*_EXT in /etc/sysconfig/SuSEfirewall2
 #
 
-## Description: TEMPLATE
+## Name: template service
+## Description: opens ports for foo in order to allow bar
 
 # space separated list of allowed TCP ports
 TCP=""
