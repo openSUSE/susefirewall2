@@ -161,6 +161,7 @@ LOCKFILE="/var/lock/SuSEfirewall2.pid"
 BOOTLOCKFILE="/var/lock/SuSEfirewall2.booting"
 FW_CUSTOMRULES=""
 
+FW_ZONE_DEFAULT=""
 USE_IPTABLES_BATCH=''
 
 # whether ip6tables supports state matching
@@ -709,8 +710,7 @@ getdevinfo()
     local dev=`getcfg-interface "$1"`
 
     if [ "$?" -ne 0 -o -z "$dev" \
-	-o  \( ! -e /proc/sys/net/ipv4/conf/"$dev" \
-	-a ! -e /proc/sys/net/ipv6/conf/"$dev" \)  ]; then
+	-o  \( ! -e /sys/class/net/"$dev" \ ]; then
 	return 1
     fi
 
@@ -725,46 +725,6 @@ function getcfg-interface()
 	/sbin/getcfg-interface "$1" || echo "$1"
     else
 	echo "$1"
-    fi
-}
-
-
-auto_detect_done=0
-auto_detect_interfaces()
-{
-    [ "$auto_detect_done" = 1 ] && return
-    local zone
-    while read line; do
-	set -- $line
-	zone="$1"
-	shift
-	case "$zone" in
-	    External:)
-		FW_DEV_EXT_AUTO="$*"
-	    ;;
-	    Internal:)
-		FW_DEV_INT_AUTO="$*"
-	    ;;
-	esac
-    done < <(/bin/bash $SCRIPTSDIR/SuSEfirewall2-autointerface.sh)
-    auto_detect_done=1
-}
-
-# auto interface detection
-auto_detect_all_interfaces()
-{
-    if [ "$FW_DEV_EXT" = "auto" ]; then
-	auto_detect_interfaces
-	FW_DEV_EXT="$FW_DEV_EXT_AUTO"
-    fi
-
-    if [ "$FW_DEV_INT" = "auto" ]; then
-	auto_detect_interfaces
-	FW_DEV_INT="$FW_DEV_INT_AUTO"
-    fi
-
-    if [ "$FW_MASQ_DEV" = "auto" ]; then
-	FW_MASQ_DEV="$FW_DEV_EXT"
     fi
 }
 
@@ -815,11 +775,19 @@ fw_custom_before_denyall() { true; }
 evaluateinterfaces()
 {
     local devs=""
-    local dev_any=""
-    local dev
+    local var dev
+    var="$1"
+    eval set -- \$$var
     for dev in "$@" ; do
 	if [ "$dev" = 'any' ]; then
-	    dev_any='any'
+	    if [ -n "$FW_ZONE_DEFAULT" ]; then
+		error "zone '$FW_ZONE_DEFAULT' is already default, ignoring 'any' in '$var'"
+	    else
+		FW_ZONE_DEFAULT="$zone"
+	    fi
+	    continue
+	elif [ "$dev" = 'auto' ]; then
+	    warning "ignoring deprecated interface 'auto' in $var"
 	    continue
 	fi
 	dev=`getdevinfo "$dev"` || continue
@@ -827,7 +795,70 @@ evaluateinterfaces()
 
 	devs="$devs $dev"
     done
-    echo $dev_any $devs
+    eval $var="\$devs"
+}
+
+#sets iface_$name=$zone
+check_interfaces_unique()
+{
+    local zone devs d z
+    for zone in $all_zones; do
+	eval devs="\$FW_DEV_$zone"
+	for d in $devs; do
+	    [ -z "$d" ] && continue
+	    d=${d//[^A-Za-z0-9]/_}
+	    eval z=\${iface_$d}
+	    if [ -z "$z" ]; then
+		eval iface_$d=$zone
+	    else
+		error "$d aleady in zone '$z' but also configured for '$zone'"
+	    fi
+	done
+    done
+}
+
+source_config_for_iface()
+{
+    local iface="$1"
+    local dir=/etc/sysconfig/network
+    if [ -x /sbin/getcfg ] ; then
+	eval `/sbin/getcfg -d $dir -f ifcfg- -- $iface 2>/dev/null`
+	cfg="$HWD_CONFIG_0"
+    fi
+    if [ -z "$cfg" ]; then
+	cfg=$iface
+    fi
+    . $dir/ifcfg-$cfg 2>/dev/null
+}
+
+autodetect_interfaces()
+{
+    local d z
+    set -- `cd /sys/class/net; echo *` 2>/dev/null
+    for d in "$@"; do
+	[ -z "$d" -o "$d" = 'lo' -o "$d" = 'sit0' ] && continue
+	d=${d//[^A-Za-z0-9]/_}
+	eval z=\${iface_$d}
+	[ -n "$z" ] && continue
+	eval [ -n "\"\$seen_$d\"" ] && continue
+	eval local seen_$d=1
+	z=`source_config_for_iface $d && echo $FW_ZONE`
+	if [ -n "$z" ]; then
+	    if eval [ -n "\"\$zone_$z\"" ]; then
+		eval FW_DEV_$z="\"\$FW_DEV_$z \$d\""
+		eval iface_$d=$z
+	    else
+		error "invalid zone '$z' specified for interface '$d'"
+	    fi
+	elif [ -n "$FW_ZONE_DEFAULT" ]; then
+	    message "using default zone '$FW_ZONE_DEFAULT' for interface $d"
+	    z="$FW_ZONE_DEFAULT"
+	    eval FW_DEV_$z="\"\$FW_DEV_$z \$d\""
+	    eval iface_$d=$z
+	else
+	    warning "no firewall zone defined for interface $d"
+	fi
+    done
 }
 
 parse_interfaces()
@@ -835,19 +866,38 @@ parse_interfaces()
     local zone devs var
 
     for zone in $all_zones; do
-	eval devs="\$FW_DEV_`cibiz $zone`"
-	set -- `evaluateinterfaces $devs`
-	if [ "$1" = 'any' ]; then
-	    eval DEV_${zone}_ANY="yes"
-	    shift
-	fi
-	eval FW_DEV_$zone="\"$*\""
+	evaluateinterfaces FW_DEV_`cibiz $zone`
     done
+    if [ -z "$FW_ZONE_DEFAULT" ]; then
+	FW_ZONE_DEFAULT='ext'
+	warning "no default firewall zone defined, assuming 'ext'"
+    fi
+}
 
-    set -- `evaluateinterfaces $FW_MASQ_DEV`
-    [ "$1" = 'any' ] &&	shift
-    FW_MASQ_DEV="$*"
+process_masq_dev()
+{
+    local devs=""
+    local dev
+    set -- $FW_MASQ_DEV
+    for dev in "$@" ; do
+	if [ "$dev" = 'auto' ]; then
+	    warning "ignoring deprecated interface 'auto' in FW_MASQ_DEV"
+	    continue
+	fi
+	# zone specified?
+	if [ "$dev" != "${dev#zone:}" ]; then
+	    dev=${dev#zone:}
+	    if eval [ -n "\"\$zone_$dev\"" ]; then
+		eval devs="\"\$devs \$FW_DEV_$dev\""
+		continue
+	    fi
+	fi
+	dev=`getdevinfo "$dev"` || continue
+	case "$dev" in *:*) continue; ;; esac
 
+	devs="$devs $dev"
+    done
+    FW_MASQ_DEV="$devs"
 }
 
 load_customrules()
@@ -1059,18 +1109,26 @@ parse_zones()
 	case $zone in
 	    [Ii][Nn][Tt]|[Ee][Xx][Tt]|[Dd][Mm][Zz])
 		error "FW_ZONES=$zone ignored" ;;
-	    *) all_zones="$all_zones $zone" ;;
+	    *)
+		if [ "$zone" != "${zone//[^A-Za-z0-9]/_}" ]; then
+		    error "ignoring invalid zone name $zone in FW_ZONES"
+		else
+		    all_zones="$all_zones $zone"
+		fi
+		;;
 	esac
+    done
+    for zone in $all_zones; do
+	eval "zone_$zone=0"
     done
 }
 
 remove_unused_zones()
 {
-    local zone zones devs any
+    local zone zones devs
     for zone in $all_zones; do
 	eval devs="\$FW_DEV_$zone"
-	eval any="\$DEV_${zone}_ANY"
-	if [ -n "$devs" -o "$ipsec_chain" = $zone -o "$any" = 'yes' ]; then
+	if [ -n "$devs" -o "$ipsec_chain" = $zone -o "$FW_ZONE_DEFAULT" = "$zone" ]; then
 	    if [ -z "$zones" ]; then
 		zones=$zone
 	    else
@@ -1080,15 +1138,6 @@ remove_unused_zones()
     done
 
     [ "$all_zones" != "$zones" ] && all_zones="$zones"
-}
-
-create_zones_hash()
-{
-    local zone
-    need bashhash
-    for zone in $all_zones; do
-	hashadd zones $zone 1
-    done
 }
 
 # convert if built in zone, eg ext -> EXT
@@ -1142,8 +1191,6 @@ fork_to_chains()
     local zone
     local dev
     local devs
-    local any
-    local anyzone=''
 
     for iptables in "$IPTABLES" "$IP6TABLES"; do
 	for zone in $saved_input_zones; do
@@ -1151,18 +1198,9 @@ fork_to_chains()
 	    for dev in $devs; do
 		$iptables -A INPUT -j input_$zone -i $dev
 	    done
-	    eval any="\$DEV_${zone}_ANY"
-	    if [ "$any" = 'yes' ]; then
-		if [ -n "$anyzone" ]; then
-		    [ "$iptables" != ':' ] && warning "interface 'any' already in zone '$anyzone', ignoring '$zone'"
-		else
-		    anyzone=$zone
-		fi
-	    fi
 	done
-	if [ -n "$anyzone" ]; then
-	    $iptables -A INPUT -j input_$anyzone
-	    anyzone=''
+	if [ -n "$FW_ZONE_DEFAULT" ]; then
+	    $iptables -A INPUT -j "input_$FW_ZONE_DEFAULT"
 	fi
 	if [ "$FW_ROUTE" = yes ]; then
 	    for zone in $forward_zones; do
@@ -1984,10 +2022,11 @@ fi
 message "Setting up rules from $FWCONFIG ..."
 
 parse_zones
-
-auto_detect_all_interfaces
-
 parse_interfaces
+check_interfaces_unique
+autodetect_interfaces
+process_masq_dev
+
 load_customrules
 
 check_interfaces
@@ -2001,8 +2040,6 @@ remove_unused_zones
 [ "$FW_ROUTE" = 'yes' ] && forward_zones="$all_zones"
 input_zones="$all_zones"
 saved_input_zones="$input_zones" # need that for fork_to_chains
-
-#create_zones_hash
 
 parse_configurations
 

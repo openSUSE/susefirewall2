@@ -1,20 +1,20 @@
 # Copyright (c) 2000-2002 SuSE GmbH Nuernberg, Germany.  All rights reserved.
 # Copyright (c) 2003,2004 SuSE Linux AG Nuernberg, Germany.  All rights reserved.
-# Copyright (c) 2005 SUSE LINUX Products GmbH Nuernberg, Germany.  All rights reserved.
+# Copyright (c) 2005-2007 SUSE LINUX Products GmbH Nuernberg, Germany.  All rights reserved.
 #
 # Author: Marc Heuse, 2002
-#         Ludwig Nussel, 2004
+#         Ludwig Nussel, 2004-2007
 #
 # /etc/sysconfig/SuSEfirewall2
 #
-# for use with /sbin/SuSEfirewall2 version 3.3
+# for use with /sbin/SuSEfirewall2 version 3.6
 #
 # ------------------------------------------------------------------------     #
 # PLEASE NOTE THE FOLLOWING:
 #
 # Just by configuring these settings and using the SuSEfirewall2 you
 # are not secure per se! There is *not* such a thing you install and
-# hence you are safed from all (security) hazards.
+# hence you are saved from all (security) hazards.
 #
 # To ensure your security, you need also:
 #
@@ -22,7 +22,7 @@
 #     (internet) You can do this by using software which has been
 #     designed with security in mind (like postfix, vsftpd, ssh),
 #     setting these up without misconfiguration and praying, that
-#     they have got really no holes. SuSEcompartment can help in
+#     they have got really no holes. Apparmor can help in
 #     most circumstances to reduce the risk.
 #   * Do not run untrusted software. (philosophical question, can
 #     you trust SuSE or any other software distributor?)
@@ -47,9 +47,10 @@
 # /usr/share/doc/packages/SuSEfirewall2/EXAMPLES or use YaST
 #
 #
-# If you are a end-user who is NOT connected to two networks (read: you have
-# got a single user system and are using a dialup to the internet) you just
-# have to configure (all other settings are OK): 2) and maybe 9).
+# If you are an end-user who is NOT connected to two networks (read:
+# you have got a single user system and are using a dialup to the
+# internet) you just have to configure (all other settings are OK):
+# 2) and maybe 9).
 #
 # If this server is a firewall, which should act like a proxy (no direct
 # routing between both networks), or you are an end-user connected to the
@@ -83,16 +84,13 @@
 #
 # Format: space separated list of interface or configuration names
 #
-# The special keyword "auto" means to use the device of the default
-# route. "auto" cannot be mixed with other interface names.
-#
 # The special keyword "any" means that packets arriving on interfaces not
 # explicitly configured as int, ext or dmz will be considered external. Note:
 # this setting only works for packets destined for the local machine. If you
 # want forwarding or masquerading you still have to add the external interfaces
 # individually. "any" can be mixed with other interface names.
 #
-# Examples: "eth-id-00:e0:4c:9f:61:9a", "ippp0 ippp1", "auto", "any dsl0"
+# Examples: "eth-id-00:e0:4c:9f:61:9a", "ippp0 ippp1", "any dsl0"
 #
 # Note: alias interfaces (like eth0:1) are ignored
 #
@@ -178,16 +176,23 @@ FW_ROUTE="no"
 FW_MASQUERADE="no"
 
 ## Type:	string
-## Default:     $FW_DEV_EXT
+## Default:     zone:ext
 #
 # 6a.)
-# You must also define on which interfaces to masquerade on. Those
-# are usually the same as the external interfaces. Most users can
-# leave the default.
+# You also have to define on which interfaces to masquerade on.
+# Those are usually the same as the external interfaces. Most users
+# can leave the default.
 #
-# Examples: "ippp0", "$FW_DEV_EXT"
+# The special string "zone:" concatenated with the name of a zone
+# means to take all interfaces in the specified zone.
 #
-FW_MASQ_DEV="$FW_DEV_EXT"
+# Old version of SuSEfirewall2 used a shell variable ($FW_DEV_EXT)
+# here. That method is deprecated as it breaks auto detection of
+# interfaces. Please use zone:ext instead.
+#
+# Examples: "ippp0", "zone:ext"
+#
+FW_MASQ_DEV="zone:ext"
 
 ## Type:	string
 ## Default:	0/0

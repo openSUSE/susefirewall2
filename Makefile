@@ -1,4 +1,4 @@
-VERSION=3.5
+VERSION=3.6
 NAME=SuSEfirewall2
 SVNVER=$(shell svnversion .)
 NVER=$(NAME)-$(VERSION)_SVNr$(SVNVER)
@@ -7,10 +7,8 @@ SCRIPTS=SuSEfirewall2-batch \
 	SuSEfirewall2-open \
 	SuSEfirewall2-showlog \
 	SuSEfirewall2-rpcinfo \
-	SuSEfirewall2-bashhash \
 	SuSEfirewall2-qdisc \
 	SuSEfirewall2-oldbroadcast \
-	SuSEfirewall2-autointerface.sh 
 
 DESTDIR=
 
