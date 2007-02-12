@@ -2,21 +2,25 @@
 # need to set the following variables:
 # allhtml: list of html articles to create
 # alltxt: list of txt articles to create
+# allman: list of man pages to create
 
 xsl_html := custom-html.xsl
+xsl_man  := custom-man.xsl
 
 DESTDIR := ./
 
 admongfx := /usr/share/doc/manual/suselinux-adminguide_de/html/admon/
 naviggfx := /usr/share/doc/manual/suselinux-adminguide_de/html/navig/
-stylesheet := /usr/share/xml/docbook/custom/susedtd/*/stylesheet/susebooks.css
+stylesheet := susebooks.css.in
 stylesheet_out := susebooks.css
 
-all: all-single all-txt links
+all: all-single all-txt all-man
 
 all-single: $(DESTDIR)$(stylesheet_out) $(allhtml)
 
 all-txt: $(alltxt)
+
+all-man: $(allman)
 
 $(DESTDIR)$(stylesheet_out): $(stylesheet)
 	@cat < $< > $@
@@ -24,19 +28,56 @@ $(DESTDIR)$(stylesheet_out): $(stylesheet)
 		echo "add programlisting to stylesheet"; \
 		echo 'pre.programlisting { background-color: #E0E0E0; }' >> $@; \
 	fi
+	@if ! grep -q refname $@; then \
+		echo 'div.refnamediv h2, \
+		div.refsynopsisdiv h2, \
+		div.refsect1 h2 { \
+		    font-family: Arial, Helvetica, sans-serif; \
+		    font-size: medium; \
+		}' >> $@; \
+	fi
+	@echo h3.title '{ font-family: Arial, Helvetica, sans-serif; }' >> $@
+	
 #sed "s/sect1/section/g" < $< > $@
 
+XMLVALIDATE = xmllint --nonet --xinclude --postvalid --noout
 
 $(DESTDIR)%.html: %.xml $(DESTDIR)$(stylesheet_out)
-	xmllint --nonet --valid --noout $<
-	xsltproc --nonet \
+	$(XMLVALIDATE) $<
+	xsltproc --nonet --xinclude \
 	       	--output $@ $(xsl_html) $<
 
 %.txt: %.html
 	w3m -dump $< > $@
 
+XML2MAN = xsltproc --nonet --xinclude $(xsl_man)
+
+%.1: %.xml
+	$(XMLVALIDATE) $<
+	$(XML2MAN) $<
+
+%.3: %.xml
+	$(XMLVALIDATE) $<
+	$(XML2MAN) $<
+
+%.5: %.xml
+	$(XMLVALIDATE) $<
+	$(XML2MAN) $<
+
+%.8: %.xml
+	$(XMLVALIDATE) $<
+	$(XML2MAN) $<
+
+%.cond.html.xml: %.xml
+	xsltproc --stringparam profile.condition html \
+	--nonet \
+	--output $@ \
+	http://docbook.sourceforge.net/release/xsl/current/profiling/profile.xsl \
+	$<
+
 clean:
-	rm -rf $(allhtml) $(DESTDIR)html $(DESTDIR)$(stylesheet_out) $(alltxt)
+	rm -rf $(allhtml) $(DESTDIR)html $(DESTDIR)$(stylesheet_out) $(alltxt) $(allman)
+	rm -f *.cond.html.xml
 
 .PHONY: clean html
 
