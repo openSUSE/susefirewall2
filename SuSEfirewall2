@@ -710,7 +710,7 @@ getdevinfo()
     local dev=`getcfg-interface "$1"`
 
     if [ "$?" -ne 0 -o -z "$dev" \
-	-o  \( ! -e /sys/class/net/"$dev" \ ]; then
+	-o ! -e /sys/class/net/"$dev" ]; then
 	return 1
     fi
 
@@ -776,7 +776,8 @@ evaluateinterfaces()
 {
     local devs=""
     local var dev
-    var="$1"
+    local zone="$1"
+    var="FW_DEV_`cibiz $zone`"
     eval set -- \$$var
     for dev in "$@" ; do
 	if [ "$dev" = 'any' ]; then
@@ -795,7 +796,8 @@ evaluateinterfaces()
 
 	devs="$devs $dev"
     done
-    eval $var="\$devs"
+    set -- $devs
+    eval FW_DEV_$zone="\$*"
 }
 
 #sets iface_$name=$zone
@@ -811,7 +813,7 @@ check_interfaces_unique()
 	    if [ -z "$z" ]; then
 		eval iface_$d=$zone
 	    else
-		error "$d aleady in zone '$z' but also configured for '$zone'"
+		error "$d already in zone '$z' but also configured for '$zone'"
 	    fi
 	done
     done
@@ -866,7 +868,7 @@ parse_interfaces()
     local zone devs var
 
     for zone in $all_zones; do
-	evaluateinterfaces FW_DEV_`cibiz $zone`
+	evaluateinterfaces $zone
     done
     if [ -z "$FW_ZONE_DEFAULT" ]; then
 	FW_ZONE_DEFAULT='ext'
