@@ -52,7 +52,7 @@ install:
 	install -d -m 755 $(DESTDIR)/sbin
 	install -d -m 755 $(DESTDIR)/etc/init.d
 	install -d -m 755 $(DESTDIR)/etc/sysconfig/scripts
-	install -d -m 755 $(DESTDIR)/usr/share/SuSEfirewall2/services
+	install -d -m 755 $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/services
 	install -m 755 SuSEfirewall2 $(DESTDIR)/sbin
 	install -m 755 SuSEfirewall2_init $(DESTDIR)/etc/init.d
 	install -m 755 SuSEfirewall2_setup $(DESTDIR)/etc/init.d
@@ -62,7 +62,7 @@ install:
 		install -m 644 $$i $(DESTDIR)/etc/sysconfig/scripts; \
 	done
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
-	install -m 755 SuSEfirewall2.service.TEMPLATE $(DESTDIR)/usr/share/SuSEfirewall2/services/TEMPLATE
+	install -m 644 SuSEfirewall2.service.TEMPLATE $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/services/TEMPLATE
 
 doc:
 	$(MAKE) -C doc

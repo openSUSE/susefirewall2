@@ -154,7 +154,8 @@ need()
     . "$SCRIPTSDIR/SuSEfirewall2-$1"
 }
 
-CONFIGURATIONSDIR="/usr/share/SuSEfirewall2/services"
+CONFIGURATIONSDIR_0="/etc/sysconfig/SuSEfirewall2.d/services"
+CONFIGURATIONSDIR_1="/usr/share/SuSEfirewall2/services"
 SCRIPTSDIR="/etc/sysconfig/scripts"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
@@ -1040,9 +1041,11 @@ parse_configurations()
 	    local BROADCAST=''
 
 	    # XXX: could use a sub shell in order to enforce use of known variables only
-	    if ! . $CONFIGURATIONSDIR/$config; then
-		warning "config '$config' not available"
-		continue
+	    if [ ! -r $CONFIGURATIONSDIR_0/$config ] || ! . $CONFIGURATIONSDIR_0/$config; then
+		if ! . $CONFIGURATIONSDIR_1/$config; then
+		    warning "config '$config' not available"
+		    continue
+		fi
 	    fi
 
 	    for var in TCP UDP RPC IP; do
