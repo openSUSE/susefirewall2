@@ -325,19 +325,6 @@ else
 	[ "$IP6TABLES" != ":" ] && IP6TABLES=ip6tables
     fi
 fi
-AWK="/bin/awk"
-SED="/bin/sed"
-IFCONFIG="/sbin/ifconfig"
-NETSTAT="/bin/netstat"
-SORT="/bin/sort"
-GREP="/bin/grep"
-PERL="/usr/bin/perl"
-
-for i in "$GREP" "$AWK" "$SED" "$IFCONFIG" "$NETSTAT" "$SORT"; do
-    if [ ! -x "$i" ]; then
-	die 1 "$i is required for SuSEfirewall2 but it is not an executable"
-    fi
-done
 
 ### jump targets
 ACCEPT="ACCEPT"
@@ -1402,7 +1389,7 @@ process_trusted_nets()
 # parameters: names of rpc services, e.g. ypbind mountd
 rpcservicerules()
 {
-    $PERL "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" 2>/dev/null
+    perl "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" 2>/dev/null
 }
 
 # parameters: REJECT|DROP
@@ -1942,7 +1929,7 @@ drop_all()
 ############################################
 
 if [ "$ACTION" = "showlog" ]; then
-    exec $PERL "$SCRIPTSDIR/SuSEfirewall2-showlog" "$@"
+    exec perl "$SCRIPTSDIR/SuSEfirewall2-showlog" "$@"
     die 1 "failed to execute $SCRIPTSDIR/SuSEfirewall2-showlog"
 fi
 
@@ -2018,7 +2005,7 @@ fi
 
 if [ "$ACTION" = "open" ]; then
     OPENHELPER="$SCRIPTSDIR/SuSEfirewall2-open"
-    exec $PERL -w $OPENHELPER "$@"
+    exec perl -w $OPENHELPER "$@"
     die 1 "failed to execute $OPENHELPER"
 fi
 
