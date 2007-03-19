@@ -800,18 +800,24 @@ FW_IGNORE_FW_BROADCAST_INT=""
 # see comments for FW_IGNORE_FW_BROADCAST_EXT
 FW_IGNORE_FW_BROADCAST_DMZ=""
 
-## Type:	yesno
+## Type:	list(yes,no,int,ext,dmz,)
 ## Default:	no
 #
 # 23.)
-# Allow same class routing per default?
-# REQUIRES: FW_ROUTE
+# Specifies whether routing between interfaces of the same zone should be allowed
+# Requires: FW_ROUTE="yes"
 #
-# Do you want to allow routing between interfaces of the same class
-# (e.g. between all internet interfaces, or all internal network interfaces)
-# be default (so without the need setting up FW_FORWARD definitions)?
+# Set this to allow routing between interfaces in the same zone,
+# e.g. between all internet interfaces, or all internal network
+# interfaces.
 #
-# Choice: "yes" or "no", if not set defaults to "no"
+# Caution: Keep in mind that "yes" affects all zones. ie even if you
+# need inter-zone routing only in the internal zone setting this
+# parameter to "yes" would allow routing between all external
+# interfaces as well. It's better to use
+# FW_ALLOW_CLASS_ROUTING="int" in this case.
+#
+# Choice: "yes", "no", or space separate list of zone names
 #
 # Defaults to "no" if not set
 #
@@ -933,7 +939,7 @@ FW_IPv6=""
 #
 FW_IPv6_REJECT_OUTGOING=""
 
-## Type:	list(yes,no,int,ext,dmz)
+## Type:	list(yes,no,int,ext,dmz,)
 ## Default:	no
 #
 # 29.)

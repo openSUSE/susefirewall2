@@ -1690,15 +1690,19 @@ redirect_rules()
 
 }
 
-# parameters: zone interfaces
-# assuming that only traffic from $zone interface enter the forward_$zone chain
-# anyways, we don't need the -i parameter
 allow_class_routing()
 {
-    [ "$FW_ALLOW_CLASS_ROUTING" != yes ] && return
-
     local chain iface devs zone
-    for zone in $forward_zones; do
+
+    if [ "$FW_ALLOW_CLASS_ROUTING" = 'yes' ]; then
+	FW_ALLOW_CLASS_ROUTING="$forward_zones"
+    elif [ "$FW_ALLOW_CLASS_ROUTING" = 'no' ]; then
+	return
+    fi
+    
+    # assuming that only traffic from $zone interface enter the
+    # forward_$zone chain anyways, we don't need the -i parameter
+    for zone in $FW_ALLOW_CLASS_ROUTING; do
 	eval devs="\$FW_DEV_$zone"
 	chain=forward_$zone
 	for iface in $devs; do
@@ -1779,7 +1783,9 @@ forwarding_rules()
 
 masquerading_rules()
 {
-    local nets net1 net2 proto port dev chain snet2 sport
+    local nets net1 net2 proto port dev snet2 sport
+    local szone dzone sdev sdevs
+    local z d
     for nets in $FW_MASQ_NETS; do
 	IFS=, eval set -- \$nets
 
@@ -1803,14 +1809,30 @@ masquerading_rules()
 	    fi
 
 	    for dev in $FW_MASQ_DEV; do
-		for chain in $forward_zones; do
-		    chain=forward_$chain
-		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-MASQ "  -s $net1 $net2 $proto $port -o $dev
-		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 $net2 $proto $port -o $dev
-		    # we need to allow the replies as well
-		    $LAA $IPTABLES -A $chain -d $net1 $snet2 $proto $rport -i $dev ${LOG}"-`rulelog $chain`-ACC-MASQ " -m state --state ESTABLISHED,RELATED
-		    $IPTABLES -A $chain -d $net1 $snet2 $proto $rport -i $dev -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+		d=${dev//[^A-Za-z0-9]/_}
+		eval z=\${iface_$d}
+
+		for dzone in $forward_zones; do
+		    dzone=forward_$dzone
+		    for szone in $forward_zones; do
+			[ "$z" = "$szone" ] && continue
+			eval sdevs="\$FW_DEV_$szone"
+			for sdev in $sdevs; do
+			    [ "$sdev" = "$dev" ] && continue
+			    if [ "forward_$z" != "$dzone" ]; then
+				#echo "$dzone: $sdev ($szone) -> $dev ($z)"
+				$LAA $IPTABLES -A $dzone ${LOG}"-`rulelog $dzone`-ACC-MASQ "  -s $net1 $net2 $proto $port -i $sdev -o $dev
+				$IPTABLES -A $dzone -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 $net2 $proto $port -i $sdev -o $dev
+			    else
+				#echo "$dzone: $sdev ($szone) <- $dev ($z)"
+				# we need to allow the replies as well
+				$LAA $IPTABLES -A $dzone -d $net1 $snet2 $proto $rport -i $dev -o $sdev ${LOG}"-`rulelog $dzone`-ACC-MASQ " -m state --state ESTABLISHED,RELATED
+				$IPTABLES -A $dzone -d $net1 $snet2 $proto $rport -i $dev -o $sdev -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+			    fi
+			done
+		    done
 	        done
+
 		$IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $net1 $net2 $proto $port -o $dev
 	    done
 	fi
