@@ -205,6 +205,28 @@
 
   </section>
 
+  <section>
+    <title>Author</title>
+
+    <para>
+
+      SuSEfirewall2 was originally created by
+      <author>
+	<firstname>Marc</firstname>
+	<surname>Heuse</surname>
+      </author>.
+      Most of it got rewritten and enhanced by it's current maintainer
+      <ulink url="mailto:ludwig.nussel@suse.de">
+	<author>
+	  <firstname>Ludwig</firstname>
+	  <surname>Nussel</surname>
+	</author>
+      </ulink>
+
+    </para>
+
+  </section>
+
 </article>
 
 <!-- vim:set sw=2: -->
