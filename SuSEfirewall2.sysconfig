@@ -685,8 +685,10 @@ FW_ALLOW_PING_FW="yes"
 ## Default:	no
 #
 # 19a.)
-# Allow hosts in the dmz to be pinged by internal and external hosts
-# REQUIRES: FW_ROUTE
+# Allow hosts in the dmz to be pinged from hosts in other zones even
+# if neither FW_FORWARD nor FW_MASQUERADE is set
+#
+# Requires: FW_ROUTE
 #
 # defaults to "no" if not set
 #
@@ -696,24 +698,14 @@ FW_ALLOW_PING_DMZ="no"
 ## Default:	no
 #
 # 19b.)
-# Allow external hosts to be pinged from internal or dmz hosts
-# REQUIRES: FW_ROUTE
+# Allow hosts in the external zone to be pinged from hosts in other
+# zones even if neither FW_FORWARD nor FW_MASQUERADE is set
+#
+# Requires: FW_ROUTE
 #
 # defaults to "no" if not set
 #
 FW_ALLOW_PING_EXT="no"
-
-##
-# END of /etc/sysconfig/SuSEfirewall2
-##
-
-#                                                                         #
-#-------------------------------------------------------------------------#
-#                                                                         #
-# EXPERT OPTIONS - all others please don't change these!                  #
-#                                                                         #
-#-------------------------------------------------------------------------#
-#                                                                         #
 
 ## Type:	yesno
 ## Default:	yes
