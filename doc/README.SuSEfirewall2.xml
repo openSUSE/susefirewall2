@@ -35,7 +35,7 @@
 	<listitem><para>supports forwarding, masquerading, port redirection</para></listitem>
 	<listitem><para>supports RPC services with dynamically assigned ports</para></listitem>
 	<listitem><para>allows special treatment of IPsec packets</para></listitem>
-	<listitem><para>IPv6 support (no forwarding/masquerading)</para></listitem>
+	<listitem><para>IPv6 support</para></listitem>
 	<listitem><para>allows insertion of custom rules through hooks</para></listitem>
       </itemizedlist>
 
