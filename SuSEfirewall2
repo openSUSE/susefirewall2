@@ -1695,7 +1695,7 @@ redirect_rules()
 
 allow_class_routing()
 {
-    local chain iface devs zone
+    local chain iface devs zone iptables
 
     if [ "$FW_ALLOW_CLASS_ROUTING" = 'yes' ]; then
 	FW_ALLOW_CLASS_ROUTING="$forward_zones"
@@ -1709,8 +1709,10 @@ allow_class_routing()
 	eval devs="\$FW_DEV_$zone"
 	chain=forward_$zone
 	for iface in $devs; do
-	    $LAA $IPTABLES -A $chain $LOG"-`rulelog $chain`-ACC-CLASS "  -o $iface
-	    $IPTABLES -A $chain -j "$ACCEPT" -o $iface
+	    for iptables in "$IPTABLES" "$IP6TABLES"; do
+		$LAA $iptables -A $chain $LOG"-`rulelog $chain`-ACC-CLASS "  -o $iface
+		$iptables -A $chain -j "$ACCEPT" -o $iface
+	    done
 	done
     done
 }
