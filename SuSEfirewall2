@@ -1291,22 +1291,24 @@ allow_icmp()
 	    $IP6TABLES -A $chain -j "$ACCEPT" -p icmpv6 --icmpv6-type echo-request
 	done
     fi
-    local icmp_types="$safe_icmp_replies"
-    for itype in $icmp_types; do
-	for chain in $input_zones; do
-	    chain=input_$chain
-	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-ICMP "  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
-	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
-	done
-    done
-    icmp_types="$safe_icmpv6_replies"
-    for itype in $icmp_types; do
-	for chain in $input_zones; do
-	    chain=input_$chain
-	    $LAA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-ICMP " -m state --state ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
-	    $IP6TABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
-	done
-    done
+
+# not needed as there is a generic accept rule for ESTABLISHED,RELATED
+#    local icmp_types="$safe_icmp_replies"
+#    for itype in $icmp_types; do
+#	for chain in $input_zones; do
+#	    chain=input_$chain
+#	    $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-ICMP "  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
+#	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
+#	done
+#    done
+#    icmp_types="$safe_icmpv6_replies"
+#    for itype in $icmp_types; do
+#	for chain in $input_zones; do
+#	    chain=input_$chain
+#	    $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-ICMP " -m state --state ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
+#	    $IP6TABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
+#	done
+#    done
     # DROP rules for input ICMP are after trusted handling (see below)
     
     # state matching for these does not work
@@ -1318,6 +1320,7 @@ allow_icmp()
 	    $IP6TABLES -A $chain -j "$ACCEPT" -p icmpv6 --icmpv6-type $itype
 	done
     done
+    $IP6TABLES -A OUTPUT -j "$ACCEPT" -p icmpv6 # XXX: some are not catched by conntrack, should be fixed in kernel
 }
 
 allow_forward_icmp_echo()
