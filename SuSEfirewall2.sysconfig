@@ -500,6 +500,9 @@ FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
 #              from 192.168.1.0/24 to 10.10.0.0/16 and vice versa
 #              provided that both networks are connected via an
 #              IPsec tunnel.
+#           - "fd76:9dbb:91a3:1::/64,fd76:9dbb:91a3:4::/64,tcp,ssh"
+#              allow ssh from one IPv6 network to another
+#
 FW_FORWARD=""
 
 ## Type:	string
