@@ -1737,7 +1737,7 @@ allow_related_forward_icmp()
 # <source network>,<destination network>[,protocol[,port[,flags]]]
 forwarding_rules()
 {
-    local nets net1 net2 flags more_args_in more_args_out chain
+    local nets net1 net2 flags more_args_in more_args_out chain iptables
     for nets in $FW_FORWARD; do
 	IFS=, eval set -- \$nets
 
@@ -1767,17 +1767,22 @@ forwarding_rules()
 	fi
 
 	if [ -n "$net1" -a -n "$net2" ]; then
+	    if [ "${net1//:/_}" != "$net1" -o "${net2//:/_}" != "$net2" ]; then
+		iptables=$IP6TABLES
+	    else
+		iptables=$IPTABLES
+	    fi
 	    for chain in $forward_zones; do
 		chain=forward_$chain
-		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_in
-		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args_in
-		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_in
-		$IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_in
+		$LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_in
+		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args_in
+		$iptables -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_in
+		$iptables -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_in
 		if [ -n "$more_args_out" ]; then
-		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_out
-		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args_out
-		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_out
-		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_out
+		    $LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_out
+		    $LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args_out
+		    $iptables -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_out
+		    $iptables -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_out
 		fi
 	    done
 	else
