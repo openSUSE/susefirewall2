@@ -177,13 +177,14 @@ INITSCRIPTS="" # on|off
 needconfig=
 needlock=1
 create_bootlock=0
+remove_bootlock=0
 
 # prevent double log entries when called from ip-up
 if test -x /usr/bin/tty && ! /usr/bin/tty -s; then
     quiet=1
 fi
 
-getopttmp=`/usr/bin/getopt -o hq --long help,scriptsdir:,batch,nobatch,file:,debug,test,bootlock,quiet \
+getopttmp=`/usr/bin/getopt -o hq --long help,scriptsdir:,batch,nobatch,file:,debug,test,bootlock,bootunlock,quiet \
      -n 'SuSEfirewall2' -- "$@"`
 
 [ $? != 0 ] && die 1 "getopt error"
@@ -199,6 +200,7 @@ while true ; do
                 --test) MODE="test" ; shift ;;
                 --debug) MODE="debug"; needlock=0 ; shift ;;
                 --bootlock) create_bootlock=1 ; shift ;;
+                --bootunlock) remove_bootlock=1 ; shift ;;
                 -h|--help) help ; shift ;;
                 -q|--quiet) quiet=1 ; shift ;;
                 --) shift ; break ;;
@@ -720,7 +722,9 @@ setlock()
 {
     ### Locking mechanism
     if [ "$needlock" -ne 0 ]; then
-	if [ -e "$BOOTLOCKFILE" ]; then
+	if [ "$remove_bootlock" -ne 0 ]; then
+	    rm -f "$BOOTLOCKFILE"
+	elif [ -e "$BOOTLOCKFILE" ]; then
 	    die 0 "$BOOTLOCKFILE exists which means system boot in progress, exit." 
 	fi
 	if [ -e "$LOCKFILE" ]; then
