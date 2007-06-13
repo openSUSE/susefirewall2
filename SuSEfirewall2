@@ -2031,6 +2031,9 @@ if [ "$ACTION" = "status" ]; then
     if ! $IPTABLES -nL reject_func >/dev/null 2>&1; then
 	die 1 "SuSEfirewall2 not active"
     fi
+
+    [ -z "$quiet" ] || die 0
+
     # yes we need cat here, while read ... does no work :-(
     for i in `sort < /proc/net/ip_tables_names`; do
 	echo "### iptables $i ###"

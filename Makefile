@@ -16,6 +16,7 @@ allfiles= \
 	SuSEfirewall2_init \
 	SuSEfirewall2_setup \
 	$(SCRIPTS) \
+	SuSEfirewall2_ifup \
 	SuSEfirewall2-custom.sysconfig \
 	SuSEfirewall2 \
 	SuSEfirewall2.sysconfig \
@@ -25,9 +26,9 @@ allfiles= \
 	Makefile \
 	LICENCE
 
-tar: $(ARCHIVE)
+all:
 
-$(ARCHIVE): $(allfiles) doc
+dist: $(allfiles) doc
 	rm -rf $(NVER)
 	mkdir $(NVER)
 	for i in $(allfiles); do \
@@ -52,6 +53,8 @@ install:
 	install -d -m 755 $(DESTDIR)/sbin
 	install -d -m 755 $(DESTDIR)/etc/init.d
 	install -d -m 755 $(DESTDIR)/etc/sysconfig/scripts
+	install -d -m 755 $(DESTDIR)/etc/sysconfig/network/scripts
+	install -d -m 755 $(DESTDIR)/etc/sysconfig/network/if-up.d
 	install -d -m 755 $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/services
 	install -m 755 SuSEfirewall2 $(DESTDIR)/sbin
 	install -m 755 SuSEfirewall2_init $(DESTDIR)/etc/init.d
@@ -61,6 +64,8 @@ install:
 	for i in $(SCRIPTS); do \
 		install -m 644 $$i $(DESTDIR)/etc/sysconfig/scripts; \
 	done
+	install -m 644 SuSEfirewall2_ifup $(DESTDIR)/etc/sysconfig/network/scripts/SuSEfirewall2
+	ln -s /etc/sysconfig/network/scripts/SuSEfirewall2 $(DESTDIR)/etc/sysconfig/network/if-up.d
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 	install -m 644 SuSEfirewall2.service.TEMPLATE $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/services/TEMPLATE
 

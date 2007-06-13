@@ -1,0 +1,43 @@
+#!/bin/bash
+#
+# SuSEfirewall2 - stateful packetfilter rules generator
+# Copyright (C) 2007 SUSE LINUX Products GmbH
+#
+# Please send feedback via http://www.suse.de/feedback
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# version 2 as published by the Free Software Foundation.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+
+set -e
+
+unset ${!LC_*} LANUGUAGE
+export LANG=POSIX
+
+export PATH=/sbin:/usr/sbin:/usr/bin:/bin
+
+config="$1"
+iface="$2"
+
+. /etc/sysconfig/network/config 2>/dev/null
+. /etc/sysconfig/network/ifcfg-"$config" 2>/dev/null || true
+
+[ "$FIREWALL" = 'yes' ] || exit 0
+
+/sbin/SuSEfirewall2 -q status &>/dev/null
+
+case "$0" in
+	*if-up.d*) /sbin/SuSEfirewall2 -q start ;;
+	*if-down.d*) /sbin/SuSEfirewall2 -q start ;;
+	*) echo "don't know what to do" >&2 ;;
+esac
