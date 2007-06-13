@@ -216,8 +216,10 @@ case "$1" in
     stop|halt|down|shutdown) ACTION="stop"; needconfig=1 ;;
     close) ACTION="close" ;;
     status) ACTION="status"; USE_IPTABLES_BATCH='no'; needlock=0 ;;
-    open) ACTION="open"; needlock=0 ;;
-    log) ACTION="showlog" ;;
+    open) ACTION="open"; USE_IPTABLES_BATCH='no'; needlock=0 ;;
+    log) ACTION="showlog"; USE_IPTABLES_BATCH='no' ;;
+    bootlock) ACTION="bootlock"; create_bootlock=1; needlock=0 ;;
+    bootunlock) ACTION="bootunlock"; remove_bootlock=1; needlock=0 ;;
     help) help ;;
     off) ACTION="stop"; needconfig=1; INITSCRIPTS="off" ;;
     on) ACTION="start"; needconfig=1; INITSCRIPTS="on" ;;
@@ -720,11 +722,12 @@ function getcfg-interface()
 
 setlock()
 {
+    if [ "$remove_bootlock" -ne 0 ]; then
+	rm -f "$BOOTLOCKFILE"
+    fi
     ### Locking mechanism
     if [ "$needlock" -ne 0 ]; then
-	if [ "$remove_bootlock" -ne 0 ]; then
-	    rm -f "$BOOTLOCKFILE"
-	elif [ -e "$BOOTLOCKFILE" ]; then
+	if [ -e "$BOOTLOCKFILE" ]; then
 	    die 0 "$BOOTLOCKFILE exists which means system boot in progress, exit." 
 	fi
 	if [ -e "$LOCKFILE" ]; then
@@ -746,10 +749,10 @@ setlock()
 	removeonexit "$LOCKFILE"
 	set -o noclobber
 	echo "$$" > $LOCKFILE || exit 1
-	if [ "$create_bootlock" -eq 1 ]; then
-	    touch "$BOOTLOCKFILE"
-	fi
 	set +o noclobber
+    fi
+    if [ "$create_bootlock" -eq 1 ]; then
+	touch "$BOOTLOCKFILE"
     fi
 }
 
@@ -1974,6 +1977,11 @@ fi
 parse_logging
 
 setlock
+
+if [ "$ACTION" = "bootlock" -o "$ACTION" = "bootunlock" ]; then
+    # lock file already set in setlock
+    die 0
+fi
 
 if [ "$ACTION" = "basic" ]; then
     # Reset the filter rules
