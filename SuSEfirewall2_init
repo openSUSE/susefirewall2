@@ -7,10 +7,9 @@
 #
 ### BEGIN INIT INFO
 # Provides: SuSEfirewall2_init
-# Required-Start: $local_fs boot.localnet
+# Required-Start: $local_fs
 # Required-Stop: 
-# Should-Stop: $network
-# Default-Start: B
+# Default-Start: 3 4 5
 # Default-Stop:
 # Short-Description: SuSEfirewall2 phase 1
 # Description: SuSEfirewall2_init does some basic setup and is the
