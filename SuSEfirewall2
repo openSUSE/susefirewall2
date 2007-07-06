@@ -1744,8 +1744,15 @@ allow_related_forward_icmp()
 # <source network>,<destination network>[,protocol[,port[,flags]]]
 forwarding_rules()
 {
-    local nets net1 net2 flags more_args_in more_args_out chain iptables
-    for nets in $FW_FORWARD; do
+    local nets net1 net2 flags more_args_in more_args_out chain iptables var services
+    local target="$1"
+    if [ "$target" = ACCEPT ]; then
+	var="FW_FORWARD"
+    else
+	var="FW_FORWARD_${target}"
+    fi
+    eval services="\"\$$var\""
+    for nets in $services; do
 	IFS=, eval set -- \$nets
 
 	net1="$1"
@@ -1781,19 +1788,19 @@ forwarding_rules()
 	    fi
 	    for chain in $forward_zones; do
 		chain=forward_$chain
-		$LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_in
-		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args_in
-		$iptables -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_in
-		$iptables -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_in
+		$LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_in
+		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port $more_args_in
+		$iptables -A $chain -j "$target" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_in
+		$iptables -A $chain -j "$target" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_in
 		if [ -n "$more_args_out" ]; then
-		    $LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_out
-		    $LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-FORW "  -s $net1 -d $net2 $proto $port $more_args_out
-		    $iptables -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_out
-		    $iptables -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_out
+		    $LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_out
+		    $LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port $more_args_out
+		    $iptables -A $chain -j "$target" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_out
+		    $iptables -A $chain -j "$target" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_out
 		fi
 	    done
 	else
-	    error "too few parameters in FW_FORWARD -> $nets"
+	    error "too few parameters in $var -> $nets"
 	fi
      done
 }
@@ -1803,7 +1810,12 @@ masquerading_rules()
     local nets net1 net2 proto port dev snet2 sport
     local szone dzone sdev sdevs
     local z d
-    for nets in $FW_MASQ_NETS; do
+    local var='FW_NOMASQ_NETS'
+    for nets in $FW_NOMASQ_NETS -- $FW_MASQ_NETS; do
+	if [ "$nets" = '--' ]; then # cheap hack
+	    var='FW_MASQ_NETS'
+	    continue
+	fi
 	IFS=, eval set -- \$nets
 
 	net1="$1"
@@ -1813,10 +1825,10 @@ masquerading_rules()
 	rport=""
 
 	if [ -n "$5" ]; then
-   	    error "Too many arguments in FW_MASQ_NETS -> $nets"
+   	    error "Too many arguments in $var -> $nets"
 	elif [ -z "$net1" ]; then
-	    error "source network must not be empty in FW_MASQ_NETS -> $nets"
-	elif [ -z "$proto" -a -z "$port" ] || check_proto_port "$proto" "$port" '' 'FW_MASQ_NETS'; then
+	    error "source network must not be empty in $var -> $nets"
+	elif [ -z "$proto" -a -z "$port" ] || check_proto_port "$proto" "$port" '' "$var"; then
 	    net1=${net1/\!/\! }
 	    net2=${net2/\!/\! }
 	    snet2=""
@@ -1828,6 +1840,11 @@ masquerading_rules()
 	    for dev in $FW_MASQ_DEV; do
 		d=${dev//[^A-Za-z0-9]/_}
 		eval z=\${iface_$d}
+
+		if [ "$var" = "FW_NOMASQ_NETS" ]; then # cheap hack
+		    $IPTABLES -A POSTROUTING -j ACCEPT -t nat -s $net1 $net2 $proto $port -o $dev
+		    continue
+		fi
 
 		for dzone in $forward_zones; do
 		    dzone=forward_$dzone
@@ -2143,7 +2160,9 @@ if [ "$FW_ROUTE" = yes ]; then
 
     allow_class_routing
 
-    forwarding_rules
+    forwarding_rules DROP
+    forwarding_rules REJECT
+    forwarding_rules ACCEPT
 
     if [ "$FW_MASQUERADE" = yes ]; then
 	masquerading_rules

@@ -90,7 +90,7 @@
 # want forwarding or masquerading you still have to add the external interfaces
 # individually. "any" can be mixed with other interface names.
 #
-# Examples: "eth-id-00:e0:4c:9f:61:9a", "ippp0 ippp1", "any dsl0"
+# Examples: "ippp0 ippp1", "any dsl0"
 #
 # Note: alias interfaces (like eth0:1) are ignored
 #
@@ -107,7 +107,7 @@ FW_DEV_EXT="any"
 #
 # Format: space separated list of interface or configuration names
 #
-# Examples: "eth-id-00:e0:4c:9f:61:9a", "tr0", "eth0 eth1"
+# Examples: "tr0", "eth0 eth1"
 #
 FW_DEV_INT=""
 
@@ -128,7 +128,7 @@ FW_DEV_INT=""
 #
 # Format: space separated list of interface or configuration names
 #
-# Examples: "eth-id-00:e0:4c:9f:61:9a", "tr0", "eth0 eth1"
+# Examples: "tr0", "eth0 eth1"
 #
 FW_DEV_DMZ=""
 
@@ -214,8 +214,33 @@ FW_MASQ_DEV="zone:ext"
 #             10.0.1.0/24 network is allowed to access unprivileged
 #             ports whereas 10.0.2.0/24 is granted unrestricted
 #             access.
+#           - "0/0,!10.0.0.0/8" unrestricted access to the internet
+#             with the exception of 10.0.0.8 which will not be
+#             masqueraded.
 #           
 FW_MASQ_NETS="0/0"
+
+## Type:	string
+## Default:	0/0
+#
+# Which computers/networks should be excluded from beeing masqueraded?
+# Note that this only affects the POSTROUTING chain of the nat
+# table. Ie the forwarding rules installed by FW_MASQ_NETS do not
+# include the listed exceptions.
+# *** Since you may use FW_NOMASQ_NETS together with IPsec make sure
+# that the policy database is loaded even when the tunnel is not up
+# yet. Otherwise packets to the listed networks will be forwarded to
+# the internet unencrypted! ***
+#
+# Format: space separated list of
+#  <source network>[,<destination network>,<protocol>[,port[:port]]
+#  
+#  If the protocol is icmp then port is interpreted as icmp type
+#
+# Examples: - "0/0,10.0.0.0/8" do not masquerade packets from
+#             anywhere to the 10.0.0.0/8 network
+#           
+FW_NOMASQ_NETS=""
 
 ## Type:	yesno
 ## Default:	no
@@ -504,6 +529,26 @@ FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
 #              allow ssh from one IPv6 network to another
 #
 FW_FORWARD=""
+
+## Type:	string
+#
+# 13a.)
+#
+# same as FW_FORWARD but packages are rejected instead of accepted
+#
+# Requires: FW_ROUTE
+#
+FW_FORWARD_REJECT=""
+
+## Type:	string
+#
+# 13b.)
+#
+# same as FW_FORWARD but packages are dropped instead of accepted
+#
+# Requires: FW_ROUTE
+#
+FW_FORWARD_DROP=""
 
 ## Type:	string
 #
