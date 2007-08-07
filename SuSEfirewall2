@@ -268,6 +268,7 @@ export LANG=en_US
 
 export PATH="/sbin:/bin:/usr/sbin:/usr/bin"
 
+hwdesc2iface=/etc/sysconfig/network/scripts/hwdesc2iface
 modinfo="/sbin/modinfo"
 TC="/usr/sbin/tc"
 IPTABLES_BIN="/usr/sbin/iptables"
@@ -696,28 +697,36 @@ handle_initscripts()
     esac
 }
 
-# set $ip and $net to list of ips and ip/prefix separated by space. set $dev to actual name of device
+# set $dev to actual name of device $1
 getdevinfo()
 {
-    local dev=`getcfg-interface "$1"`
+    local dev=
+    local d="$1"
+    local var="$2"
+    if [ -e /sys/class/net/"$d" ]; then
+	dev="$d"
+    else
+	local deprecatediface=
+	if [ -x /sbin/getcfg-interface ]; then
+	    dev=`/sbin/getcfg-interface "$d"`
+	elif [ -x "$hwdesc2iface" ]; then
+	    case "$d" in
+		*-id-*) dev=`$hwdesc2iface id ${d#*-id-}`; deprecatediface=1 ;;
+		*-bus-*) dev=`$hwdesc2iface bus ${d#*-bus-}`; deprecatediface=1 ;;
+	    esac
+	fi
 
-    if [ "$?" -ne 0 -o -z "$dev" \
-	-o ! -e /sys/class/net/"$dev" ]; then
-	return 1
+	if [ -z "$dev" -o ! -e /sys/class/net/"$dev" ]; then
+	    return 1
+	fi
+	
+	if [ -n "$deprecatediface" ]; then
+	    warning "$var: the notation '$d' is deprecated. Please use '$dev' instead" 
+	fi
     fi
 
     echo "$dev"
     return 0
-}
-
-# find interface name for hardware description
-function getcfg-interface()
-{
-    if [ -x /sbin/getcfg-interface ]; then
-	/sbin/getcfg-interface "$1" || echo "$1"
-    else
-	echo "$1"
-    fi
 }
 
 setlock()
@@ -786,7 +795,7 @@ evaluateinterfaces()
 	    warning "ignoring deprecated interface 'auto' in $var"
 	    continue
 	fi
-	dev=`getdevinfo "$dev"` || continue
+	dev=`getdevinfo "$dev" "$var"` || continue
 	case "$dev" in *:*) continue; ;; esac
 
 	devs="$devs $dev"
@@ -889,7 +898,7 @@ process_masq_dev()
 		continue
 	    fi
 	fi
-	dev=`getdevinfo "$dev"` || continue
+	dev=`getdevinfo "$dev" FW_MASQ_DEV` || continue
 	case "$dev" in *:*) continue; ;; esac
 
 	devs="$devs $dev"
