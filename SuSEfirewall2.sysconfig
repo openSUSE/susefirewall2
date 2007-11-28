@@ -399,7 +399,7 @@ FW_CONFIGURATIONS_INT=""
 FW_SERVICES_DROP_EXT=""
 
 ## Type: string
-## Default: 0/0,tcp,113
+## Default:
 #
 # Packets to silently reject without log message. Common usage is
 # TCP port 113 which if dropped would cause long timeouts when
@@ -412,7 +412,7 @@ FW_SERVICES_DROP_EXT=""
 # interpreted as rpc service name. See FW_SERVICES_EXT_RPC for
 # details.
 #
-FW_SERVICES_REJECT_EXT="0/0,tcp,113"
+FW_SERVICES_REJECT_EXT=""
 
 ## Type: string
 ## Default:
