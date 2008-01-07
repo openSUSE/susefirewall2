@@ -296,10 +296,10 @@ FW_SERVICES_EXT_UDP=""
 
 ## Type:	string
 # 
-# Which UDP services _on the firewall_ should be accessible from
+# Which IP services _on the firewall_ should be accessible from
 # untrusted networks?
 #
-# Usually for VPN/Routing which END at the firewall
+# Usually for VPN/Routing that END at the firewall
 #
 # Example: "esp"
 #
