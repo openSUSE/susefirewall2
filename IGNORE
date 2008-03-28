@@ -1,7 +1,0 @@
-#
-# this is not for you. ignore it.
-#
-for i in SuSEfirewall*sysconfig* SuSEfirewall2; do
- joe $i
-done
-delbak
