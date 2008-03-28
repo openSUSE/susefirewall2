@@ -550,13 +550,13 @@ function rulelog()
 }
 
 
-function allow_basic_related()
+function allow_basic_established()
 {
     # needed for dhcp and dns replies
     local iptables
     for iptables in "$IPTABLES" "$IP6TABLES"; do
-	    $LAA $iptables -A INPUT ${LOG}"-IN-ACC-RELATED " -m state --state ESTABLISHED,RELATED
-	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+	    $LAA $iptables -A INPUT ${LOG}"-IN-ACC-EST " -m state --state ESTABLISHED
+	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED
 
 	    # if two hosts have a tcp connection on fixed ports and
 	    # one of the hosts crashes it will send a SYN to the
@@ -674,7 +674,7 @@ function set_basic_rules()
 	IP6TABLES=":" # disable further rules
     fi
 
-    allow_basic_related
+    allow_basic_established
 
     # make sure basic rules get committed even if there are errors later
     [ -n "$USE_IPTABLES_BATCH" ] && iptables_batch_commitpoint
@@ -1284,6 +1284,47 @@ protect_from_internal()
 	saved_input_zones="$input_zones" # need that for fork_to_chains
 	input_zones="$newzones"
     fi
+}
+
+allow_related()
+{
+    local var
+    local services target service proto net
+    local iptables zone chain
+
+    for zone in $input_zones; do
+	chain=input_$zone
+	var="FW_SERVICES_ACCEPT_RELATED_`cibiz $zone`"
+	eval services="\"\$$var\""
+
+	for service in $services; do
+	    IFS=, eval set -- \$service
+	    if [ "$#" -lt 3 ]; then
+		error "too few parameters in $var -> $service"
+		continue
+	    fi
+	    
+	    net="${1:-0/0}"
+	    proto="$2"
+	    port="$3"
+	    sport="$4"
+	    shift 4
+	    [ "$#" -gt 0 ] && shift
+
+	    iptables="$IPTABLES $IP6TABLES"
+	    case "$net" in
+		*:*) iptables="$IP6TABLES" ;;
+		[0-9]*.*.*.*) iptables="$IPTABLES" ;;
+	    esac
+
+	    if check_proto_port "$proto" "$port" "$sport" "$var"; then
+		for iptables in $iptables; do
+		    $LAA $iptables -A $chain -s $net $proto $rport $rsport -m state --state RELATED ${LOG}"-`rulelog $chain`-REL "
+		    $iptables -A $chain -s $net $proto $rport $rsport -j ACCEPT -m state --state RELATED
+		done
+	    fi
+	done
+    done
 }
 
 # ICMP stuff
@@ -2141,6 +2182,8 @@ allow_forward_icmp_echo
 fw_custom_before_port_handling
 
 process_trusted_nets
+
+allow_related
 
 allow_ip_services
 

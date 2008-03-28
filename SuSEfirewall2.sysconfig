@@ -437,6 +437,30 @@ FW_SERVICES_REJECT_EXT=""
 #
 FW_SERVICES_ACCEPT_EXT=""
 
+## Type: string
+## Default:
+#
+# Services to allow that are considered RELATED by the connection tracking
+# engine.
+#
+# Format: space separated list of net,protocol[,sport[,dport]]
+# Example:
+#    Allow samba broadcast replies marked as related by
+#    nf_conntrack_netbios_ns from a certain network:
+#       "192.168.1.0/24,udp,137"
+#
+FW_SERVICES_ACCEPT_RELATED_EXT=""
+
+## Type: string
+#
+# see FW_SERVICES_ACCEPT_RELATED_EXT
+FW_SERVICES_ACCEPT_RELATED_DMZ=""
+
+## Type: string
+#
+# see FW_SERVICES_ACCEPT_RELATED_EXT
+FW_SERVICES_ACCEPT_RELATED_INT=""
+
 ## Type:	string
 #
 # 10.)
@@ -489,6 +513,11 @@ FW_ALLOW_INCOMING_HIGHPORTS_TCP=""
 # removed in the future. If you think it should be kept please
 # report your use case at
 # http://forge.novell.com/modules/xfmod/project/?susefirewall2
+#
+# If you use this variable to enable browsing samba/windows shares
+# you most likely have misconfigured your firewall. You should
+# either put the utilized interface into the internal zone or use
+# e.g. FW_SERVICES_ACCEPT_RELATED_EXT
 #
 FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
 
