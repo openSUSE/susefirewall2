@@ -8,9 +8,9 @@
 ### BEGIN INIT INFO
 # Provides: SuSEfirewall2_final
 # Required-Start: SuSEfirewall2_setup 
-# X-UnitedLinux-Should-Start: $ALL $portmap ipsec named dhcpd
+# Should-Start: $ALL $portmap ipsec named dhcpd
 # Required-Stop: SuSEfirewall2_setup
-# X-UnitedLinux-Should-Stop: $ALL
+# Should-Stop: $ALL
 # Default-Start: 3 4 5
 # Default-Stop: 
 # Short-Description: SuSEfirewall2 phase 3

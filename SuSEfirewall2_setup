@@ -10,7 +10,6 @@
 # Required-Start: SuSEfirewall2_init $network $local_fs
 # Should-Start: $ALL
 # Required-Stop: $local_fs
-# X-UnitedLinux-Should-Stop: 
 # Default-Start: 3 4 5
 # Default-Stop: 0 1 2 6
 # Short-Description: SuSEfirewall2 phase 2
