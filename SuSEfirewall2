@@ -1085,12 +1085,10 @@ drop_broadcast()
 	eval allow="\$FW_ALLOW_FW_BROADCAST_`cibiz $zone`"
 	eval ignore="\$FW_IGNORE_FW_BROADCAST_`cibiz $zone`"
 
-	[ "$allow" = yes ] && continue
-	
 	local match="-A input_$zone -m pkttype --pkt-type broadcast"
 
 	for port in $allow; do
-	    [ $port = no ] && continue
+	    [ $port = no -o $port = yes ] && continue
 	    $LAA $IPTABLES $match -p udp --dport $port ${LOG}"-ACC-BCAST${zone:0:1} "
 	    $IPTABLES $match -p udp --dport $port -j "$ACCEPT"
 	done
@@ -1101,10 +1099,14 @@ drop_broadcast()
 		$IPTABLES $match -p udp --dport $port -j DROP
 	    done
 
-	    $LDA $IPTABLES $match ${LOG}"-DROP-BCAST${zone:0:1} "
+	    if [ "$allow" != 'yes' ]; then
+		$LDA $IPTABLES $match ${LOG}"-DROP-BCAST${zone:0:1} "
+	    fi
 	fi
 
-	$IPTABLES $match -j DROP # no need to send icmp for broadcasts
+	if [ "$allow" != 'yes' ]; then
+	    $IPTABLES $match -j DROP # no need to send icmp for broadcasts
+	fi
     done
 }
 
