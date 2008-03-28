@@ -123,7 +123,7 @@
 	<listitem>
 	  <para>
 	    Do not expose services that are designed for use in a LAN to the
-	    internet (like e.g. samba or NFS).
+	    internet (like e.g. samba, NFS, cups).
 	  </para>
 	</listitem>
 
@@ -144,7 +144,7 @@
 	<listitem>
 	  <para>
 	    Subscribe to the <ulink
-	      url="http://www.suse.com/us/private/support/online_help/mailinglists/index.html">suse-security-announce</ulink>
+	      url="http://en.opensuse.org/Communicate/Mailinglists">opensuse-security-announce</ulink>
 	    mailinglist to keep yourself informed about new and upcoming
 	    security issues.
 	  </para>
@@ -184,9 +184,9 @@
     <para>
 
       Report any problems via <ulink
-	url="http://www.suse.de/feedback">http://www.suse.de/feedback</ulink>.
+	url="https://bugzilla.novell.com/">Bugzilla</ulink>.
       For discussion about SuSEfirewall2 join the <ulink
-	url="http://www.suse.com/us/private/support/online_help/mailinglists/index.html">suse-security</ulink>
+	url="http://en.opensuse.org/Communicate/Mailinglists">opensuse-security</ulink>
       mailinglist.
 
     </para>
