@@ -3,7 +3,7 @@
 # SuSEfirewall2 - stateful packetfilter rules generator
 # Copyright (C) 2000-2002 Marc Heuse <marc@suse.de>
 # Copyright (C) 2003,2004 SUSE Linux AG
-# Copyright (C) 2005 SUSE LINUX Products GmbH
+# Copyright (C) 2005-2008 SUSE LINUX Products GmbH
 #
 # Author:     Marc Heuse
 # Maintainer: Ludwig Nussel
