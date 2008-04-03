@@ -569,9 +569,39 @@ function allow_basic_established()
     done
 }
 
+have_bridgeinterfaces()
+{
+    local i
+    for i in /sys/class/net/*/bridge; do
+	[ -e "$i" ] && return 0
+    done
+    return 1
+}
+
+allow_bridgetraffic()
+{
+    local iptables
+    case "$FW_FORWARD_ALLOW_BRIDGING" in
+	yes) ;;
+	no)
+	    return
+	    ;;
+	auto|'')
+	    have_bridgeinterfaces || return
+	;;
+    esac
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	$iptables -A FORWARD -m physdev --physdev-is-bridged -j ACCEPT
+    done
+}
+
 xen_forward_hack()
 {
     local dev iptables
+
+    if [ -n "$FW_FORWARD_ALWAYS_INOUT_DEV" ]; then
+	warning "FW_FORWARD_ALWAYS_INOUT_DEV is deprecated and most likely not needed at all anymore"
+    fi
     for iptables in "$IPTABLES" "$IP6TABLES"; do
 	for dev in $FW_FORWARD_ALWAYS_INOUT_DEV; do
 	    $iptables -A FORWARD -i $dev -o $dev -j ACCEPT
@@ -643,6 +673,7 @@ function set_basic_rules()
     $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo
     $IP6TABLES -A OUTPUT -j "$ACCEPT" -o lo
 
+    allow_bridgetraffic
     xen_forward_hack
 
     # workaround for ip6tables without state matching
