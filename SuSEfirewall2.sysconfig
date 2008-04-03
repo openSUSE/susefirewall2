@@ -965,7 +965,25 @@ FW_LOAD_MODULES=
 #
 # Format: list of interface names separated by space
 #
+# Note: this option is deprecated, use FW_FORWARD_ALLOW_BRIDGING instead
+#
 # Example:
 #   FW_FORWARD_ALWAYS_INOUT_DEV="xenbr0"
 #
 FW_FORWARD_ALWAYS_INOUT_DEV=
+
+## Type:	string
+## Default:	
+#
+# Whether traffic that is only bridged but not routed should be
+# allowed. Such packets appear to pass though the forward chain so
+# normally they would be dropped.
+#
+# Choice:
+#     - yes: always install a rule to allow bridge traffic
+#     - no: don't install a rule to allow bridge traffic
+#     - auto: install rule only if there are bridge interfaces
+#
+# Defaults to "auto" if not set
+#
+FW_FORWARD_ALLOW_BRIDGING=
