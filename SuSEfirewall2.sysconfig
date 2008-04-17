@@ -1,9 +1,9 @@
 # Copyright (c) 2000-2002 SuSE GmbH Nuernberg, Germany.  All rights reserved.
 # Copyright (c) 2003,2004 SuSE Linux AG Nuernberg, Germany.  All rights reserved.
-# Copyright (c) 2005-2007 SUSE LINUX Products GmbH Nuernberg, Germany.  All rights reserved.
+# Copyright (c) 2005-2008 SUSE LINUX Products GmbH Nuernberg, Germany.  All rights reserved.
 #
 # Author: Marc Heuse, 2002
-#         Ludwig Nussel, 2004-2007
+#         Ludwig Nussel, 2004-2008
 #
 # /etc/sysconfig/SuSEfirewall2
 #
@@ -266,20 +266,12 @@ FW_PROTECT_FROM_INT="no"
 # Which TCP services _on the firewall_ should be accessible from
 # untrusted networks?
 #
-# Enter all ports or known portnames below, seperated by a space.
-# TCP services (e.g. SMTP, WWW) must be set in FW_SERVICES_*_TCP, and
-# UDP services (e.g. syslog) must be set in FW_SERVICES_*_UDP.
-# e.g. if a webserver on the firewall should be accessible from the internet:
-# FW_SERVICES_EXT_TCP="www"
-# e.g. if the firewall should receive syslog messages from the dmz:
-# FW_SERVICES_DMZ_UDP="syslog"
-# For IP protocols (like GRE for PPTP, or OSPF for routing) you need to set
-# FW_SERVICES_*_IP with the protocol name or number (see /etc/protocols)
-#
 # Format: space separated list of ports, port ranges or well known
 #         service names (see /etc/services)
 #
 # Examples: "ssh", "123 514", "3200:3299", "ftp 22 telnet 512:514"
+#
+# Note: this setting has precedence over FW_SERVICES_ACCEPT_*
 #
 FW_SERVICES_EXT_TCP=""
 
@@ -288,9 +280,12 @@ FW_SERVICES_EXT_TCP=""
 # Which UDP services _on the firewall_ should be accessible from
 # untrusted networks?
 #
-# see comments for FW_SERVICES_EXT_TCP
+# Format: space separated list of ports, port ranges or well known
+#         service names (see /etc/services)
 #
-# Example: "53"
+# Example: "53", "syslog"
+#
+# Note: this setting has precedence over FW_SERVICES_ACCEPT_*
 #
 FW_SERVICES_EXT_UDP=""
 
@@ -299,9 +294,15 @@ FW_SERVICES_EXT_UDP=""
 # Which IP services _on the firewall_ should be accessible from
 # untrusted networks?
 #
-# Usually for VPN/Routing that END at the firewall
+# Usually for VPN/Routing services that END at the firewall like
+# IPsec, GRE, PPTP or OSPF
+#
+# Format: space separated list of ports, port ranges or well known
+#         protocol names (see /etc/protocols)
 #
 # Example: "esp"
+#
+# Note: this setting has precedence over FW_SERVICES_ACCEPT_*
 #
 FW_SERVICES_EXT_IP=""
 
@@ -320,6 +321,9 @@ FW_SERVICES_EXT_IP=""
 # to have SuSEfirewall2 open arbitrary ports
 #
 # Example: "mountd nfs"
+#
+# Note: this setting has precedence over FW_SERVICES_ACCEPT_*
+#
 FW_SERVICES_EXT_RPC=""
 
 ## Type:        string
@@ -331,6 +335,10 @@ FW_SERVICES_EXT_RPC=""
 # ports into /usr/share/SuSEfirewall2/services . That is handy for
 # services that require multiple ports or protocols. Enter the space
 # separated list of configuration files you want to load.
+#
+# The content of those files is merged into
+# FW_SERVICES_$zone_$protocol, ie has precedence over
+# FW_SERVICES_ACCEPT_*
 #
 # Example: "samba-server nfs-server"
 FW_CONFIGURATIONS_EXT=""
@@ -399,6 +407,16 @@ FW_CONFIGURATIONS_INT=""
 FW_SERVICES_DROP_EXT=""
 
 ## Type: string
+#
+# see FW_SERVICES_DROP_EXT
+FW_SERVICES_DROP_DMZ=""
+
+## Type: string
+#
+# see FW_SERVICES_DROP_EXT
+FW_SERVICES_DROP_INT=""
+
+## Type: string
 ## Default:
 #
 # Packets to silently reject without log message. Common usage is
@@ -413,6 +431,16 @@ FW_SERVICES_DROP_EXT=""
 # details.
 #
 FW_SERVICES_REJECT_EXT=""
+
+## Type: string
+#
+# see FW_SERVICES_REJECT_EXT
+FW_SERVICES_REJECT_DMZ=""
+
+## Type: string
+#
+# see FW_SERVICES_REJECT_EXT
+FW_SERVICES_REJECT_INT=""
 
 ## Type: string
 ## Default:
@@ -438,16 +466,29 @@ FW_SERVICES_REJECT_EXT=""
 FW_SERVICES_ACCEPT_EXT=""
 
 ## Type: string
+#
+# see FW_SERVICES_ACCEPT_EXT
+FW_SERVICES_ACCEPT_DMZ=""
+
+## Type: string
+#
+# see FW_SERVICES_ACCEPT_EXT
+FW_SERVICES_ACCEPT_INT=""
+
+## Type: string
 ## Default:
 #
 # Services to allow that are considered RELATED by the connection tracking
 # engine.
 #
 # Format: space separated list of net,protocol[,sport[,dport]]
+#
 # Example:
 #    Allow samba broadcast replies marked as related by
 #    nf_conntrack_netbios_ns from a certain network:
 #       "192.168.1.0/24,udp,137"
+#
+# See also FW_LOAD_MODULES
 #
 FW_SERVICES_ACCEPT_RELATED_EXT=""
 
@@ -1079,7 +1120,9 @@ FW_USE_IPTABLES_BATCH=""
 # Which additional kernel modules to load at startup
 #
 # Example:
-#   FW_LOAD_MODULES="ip_conntrack_ftp ip_nat_ftp"
+#   FW_LOAD_MODULES="nf_conntrack_netbios_ns"
+#
+# See also FW_SERVICES_ACCEPT_RELATED_EXT
 #
 FW_LOAD_MODULES=
 
