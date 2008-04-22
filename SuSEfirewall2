@@ -558,6 +558,10 @@ function allow_basic_established()
 	    $LAA $iptables -A INPUT ${LOG}"-IN-ACC-EST " -m state --state ESTABLISHED
 	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED
 
+	    # need to accept icmp RELATED packets (bnc#382004)
+	    $LAA $iptables -A INPUT ${LOG}"-IN-ACC-REL " -p icmp -m state --state RELATED
+	    $iptables -A INPUT -j "$ACCEPT" -p icmp -m state --state RELATED
+
 	    # if two hosts have a tcp connection on fixed ports and
 	    # one of the hosts crashes it will send a SYN to the
 	    # peer if it comes back up. The peer sends back ACK as
@@ -1382,7 +1386,7 @@ allow_icmp()
 	done
     fi
 
-# not needed as there is a generic accept rule for ESTABLISHED,RELATED
+# not needed as there is a generic accept rule for ICMP RELATED packets
 #    local icmp_types="$safe_icmp_replies"
 #    for itype in $icmp_types; do
 #	for chain in $input_zones; do
