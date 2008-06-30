@@ -437,7 +437,18 @@ check_proto_port()
     sport="$3"
     local var="$4"
     case "$proto" in
-	'')   error "proto must not be empty in ${var}"; return 1; ;;
+	'')
+	    if [ -z "$proto" -a -z "$port" -a -z "$sport" ]; then
+		proto=''
+		port=''
+		rport=''
+		sport=''
+		rsport=''
+	    else
+		error "proto must not be empty in ${var}"
+		return 1
+	    fi
+	    ;;
 	_rpc_) # cannot check ports here
 	    ;;
 	tcp|udp)
@@ -480,7 +491,7 @@ check_proto_port()
 	    fi
 	;;
     esac
-    proto="-p $proto"
+    [ -z "$proto" ] || proto="-p $proto"
     return 0
 }
 
@@ -1334,17 +1345,11 @@ allow_related()
 
 	for service in $services; do
 	    IFS=, eval set -- \$service
-	    if [ "$#" -lt 3 ]; then
-		error "too few parameters in $var -> $service"
-		continue
-	    fi
 	    
 	    net="${1:-0/0}"
 	    proto="$2"
 	    port="$3"
 	    sport="$4"
-	    shift 4
-	    [ "$#" -gt 0 ] && shift
 
 	    iptables="$IPTABLES $IP6TABLES"
 	    case "$net" in
@@ -1469,7 +1474,7 @@ process_trusted_nets()
 	    error "network parameter of FW_TRUSTED_NETS is empty -> $nets"
 	elif [ -z "$proto" -a -n "$port" ]; then
 	    error "need to specify protocol for port $port in FW_TRUSTED_NETS"
-	elif [ -z "$proto" ] || check_proto_port "$proto" "$port" "" 'FW_TRUSTED_NETS'; then
+	elif check_proto_port "$proto" "$port" "" 'FW_TRUSTED_NETS'; then
 	    for chain in $input_zones; do # trusted networks can be on any interface ...
 		chain=input_$chain
 		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-TRUST " -m state --state NEW -s $net $proto $port
@@ -1506,16 +1511,11 @@ reject_or_drop_services()
 
 	for service in $services; do
 	    IFS=, eval set -- \$service
-	    if [ "$#" -lt 2 ]; then
-		error "too few parameters in $var -> $service"
-		continue
-	    fi
 
 	    net="${1:-0/0}"
 	    proto="$2"
 	    port="$3"
 	    sport="$4"
-	    shift 4
 
 	    iptables="$IPTABLES $IP6TABLES"
 	    case "$net" in
@@ -1555,7 +1555,7 @@ accept_services()
 	    ipt_recent_set=''
 	    ipt_recent_rcheck=''
 	    IFS=, eval set -- \$service
-	    if [ "$#" -lt 3 ]; then
+	    if [ "$#" -lt 1 ]; then
 		error "too few parameters in $var -> $service"
 		continue
 	    fi
@@ -1563,12 +1563,10 @@ accept_services()
 	    net="${1:-0/0}"
 	    proto="$2"
 	    port="$3"
-	    shift 3
-	    sport="$1"
-	    [ "$#" -gt 0 ] && shift
+	    sport="$4"
 
-	    while [ "$#" -gt 0 ]; do
-		case "$1" in
+	    while [ "$#" -gt 4 ]; do
+		case "$5" in
 		    hitcount=*) ipt_recent_update="$ipt_recent_update --hitcount ${1#*=}"; shift ;;
 		    blockseconds=*) ipt_recent_update="$ipt_recent_update --seconds ${1#*=}"; shift ;;
 		    recentname=*)
@@ -1863,7 +1861,7 @@ forwarding_rules()
 		;;
 	esac
 
-	if [ -n "$proto" ] && ! check_proto_port "$proto" "$port" '' "FW_FORWARD"; then
+	if ! check_proto_port "$proto" "$port" '' "FW_FORWARD"; then
 	    continue
 	fi
 
@@ -1915,7 +1913,7 @@ masquerading_rules()
    	    error "Too many arguments in $var -> $nets"
 	elif [ -z "$net1" ]; then
 	    error "source network must not be empty in $var -> $nets"
-	elif [ -z "$proto" -a -z "$port" ] || check_proto_port "$proto" "$port" '' "$var"; then
+	elif check_proto_port "$proto" "$port" '' "$var"; then
 	    net1=${net1/\!/\! }
 	    net2=${net2/\!/\! }
 	    snet2=""
