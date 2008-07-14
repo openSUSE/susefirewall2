@@ -569,10 +569,6 @@ function allow_basic_established()
 	    $LAA $iptables -A INPUT ${LOG}"-IN-ACC-EST " -m state --state ESTABLISHED
 	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED
 
-	    # need to accept icmp RELATED packets (bnc#382004)
-	    $LAA $iptables -A INPUT ${LOG}"-IN-ACC-REL " -p icmp -m state --state RELATED
-	    $iptables -A INPUT -j "$ACCEPT" -p icmp -m state --state RELATED
-
 	    # if two hosts have a tcp connection on fixed ports and
 	    # one of the hosts crashes it will send a SYN to the
 	    # peer if it comes back up. The peer sends back ACK as
@@ -582,6 +578,12 @@ function allow_basic_established()
 #	    $LDA $iptables -A INPUT ${LOG}"-IN-REJECT-ACK " -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
 #	    $iptables -A INPUT -j "$REJECT" -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
     done
+
+    # need to accept icmp RELATED packets (bnc#382004)
+    $LAA $IPTABLES -A INPUT ${LOG}"-IN-ACC-REL " -p icmp -m state --state RELATED
+    $IPTABLES -A INPUT -j "$ACCEPT" -p icmp -m state --state RELATED
+    $LAA $IP6TABLES -A INPUT ${LOG}"-IN-ACC-REL " -p icmpv6 -m state --state RELATED
+    $IP6TABLES -A INPUT -j "$ACCEPT" -p icmpv6 -m state --state RELATED
 }
 
 have_bridgeinterfaces()
