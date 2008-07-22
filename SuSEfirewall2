@@ -495,33 +495,30 @@ check_proto_port()
     return 0
 }
 
-function reset_rules_silent() {
-    if [ "$FW_STOP_KEEP_ROUTING_STATE" != "yes" ]; then
-	setproc 0 /proc/sys/net/ipv4/ip_forward
-    fi
-    $IPTABLES -F INPUT
-    $IPTABLES -F OUTPUT
-    $IPTABLES -F FORWARD
-    $IPTABLES -P INPUT ACCEPT
-    $IPTABLES -P OUTPUT ACCEPT
-    $IPTABLES -P FORWARD ACCEPT
-    $IPTABLES -F
-    $IPTABLES -X
-    $IPTABLES -t nat -F
-    $IPTABLES -t nat -X
-    $IPTABLES -t mangle -F
-    $IPTABLES -t mangle -X
+reset_rules() {
+    local policy_input policy_output policy_forward
 
-    $IP6TABLES -F INPUT
-    $IP6TABLES -F OUTPUT
-    $IP6TABLES -F FORWARD
-    $IP6TABLES -P INPUT ACCEPT
-    $IP6TABLES -P OUTPUT ACCEPT
-    $IP6TABLES -P FORWARD ACCEPT
-    $IP6TABLES -F
-    $IP6TABLES -X
-    $IP6TABLES -t mangle -F
-    $IP6TABLES -t mangle -X
+    policy_input=${1:-ACCEPT}
+    policy_output=${2:-ACCEPT}
+    policy_forward=${3:-ACCEPT}
+
+    $IPTABLES -P INPUT $policy_input
+    $IPTABLES -P OUTPUT $policy_output
+    $IPTABLES -P FORWARD $policy_forward
+    # yes we need cat for /proc
+    for i in `sort < /proc/net/ip_tables_names`; do
+	$IPTABLES -t $i -F
+	$IPTABLES -t $i -X
+    done
+    if [ "$IP6TABLES" != ":" ]; then
+	$IP6TABLES -P INPUT $policy_input
+	$IP6TABLES -P OUTPUT $policy_output
+	$IP6TABLES -P FORWARD $policy_forward
+	for i in `sort /proc/net/ip6_tables_names`; do
+	    $IP6TABLES -t $i -F
+	    $IP6TABLES -t $i -X
+	done
+    fi
 }
 
 clear_qdisc_settings() {
@@ -532,11 +529,6 @@ clear_qdisc_settings() {
         IFS="," read dev bandwidth < <(echo "$data")
         $TC qdisc del dev $dev root 2> /dev/null
     done
-}
-
-function reset_rules() {
-	reset_rules_silent
-        clear_qdisc_settings
 }
 
 function load_modules()
@@ -643,39 +635,27 @@ function set_basic_rules()
     else
 	DROP_JUMP="DROP"
     fi
-    $IPTABLES -F INPUT
-    $IPTABLES -F OUTPUT
-    $IPTABLES -F FORWARD
-    $IPTABLES -P INPUT "$DROP_JUMP"
-    $IPTABLES -P OUTPUT ACCEPT
-    $IPTABLES -P FORWARD "$DROP_JUMP"
-    $IPTABLES -F
-    $IPTABLES -X
+
+    reset_rules "$DROP_JUMP" ACCEPT "$DROP_JUMP"
+
+    # loopback is always allowed
+    $IPTABLES -A INPUT  -j "$ACCEPT" -i lo
+    $IPTABLES -A OUTPUT -j "$ACCEPT" -o lo
+    $IPTABLES -t raw -A PREROUTING -j NOTRACK -i lo
+    $IPTABLES -t raw -A OUTPUT -j NOTRACK -o lo
+
+    $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo
+    $IP6TABLES -A OUTPUT -j "$ACCEPT" -o lo
+    $IP6TABLES -t raw -A PREROUTING -j NOTRACK -i lo
+    $IP6TABLES -t raw -A OUTPUT -j NOTRACK -o lo
+
     # Special REJECT function #
-    $IPTABLES -t nat -F
-    $IPTABLES -t nat -X
-    $IPTABLES -t mangle -F
-    $IPTABLES -t mangle -X
+    
     $IPTABLES -N reject_func
     $IPTABLES -A reject_func -p tcp -j REJECT --reject-with tcp-reset
     $IPTABLES -A reject_func -p udp -j REJECT --reject-with icmp-port-unreachable
     $IPTABLES -A reject_func        -j REJECT --reject-with icmp-proto-unreachable
 
-    # loopback is always allowed
-    $IPTABLES -A INPUT  -j "$ACCEPT" -i lo
-    $IPTABLES -A OUTPUT -j "$ACCEPT" -o lo
-
-    $IP6TABLES -F INPUT
-    $IP6TABLES -F OUTPUT
-    $IP6TABLES -F FORWARD
-    $IP6TABLES -P INPUT "$DROP_JUMP"
-    $IP6TABLES -P OUTPUT ACCEPT
-    $IP6TABLES -P FORWARD "$DROP_JUMP"
-    $IP6TABLES -F
-    $IP6TABLES -X
-    # Special REJECT function #
-    $IP6TABLES -t mangle -F
-    $IP6TABLES -t mangle -X
     $IP6TABLES -N reject_func
     if [ "$IP6TABLES_HAVE_REJECT" = 1 ]; then
 	$IP6TABLES -A reject_func -p tcp -j REJECT --reject-with tcp-reset
@@ -685,10 +665,6 @@ function set_basic_rules()
     # sometimes the above lines do not work despite prior checks, so add drop
     # always to be on the safe side
     $IP6TABLES -A reject_func -j DROP
-
-    # loopback is always allowed
-    $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo
-    $IP6TABLES -A OUTPUT -j "$ACCEPT" -o lo
 
     allow_bridgetraffic
     xen_forward_hack
@@ -1249,9 +1225,16 @@ fork_to_chains()
     local zone
     local dev
     local devs
+    local var val
 
     for iptables in "$IPTABLES" "$IP6TABLES"; do
 	for zone in $saved_input_zones; do
+	    var="FW_PROTECT_FROM_`cibiz $zone`"
+	    eval val="\"\$$var\""
+	    if [ "$val" = 'notrack' ]; then
+		# already have rules for that
+		continue
+	    fi
 	    eval devs="\$FW_DEV_$zone"
 	    for dev in $devs; do
 		$iptables -A INPUT -j input_$zone -i $dev
@@ -1301,30 +1284,40 @@ finish_chains()
 # Protect the firewall from the internal network? #
 protect_from_internal()
 {
-    local iptables chain newzones
-    for chain in $input_zones; do
+    local iptables zone devs dev chain
+    local newzones=
+    for zone in $input_zones; do
 
-	if [ "$chain" = "int" -a "$FW_PROTECT_FROM_INTERNAL" = "no" ]; then
+	if [ "$zone" = "int" -a "$FW_PROTECT_FROM_INTERNAL" = "no" ]; then
 	    val="no"
 	    warning "FW_PROTECT_FROM_INTERNAL is deprecated, use FW_PROTECT_FROM_INT instead"
 	else
-	    var="FW_PROTECT_FROM_`cibiz $chain`"
+	    var="FW_PROTECT_FROM_`cibiz $zone`"
 	    eval val="\"\$$var\""
 	fi
 
-	if [ -z "$val" -o "$val" != no ]; then
-	    if [ -z "$newzones" ]; then
-		newzones="$chain"
-	    else
-		newzones="$newzones $chain"
-	    fi
-	else
+	if [ "$val" = notrack ]; then
 	    eval devs="\$FW_DEV_$zone"
-	    chain=input_$chain
+	    for dev in $devs; do
+		for iptables in "$IPTABLES" "$IP6TABLES"; do
+		    $iptables -t raw -i $dev -I PREROUTING -j NOTRACK
+		    $iptables -t raw -o $dev -I OUTPUT -j NOTRACK
+		    $iptables -i $dev -I INPUT -j ACCEPT
+		    $iptables -o $dev -I OUTPUT -j ACCEPT
+		done
+	    done
+	elif [ "$val" = no ]; then
+	    chain=input_$zone
 	    for iptables in "$IPTABLES" "$IP6TABLES"; do
 		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-ALL " 
 		$iptables -A $chain -j "$ACCEPT"
 	    done
+	else
+	    if [ -z "$newzones" ]; then
+		newzones="$zone"
+	    else
+		newzones="$newzones $zone"
+	    fi
 	fi
     done
 
@@ -2115,7 +2108,11 @@ if [ "$MODE" = "test" ]; then
 fi
 	
 if [ "$ACTION" = "stop" ]; then
+    if [ "$FW_STOP_KEEP_ROUTING_STATE" != "yes" ]; then
+	setproc 0 /proc/sys/net/ipv4/ip_forward
+    fi
     reset_rules
+    clear_qdisc_settings
     handle_initscripts
     [ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
     die 0 "Firewall rules unloaded."

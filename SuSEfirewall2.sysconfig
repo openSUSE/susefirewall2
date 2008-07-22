@@ -242,7 +242,7 @@ FW_MASQ_NETS="0/0"
 #           
 FW_NOMASQ_NETS=""
 
-## Type:	yesno
+## Type:	list(yes,no,notrack)
 ## Default:	no
 #
 # 7.)
@@ -253,6 +253,11 @@ FW_NOMASQ_NETS=""
 # services on the firewall you explicitly allow. If you set this to
 # "no", any internal user can connect (and attack) any service on
 # the firewall.
+#
+# The value "notrack" acts similar to "no" but additionally
+# connection tracking is switched off for interfaces in the zone.
+# This is useful to gain better performance on high speed
+# interfaces.
 #
 # defaults to "yes" if not set
 #
