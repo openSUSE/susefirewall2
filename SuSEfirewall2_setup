@@ -8,10 +8,11 @@
 ### BEGIN INIT INFO
 # Provides: SuSEfirewall2_setup
 # Required-Start: SuSEfirewall2_init $network $local_fs
-# Should-Start: $ALL
-# Required-Stop: $local_fs
-# Default-Start: 3 4 5
-# Default-Stop: 0 1 2 6
+# Should-Start:   $ALL
+# Required-Stop:  $local_fs
+# Should-Stop:    $null
+# Default-Start:  3 4 5
+# Default-Stop:   0 1 2 6
 # Short-Description: SuSEfirewall2 phase 2
 # Description: SuSEfirewall2_setup does some basic setup and is the
 #	phase 2 of 2 of the SuSEfirewall initialization.
