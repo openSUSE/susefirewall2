@@ -1562,14 +1562,14 @@ accept_services()
 
 	    while [ "$#" -gt 4 ]; do
 		case "$5" in
-		    hitcount=*) ipt_recent_update="$ipt_recent_update --hitcount ${1#*=}"; shift ;;
-		    blockseconds=*) ipt_recent_update="$ipt_recent_update --seconds ${1#*=}"; shift ;;
+		    hitcount=*) ipt_recent_update="$ipt_recent_update --hitcount ${5#*=}"; shift ;;
+		    blockseconds=*) ipt_recent_update="$ipt_recent_update --seconds ${5#*=}"; shift ;;
 		    recentname=*)
-			ipt_recent_update="$ipt_recent_update --name ${1#*=}"
-			ipt_recent_set="$ipt_recent_set --name ${1#*=}"
+			ipt_recent_update="$ipt_recent_update --name ${5#*=}"
+			ipt_recent_set="$ipt_recent_set --name ${5#*=}"
 			shift
 			;;
-		    *) error "unknown parameter $1 in $var -> $service"; continue 2 ;;
+		    *) error "unknown parameter $5 in $var -> $service"; continue 2 ;;
 		esac
 	    done
 
