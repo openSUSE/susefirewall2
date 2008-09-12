@@ -468,6 +468,14 @@ FW_SERVICES_REJECT_INT=""
 # interpreted as rpc service name. See FW_SERVICES_EXT_RPC for
 # details.
 #
+# Note1: keep in mind that FW_SERVICES_EXT_TCP, FW_SERVICES_EXT_UDP
+# take precedence over FW_SERVICES_ACCEPT_EXT so don't open the same
+# port with both options.
+#
+# Note2: the iptables recent module may not be available for ipv6. To
+# avoid an error message use 0.0.0.0/0 instead of 0/0. This will
+# install the rule for ipv4 only.
+#
 FW_SERVICES_ACCEPT_EXT=""
 
 ## Type: string
