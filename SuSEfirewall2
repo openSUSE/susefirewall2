@@ -1982,6 +1982,8 @@ forward_masquerading_rules()
         elif [ -z "$port1" ]; then
 	    error "Port missing in FW_FORWARD_MASQ -> $nets"
 	else
+	    net1=${net1/\!/\! }
+	    net2=${net2/\!/\! }
 	    proto="-p $proto"
 	    test -z "$port2" && port2="$port1"
 	    port1="--dport $port1"
