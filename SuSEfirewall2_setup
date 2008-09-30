@@ -1,15 +1,18 @@
-#! /bin/sh
+#! /bin/bash
 # Copyright (c) 2000-2002 SuSE GmbH Nuernberg, Germany.
+# Copyright (C) 2003,2004 SUSE Linux AG
+# Copyright (C) 2005-2008 SUSE LINUX Products GmbH
 #
-# Author: Marc Heuse <marc@suse.de>
+# Author: Marc Heuse
+# Maintainer: Ludwig Nussel
 #
 # /etc/init.d/SuSEfirewall2_setup
 #
 ### BEGIN INIT INFO
 # Provides: SuSEfirewall2_setup
-# Required-Start: SuSEfirewall2_init $network $local_fs
+# Required-Start: SuSEfirewall2_init $network $remote_fs
 # Should-Start:   $ALL
-# Required-Stop:  $local_fs
+# Required-Stop:  $remote_fs
 # Should-Stop:    $null
 # Default-Start:  3 4 5
 # Default-Stop:   0 1 2 6
@@ -22,13 +25,6 @@
 SUSEFWALL="/sbin/SuSEfirewall2"
 
 test -x $SUSEFWALL || exit 5
-
-bootlinkisset()
-{
-	local l
-	l=`/sbin/runlevel | (read A B && echo $A)`
-	test -e /etc/init.d/rc$l.d/S??SuSEfirewall2_setup
-}
 
 . /etc/rc.status
 rc_reset

@@ -1,7 +1,10 @@
-#! /bin/sh
+#! /bin/bash
 # Copyright (c) 2000-2002 SuSE GmbH Nuernberg, Germany.
+# Copyright (C) 2003,2004 SUSE Linux AG
+# Copyright (C) 2005-2008 SUSE LINUX Products GmbH
 #
-# Author: Marc Heuse <marc@suse.de>
+# Author: Marc Heuse
+# Maintainer: Ludwig Nussel
 #
 # /etc/init.d/SuSEfirewall2_init
 #
@@ -29,8 +32,13 @@ rc_reset
 case "$1" in
     start)
 	echo -n "Starting Firewall Initialization "
-	echo -n '(phase 1 of 2) '
-	$SUSEFWALL --bootlock -q close
+	if test -x /usr/sbin/iptables; then
+		echo -n '(phase 1 of 2) '
+		$SUSEFWALL --bootlock -q close
+	else
+		echo -n "${extd}iptables not available (yet)${norm}"
+		rc_failed 5
+	fi
 	rc_status -v
 	;;
     stop)
