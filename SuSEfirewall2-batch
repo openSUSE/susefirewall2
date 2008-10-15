@@ -60,6 +60,7 @@ check_iptables_batch()
 
 iptables_batch_commitpoint()
 {
+    echo commit >&4
     echo commit >&6
 }
 
