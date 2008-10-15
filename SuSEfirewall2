@@ -305,24 +305,6 @@ else
     esac
 
 
-    if [ "$IP6TABLES" != ':' ]; then
-	# Do we have a kernel with IPv6 enabled?
-	$IP6TABLES -nvL >/dev/null 2>&1 || IP6TABLES=:
-	if ! $IP6TABLES -m state --help >/dev/null 2>&1 || \
-	( ! $modinfo ip6t_state >/dev/null 2>&1 && ! $modinfo xt_state >/dev/null 2>&1); then
-	    warning "ip6tables does not support state matching. Extended IPv6 support disabled."
-	    IP6TABLES_HAVE_STATE=0
-	    # reject incoming packets if not specified otherwise
-	    [ "$FW_IPv6" != 'no' -a "$FW_IPv6" != 'drop' ] && FW_IPv6='reject'
-	fi
-
-	$modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
-
-	if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
-		-a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
-		warning "Kernel lacks support for IPv6 REJECT target! Using DROP for IPv6 instead."
-	fi
-    fi
     ####
 
     if [ -n "$USE_IPTABLES_BATCH" ]; then
@@ -360,6 +342,33 @@ safe_icmpv6_replies="echo-reply destination-unreachable packet-too-big time-exce
 stateless_icmpv6_types="router-solicitation router-advertisement neighbour-solicitation neighbour-advertisement redirect"
 
 ###############
+
+check_ip6tables_support()
+{
+    [ "$IP6TABLES" != ':' ] || return
+
+    # Do we have a kernel with IPv6 enabled?
+    $IP6TABLES_BIN -nvL >/dev/null 2>&1 || IP6TABLES=:
+    if ! $IP6TABLES_BIN -m state --help >/dev/null 2>&1 || \
+    ( ! $modinfo ip6t_state >/dev/null 2>&1 && ! $modinfo xt_state >/dev/null 2>&1); then
+	warning "ip6tables does not support state matching. Extended IPv6 support disabled."
+	IP6TABLES_HAVE_STATE=0
+	# reject incoming packets if not specified otherwise
+	[ "$FW_IPv6" != 'no' -a "$FW_IPv6" != 'drop' ] && FW_IPv6='reject'
+    fi
+
+    $modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
+
+    if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
+	    -a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
+	    warning "Kernel lacks support for IPv6 REJECT target! Using DROP for IPv6 instead."
+    fi
+}
+
+is_running()
+{
+	test -e /proc/net/ip_tables_names && $IPTABLES_BIN -nL reject_func >/dev/null 2>&1
+}
 
 parse_logging()
 {
@@ -621,6 +630,8 @@ xen_forward_hack()
 function set_basic_rules()
 {
     local itype
+
+    check_ip6tables_support
 
     load_modules ip_tables ip_conntrack $FW_LOAD_MODULES
 
@@ -2130,7 +2141,7 @@ if [ "$ACTION" = "status" ]; then
     if [ "$UID" != 0 ]; then
 	die 2 "You need to be root to check the status"
     fi
-    if ! $IPTABLES -nL reject_func >/dev/null 2>&1; then
+    if ! is_running; then
 	die 1 "SuSEfirewall2 not active"
     fi
 
