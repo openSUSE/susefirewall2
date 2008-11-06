@@ -2123,6 +2123,8 @@ if [ "$ACTION" = "stop" ]; then
     if [ "$FW_STOP_KEEP_ROUTING_STATE" != "yes" ]; then
 	setproc 0 /proc/sys/net/ipv4/ip_forward
     fi
+    # Do we have a kernel with IPv6 enabled?
+    $IP6TABLES_BIN -nvL >/dev/null 2>&1 || IP6TABLES=:
     reset_rules
     clear_qdisc_settings
     handle_initscripts
