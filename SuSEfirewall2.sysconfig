@@ -768,6 +768,8 @@ FW_LOG_LIMIT=""
 # You may specify an alternative logging target by starting the
 # string with "-j ". E.g. "-j ULOG --ulog-prefix SFW2"
 #
+# Note that ULOG doesn't work with IPv6
+#
 # only change this if you know what you are doing!
 FW_LOG=""
 
