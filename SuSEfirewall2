@@ -1076,6 +1076,8 @@ parse_configurations()
 	    local RPC=''
 	    local IP=''
 	    local BROADCAST=''
+	    local RELATED=''
+	    local MODULES=''
 
 	    # XXX: could use a sub shell in order to enforce use of known variables only
 	    if [ ! -r $CONFIGURATIONSDIR_0/$config ] || ! . $CONFIGURATIONSDIR_0/$config; then
@@ -1097,6 +1099,15 @@ parse_configurations()
 		    eval $var="\"\$$var \$BROADCAST\""
 		fi
 	    fi
+	    
+	    if [ -n "$RELATED" ]; then
+		eval FW_SERVICES_ACCEPT_RELATED_`cibiz $zone`="\"\$FW_SERVICES_ACCEPT_RELATED_`cibiz $zone` \$RELATED\""
+	    fi
+
+	    if [ -n "$MODULES" ]; then
+		eval FW_LOAD_MODULES="\"\$FW_LOAD_MODULES \$MODULES\""
+	    fi
+
 	done
     done
 }
