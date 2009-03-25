@@ -1081,7 +1081,7 @@ parse_configurations()
 
 	    # XXX: could use a sub shell in order to enforce use of known variables only
 	    if [ ! -r $CONFIGURATIONSDIR_0/$config ] || ! . $CONFIGURATIONSDIR_0/$config; then
-		if ! . $CONFIGURATIONSDIR_1/$config; then
+		if [ ! -r $CONFIGURATIONSDIR_1/$config ] || ! . $CONFIGURATIONSDIR_1/$config; then
 		    warning "config '$config' not available"
 		    continue
 		fi
