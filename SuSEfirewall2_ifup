@@ -26,18 +26,79 @@ export LANG=POSIX
 
 export PATH=/sbin:/usr/sbin:/usr/bin:/bin
 
-config="$1"
-iface="$2"
-
 . /etc/sysconfig/network/config 2>/dev/null
-. /etc/sysconfig/network/ifcfg-"$config" 2>/dev/null || true
-
-[ "$FIREWALL" = 'yes' ] || exit 0
-
-/sbin/SuSEfirewall2 -q status &>/dev/null
 
 case "$0" in
-	*if-up.d*) /sbin/SuSEfirewall2 -q start ;;
-	*if-down.d*) /sbin/SuSEfirewall2 -q start ;;
+	#
+	# network firewall actions executed via the link
+	#   /etc/sysconfig/network/scripts/firewall
+	# by /etc/init.d/network and /sbin/ifstatus.
+	#
+	# Currently the following actions are available:
+	#  - net-reconfig-init:
+	#    /etc/init.d/network signals a manual restart
+	#    to avoid firewall refresh on "up" and "down"
+	#    of every single interface.
+	#
+	#  - net-reconfig-done:
+	#    /etc/init.d/network signals a restart end to
+	#    reenable restarting and refresh the rules.
+	#
+	#  - running:
+	#    reports if the firewall script is running i.e.
+	#    applying rules at the moment.
+	#    Queried by ifstatus if the interface setup is
+	#    still in progress; reports 'in background' then.
+	#
+	#  - status:
+	#    reports status if the firewall is active
+	#
+	#  - try-restart:
+	#    restarts the firewall when enabled and active
+	#
+	*scripts/firewall)
+		case $1 in
+		net-reconfig-init)
+			[ "$FIREWALL" = 'yes' ] || exit 2
+			/sbin/SuSEfirewall2 -q status &>/dev/null || exit 3
+			/sbin/SuSEfirewall2 bootlock
+		;;
+		net-reconfig-done)
+			[ "$FIREWALL" = 'yes' ] || exit 2
+			/sbin/SuSEfirewall2 -q status &>/dev/null || exit 3
+			/sbin/SuSEfirewall2 --bootunlock start
+		;;
+		running)
+			test -f /var/lock/SuSEfirewall2.pid
+		;;
+
+		status)
+			/sbin/SuSEfirewall2 -q status &>/dev/null
+		;;
+		try-restart)
+			/sbin/chkconfig --check SuSEfirewall2_setup && \
+			/sbin/SuSEfirewall2 -q status &>/dev/null   && \
+			/sbin/SuSEfirewall2 start
+		;;
+		esac
+	;;
+	#
+	# ifup /etc/sysconfig/network/if-{up,down}.d/ script part;
+	# refresh the firewall rules on interface "up" and "down".
+	#
+	(*if-up.d*|*if-down.d*)
+
+		config="$1"
+		iface="$2"
+
+		. /etc/sysconfig/network/ifcfg-"$config" 2>/dev/null || true
+
+		[ "$FIREWALL" = 'yes' ] || exit 0
+
+		/sbin/chkconfig --check SuSEfirewall2_setup && \
+		/sbin/SuSEfirewall2 -q status &>/dev/null   && \
+		/sbin/SuSEfirewall2 -q start
+	;;
 	*) echo "don't know what to do" >&2 ;;
 esac
+
