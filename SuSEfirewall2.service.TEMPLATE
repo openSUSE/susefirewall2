@@ -25,7 +25,7 @@ RPC=""
 # space separated list of allowed IP protocols
 IP=""
 
-# space separated list of allowed UDP broadcast ports
+# space separated list of allowed UDP ports that accept broadcasts
 BROADCAST=""
 
 ### variables below are only needed in very special cases
