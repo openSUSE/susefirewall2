@@ -1167,6 +1167,10 @@ FW_FORWARD_ALWAYS_INOUT_DEV=
 # allowed. Such packets appear to pass though the forward chain so
 # normally they would be dropped.
 #
+# Note: it is not possible to configure SuSEfirewall2 as bridging
+# firewall. This option merely controls whether SuSEfirewall2 should
+# try to not interfere with bridges.
+#
 # Choice:
 #     - yes: always install a rule to allow bridge traffic
 #     - no: don't install a rule to allow bridge traffic
