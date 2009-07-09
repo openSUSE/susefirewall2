@@ -255,6 +255,10 @@ if [ -z "$USE_IPTABLES_BATCH" ]; then
     esac
 fi
 
+if [ "$FW_ZONE_DEFAULT" = 'yes' -o "$FW_ZONE_DEFAULT" = 'auto' ]; then
+    FW_ZONE_DEFAULT=''
+fi
+
 if [ -n "$USE_IPTABLES_BATCH" -a "$USE_IPTABLES_BATCH" != 'no' ]; then
     need batch
     check_iptables_batch
@@ -892,7 +896,7 @@ autodetect_interfaces()
 	    else
 		error "invalid zone '$z' specified for interface '$d'"
 	    fi
-	elif [ -n "$FW_ZONE_DEFAULT" ]; then
+	elif [ -n "$FW_ZONE_DEFAULT" -a "$FW_ZONE_DEFAULT" != 'no' ]; then
 	    message "using default zone '$FW_ZONE_DEFAULT' for interface $d"
 	    z="$FW_ZONE_DEFAULT"
 	    eval FW_DEV_$z="\"\$FW_DEV_$z \$d\""
@@ -1263,7 +1267,7 @@ fork_to_chains()
 		$iptables -A INPUT -j input_$zone -i $dev
 	    done
 	done
-	if [ -n "$FW_ZONE_DEFAULT" ]; then
+	if [ -n "$FW_ZONE_DEFAULT" -a "$FW_ZONE_DEFAULT" != 'no' ]; then
 	    $iptables -A INPUT -j "input_$FW_ZONE_DEFAULT"
 	fi
 	if [ "$FW_ROUTE" = yes ]; then

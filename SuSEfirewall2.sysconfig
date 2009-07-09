@@ -1108,6 +1108,31 @@ FW_IPSEC_TRUST=""
 #
 FW_ZONES=""
 
+## Type:	string(no,auto)
+## Default:	
+#
+# Set default firewall zone
+#
+# Format: 'auto', 'no' or name of zone.
+#
+# When set to 'no' no firewall rules will be installed for unknown
+# or unconfigured interfaces. That means traffic on such interfaces
+# hits the default drop rules.
+#
+# When left empty or when set to 'auto' the zone that has the
+# interface string 'any' configured is used for all unconfigured
+# interfaces (see FW_DEV_EXT). If no 'any' string was found the
+# external zone is used.
+#
+# When a default zone is defined a catch all rule redirects traffic
+# from interfaces that were not present at the time SuSEfirewall2
+# was run to the default zone. Normally SuSEfirewall2 needs to be
+# run if new interfaces appear to avoid such unknown interfaces.
+#
+# Default to 'auto' if not set
+#
+FW_ZONE_DEFAULT=''
+
 ## Type:	list(yes,no,auto,)
 ## Default:	
 #
