@@ -887,6 +887,7 @@ autodetect_interfaces()
 	if [ -n "$z" ]; then
 	    if eval [ -n "\"\$zone_$z\"" ]; then
 		eval FW_DEV_$z="\"\$FW_DEV_$z \$d\""
+		#" fix vim syntax
 		eval iface_$d=$z
 	    else
 		error "invalid zone '$z' specified for interface '$d'"
@@ -895,6 +896,7 @@ autodetect_interfaces()
 	    message "using default zone '$FW_ZONE_DEFAULT' for interface $d"
 	    z="$FW_ZONE_DEFAULT"
 	    eval FW_DEV_$z="\"\$FW_DEV_$z \$d\""
+	    #" fix vim syntax
 	    eval iface_$d=$z
 	else
 	    warning "no firewall zone defined for interface $d"
