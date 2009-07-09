@@ -65,8 +65,8 @@ install:
 		install -m 644 $$i $(DESTDIR)/etc/sysconfig/scripts; \
 	done
 	install -m 755 SuSEfirewall2_ifup $(DESTDIR)/etc/sysconfig/network/scripts/SuSEfirewall2
-	ln -s /etc/sysconfig/network/scripts/SuSEfirewall2 $(DESTDIR)/etc/sysconfig/network/if-up.d
-	ln -s SuSEfirewall2 $(DESTDIR)/etc/sysconfig/network/scripts/firewall
+	ln -sf /etc/sysconfig/network/scripts/SuSEfirewall2 $(DESTDIR)/etc/sysconfig/network/if-up.d
+	ln -sf SuSEfirewall2 $(DESTDIR)/etc/sysconfig/network/scripts/firewall
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 	install -m 644 SuSEfirewall2.service.TEMPLATE $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/services/TEMPLATE
 
