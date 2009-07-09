@@ -1,5 +1,5 @@
 #
-# Authors: Marc Heuse <marc@suse.de>,
+# Authors: Marc Heuse,
 #          Volker Kuhlmann <kuhlmav@elec.canterbury.ac.nz>
 #
 # /etc/sysconfig/scripts/SuSEfirewall2-custom
@@ -14,24 +14,9 @@
 #
 # ------------------------------------------------------------------------
 
-fw_custom_before_antispoofing() {
-    # these rules will be loaded before any anti spoofing rules will be
-    # loaded. Effectively the only filter lists already effective are
-    # 1) allow any traffic via the loopback interface, 2) allow DHCP stuff,
-    # 3) allow SAMBA stuff [2 and 3 only if FW_SERVICE_... are set to "yes"]
-    # You can use this hook to prevent logging of uninteresting broadcast
-    # packets or to allow certain packet through the anti-spoofing mechanism.
-
-#example: allow incoming multicast packets for any routing protocol
-#iptables -A INPUT -j ACCEPT -d 224.0.0.0/24
-
-   true
-}
-
-fw_custom_after_antispoofing() { # could also be named "before_port_splitting()"
-    # these rules will be loaded after the anti-spoofing and icmp handling
-    # but before any IP protocol or TCP/UDP port allow/protection rules
-    # will be set.
+fw_custom_after_chain_creation() {
+    # these rules will be loaded after the various input_* and forward_* chains
+    # are created.
     # You can use this hook to allow/deny certain IP protocols or TCP/UDP
     # ports before the SuSEfirewall2 generated rules are hit.
 

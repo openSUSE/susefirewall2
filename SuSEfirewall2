@@ -809,6 +809,7 @@ setlock()
 ##
 
 # Provide empty functions for transparent hook support for customised rules
+fw_custom_after_chain_creation() { true; }
 fw_custom_before_antispoofing() { true; }
 fw_custom_after_antispoofing() { true; }
 fw_custom_before_port_handling() { true; }
@@ -2224,9 +2225,12 @@ set_proc_stuff
 create_chains
 
 # HOOK
+fw_custom_after_chain_creation
+
+# HOOK, deprecated
 fw_custom_before_antispoofing
 
-# HOOK
+# HOOK, deprecated
 fw_custom_after_antispoofing
 
 protect_from_internal
