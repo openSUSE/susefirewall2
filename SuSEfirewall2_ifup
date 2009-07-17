@@ -26,7 +26,12 @@ export LANG=POSIX
 
 export PATH=/sbin:/usr/sbin:/usr/bin:/bin
 
-. /etc/sysconfig/network/config 2>/dev/null
+. /etc/sysconfig/network/config
+
+sfw2_active()
+{
+	{ test -e /proc/net/ip_tables_names && iptables -nL reject_func >/dev/null 2>&1; } || return 1
+}
 
 case "$0" in
 	#
@@ -60,12 +65,12 @@ case "$0" in
 		case $1 in
 		net-reconfig-init)
 			[ "$FIREWALL" = 'yes' ] || exit 2
-			/sbin/SuSEfirewall2 -q status &>/dev/null || exit 3
+			sfw2_active || exit 3
 			/sbin/SuSEfirewall2 bootlock
 		;;
 		net-reconfig-done)
 			[ "$FIREWALL" = 'yes' ] || exit 2
-			/sbin/SuSEfirewall2 -q status &>/dev/null || exit 3
+			sfw2_active || exit 3
 			/sbin/SuSEfirewall2 --bootunlock start
 		;;
 		running)
@@ -73,12 +78,12 @@ case "$0" in
 		;;
 
 		status)
-			/sbin/SuSEfirewall2 -q status &>/dev/null
+			sfw2_active
 		;;
 		try-restart)
-			/sbin/chkconfig --check SuSEfirewall2_setup && \
-			/sbin/SuSEfirewall2 -q status &>/dev/null   && \
-			/sbin/SuSEfirewall2 start
+			if sfw2_active; then
+				/sbin/SuSEfirewall2 start
+			fi
 		;;
 		esac
 	;;
@@ -95,9 +100,9 @@ case "$0" in
 
 		[ "$FIREWALL" = 'yes' ] || exit 0
 
-		/sbin/chkconfig --check SuSEfirewall2_setup && \
-		/sbin/SuSEfirewall2 -q status &>/dev/null   && \
-		/sbin/SuSEfirewall2 -q start
+		if sfw2_active; then
+			/sbin/SuSEfirewall2 -q start
+		fi
 	;;
 	*) echo "don't know what to do" >&2 ;;
 esac
