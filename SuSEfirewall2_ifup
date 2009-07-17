@@ -32,12 +32,20 @@ iface="$2"
 . /etc/sysconfig/network/config 2>/dev/null
 . /etc/sysconfig/network/ifcfg-"$config" 2>/dev/null || true
 
+sfw2_active()
+{
+	{ test -e /proc/net/ip_tables_names && iptables -nL reject_func >/dev/null 2>&1; } || return 1
+}
+
 [ "$FIREWALL" = 'yes' ] || exit 0
 
 /sbin/SuSEfirewall2 -q status &>/dev/null
 
 case "$0" in
-	*if-up.d*) /sbin/SuSEfirewall2 -q start ;;
-	*if-down.d*) /sbin/SuSEfirewall2 -q start ;;
+	(*if-up.d*|*if-down.d*)
+		if sfw2_active; then
+			/sbin/SuSEfirewall2 -q start
+		fi
+		;;
 	*) echo "don't know what to do" >&2 ;;
 esac
