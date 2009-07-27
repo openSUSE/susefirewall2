@@ -955,7 +955,6 @@ write_interface_status()
 	d=${d//[^A-Za-z0-9]/_}
 	eval z="\$iface_$d"
 	if [ -z "$z" ]; then
-	    message "interface $d no longer exists"
 	    rm -rf "$STATUSDIR/status/interfaces/$d"
 	else
 	    eval local seen_$d=1
@@ -966,7 +965,6 @@ write_interface_status()
 	eval z="\$$d"
 	d=${d#iface_}
 	eval [ -n "\"\$seen_$d\"" ] && continue
-	message "interface $d, zone $z"
 	mkdir "$STATUSDIR/status/interfaces/$d"
 	echo $z > "$STATUSDIR/status/interfaces/$d/zone"
     done
