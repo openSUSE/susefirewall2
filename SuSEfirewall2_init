@@ -34,6 +34,7 @@ case "$1" in
 	echo -n "Starting Firewall Initialization "
 	if test -x /usr/sbin/iptables; then
 		echo -n '(phase 1 of 2) '
+		/bin/rm -rf /var/run/SuSEfirewall2
 		$SUSEFWALL --bootlock -q close
 	else
 		echo -n "${extd}iptables not available (yet)${norm}"

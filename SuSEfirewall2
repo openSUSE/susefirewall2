@@ -160,6 +160,7 @@ SCRIPTSDIR="/etc/sysconfig/scripts"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
 BOOTLOCKFILE="/var/lock/SuSEfirewall2.booting"
+STATUSDIR="/var/run/SuSEfirewall2"
 FW_CUSTOMRULES=""
 
 FW_ZONE_DEFAULT=""
@@ -877,13 +878,38 @@ source_config_for_iface()
     . $dir/ifcfg-$cfg 2>/dev/null
 }
 
+check_iface_override()
+{
+    local iface="$1"
+    local f="$STATUSDIR/override/interfaces/$iface/zone"
+    local z dummy
+    test -e "$f" || return 0
+    read z dummy < "$f" || return 0
+    echo "$z"
+}
+
 autodetect_interfaces()
 {
     local d z
+    local have_override=''
     set -- `cd /sys/class/net; echo *` 2>/dev/null
     for d in "$@"; do
 	[ -z "$d" -o "$d" = 'lo' -o "$d" = 'sit0' ] && continue
 	d=${d//[^A-Za-z0-9]/_}
+	unset z
+	if [ "$FW_RUNTIME_OVERRIDE" != 'no' ]; then
+	    z=`check_iface_override $d`
+	    if [ -n "$z" ]; then
+		eval iface_$d=$z
+		if eval [ -n "\"\$zone_$z\"" ]; then
+		    message "runtime zone override '$z' for interface '$d'"
+		    have_override=1
+		    continue
+		else
+		    error "invalid zone '$z' as override for interface '$d'"
+		fi
+	    fi
+	fi
 	eval z=\${iface_$d}
 	[ -n "$z" ] && continue
 	eval [ -n "\"\$seen_$d\"" ] && continue
@@ -907,6 +933,74 @@ autodetect_interfaces()
 	    warning "no firewall zone defined for interface $d"
 	fi
     done
+
+    # runtime override, we have to reconstruct FW_DEV_*
+    if [ -n "$have_override" ]; then
+	for z in $all_zones; do
+	    eval "FW_DEV_$z=''"
+	done
+	for d in ${!iface_*}; do
+	    eval z="\$$d"
+	    eval "FW_DEV_$z=\"\$FW_DEV_$z ${d#iface_}\""
+	done
+    fi
+}
+
+write_interface_status()
+{
+    local d z
+    mkdir -p "$STATUSDIR"/status/interfaces
+    for d in "$STATUSDIR/status/interfaces/"*; do
+	d=${d##*/}
+	[ "$d" != '*' ] || break
+	d=${d//[^A-Za-z0-9]/_}
+	eval z="\$iface_$d"
+	if [ -z "$z" ]; then
+	    message "interface $d no longer exists"
+	    rm -rf "$STATUSDIR/status/interfaces/$d"
+	else
+	    eval local seen_$d=1
+	    echo $z > "$STATUSDIR/status/interfaces/$d/zone"
+	fi
+    done
+    for d in ${!iface_*}; do
+	eval z="\$$d"
+	d=${d#iface_}
+	eval [ -n "\"\$seen_$d\"" ] && continue
+	message "interface $d, zone $z"
+	mkdir "$STATUSDIR/status/interfaces/$d"
+	echo $z > "$STATUSDIR/status/interfaces/$d/zone"
+    done
+}
+
+write_zone_status()
+{
+    local v z
+    mkdir -p "$STATUSDIR/status/zones"
+    for z in "$STATUSDIR/status/zones/"*; do
+	z=${z##*/}
+	[ "$z" != '*' ] || break
+	z=${z//[^A-Za-z0-9]/_}
+	eval v="\$zone_$d"
+	if [ -z "$v" ]; then
+	    rm -rf "$STATUSDIR/status/zones/$z"
+	else
+	    eval local seen_$z=1
+	fi
+    done
+    for z in $all_zones; do
+	eval [ -n "\"\$seen_$z\"" ] && continue
+	mkdir "$STATUSDIR/status/zones/$z"
+    done
+}
+
+write_status()
+{
+    [ "$MODE" != "debug" ] || return
+    [ "$FW_WRITE_STATUS" != "no" ] || return
+
+    write_interface_status
+    write_zone_status
 }
 
 parse_interfaces()
@@ -2197,6 +2291,7 @@ parse_zones
 parse_interfaces
 check_interfaces_unique
 autodetect_interfaces
+write_status
 process_masq_dev
 
 load_customrules

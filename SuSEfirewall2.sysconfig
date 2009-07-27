@@ -1204,3 +1204,25 @@ FW_FORWARD_ALWAYS_INOUT_DEV=
 # Defaults to "auto" if not set
 #
 FW_FORWARD_ALLOW_BRIDGING=
+
+## Type:	yesno
+## Default:	yes
+#
+# Write status information to /var/run/SuSEfirewall2/status for use
+# by e.g. graphical user interfaces. Can safely be disabled on
+# servers.
+# 
+# Defaults to "yes" if not set
+#
+FW_WRITE_STATUS=
+
+## Type:	yesno
+## Default:	yes
+#
+# Allow dynamic configuration overrides in
+# /var/run/SuSEfirewall2/override for use by e.g. graphical user
+# interfaces. Can safely be disabled on servers.
+#
+# Defaults to "yes" if not set
+#
+FW_RUNTIME_OVERRIDE=
