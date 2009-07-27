@@ -655,15 +655,14 @@ function set_basic_rules()
     reset_rules "$DROP_JUMP" ACCEPT "$DROP_JUMP"
 
     # loopback is always allowed
-    $IPTABLES -A INPUT  -j "$ACCEPT" -i lo
-    $IPTABLES -A OUTPUT -j "$ACCEPT" -o lo
-    $IPTABLES -t raw -A PREROUTING -j NOTRACK -i lo
-    $IPTABLES -t raw -A OUTPUT -j NOTRACK -o lo
-
-    $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo
-    $IP6TABLES -A OUTPUT -j "$ACCEPT" -o lo
-    $IP6TABLES -t raw -A PREROUTING -j NOTRACK -i lo
-    $IP6TABLES -t raw -A OUTPUT -j NOTRACK -o lo
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	$iptables -A INPUT  -j "$ACCEPT" -i lo
+	$iptables -A OUTPUT -j "$ACCEPT" -o lo
+	if [ "$FW_LO_NOTRACK" != 'no' ]; then
+	    $iptables -t raw -A PREROUTING -j NOTRACK -i lo
+	    $iptables -t raw -A OUTPUT -j NOTRACK -o lo
+	fi
+    done
 
     # Special REJECT function #
     

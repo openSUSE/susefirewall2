@@ -1226,3 +1226,15 @@ FW_WRITE_STATUS=
 # Defaults to "yes" if not set
 #
 FW_RUNTIME_OVERRIDE=
+
+## Type:	yesno
+## Default:	yes
+#
+# Install NOTRACK target for interface lo in the raw table. Doing so
+# speeds up packet processing on the loopback interface. This breaks
+# certain firewall setups that need to e.g. redirect outgoing
+# packets via custom rules on the local machine.
+#
+# Defaults to "yes" if not set
+#
+FW_LO_NOTRACK=
