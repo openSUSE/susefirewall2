@@ -223,7 +223,8 @@ FW_MASQ_NETS="0/0"
 ## Type:	string
 ## Default:	0/0
 #
-# Which computers/networks should be excluded from beeing masqueraded?
+# Which computers/networks to exclude from masquerading.
+#
 # Note that this only affects the POSTROUTING chain of the nat
 # table. Ie the forwarding rules installed by FW_MASQ_NETS do not
 # include the listed exceptions.
