@@ -2059,6 +2059,12 @@ drop_all()
 	# other log targets (#155326)
 	$LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype --pkt-type multicast
 	$IPTABLES -A $chain -j "$DROP" -m pkttype --pkt-type multicast
+
+	eval local ignore="\$FW_IGNORE_FW_BROADCAST_`cibiz $zone`"
+	if [ "$ignore" != 'yes' ]; then
+	    $LDA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype --pkt-type broadcast
+	fi
+	$IPTABLES -A $chain -j "$DROP" -m pkttype --pkt-type broadcast
 	# some packet types are considered critical
 	if [ -z "$LDC" ]; then
 	    local log=${LOG}"-`rulelog $chain`-DROP-DEFLT"
@@ -2066,10 +2072,8 @@ drop_all()
 	    $IP6TABLES -A $chain $log" " -p tcp --syn
 	    $IPTABLES  -A $chain $log" " -p icmp
 	    $IP6TABLES -A $chain $log" " -p icmpv6
-	    $IPTABLES  -A $chain $log" " -p udp
-	    $IP6TABLES -A $chain $log" " -p udp
-	    $IPTABLES  -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
-	    $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT-INV " -m state --state INVALID
+	    $IPTABLES  -A $chain $log" " -p udp -m state --state NEW
+	    $IP6TABLES -A $chain $log" " -p udp -m state --state NEW
 	fi
 	# log anything else
 	$LDA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT "
