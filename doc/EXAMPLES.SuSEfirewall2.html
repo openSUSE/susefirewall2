@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SuSEfirewall2 configuration examples</title><link rel="stylesheet" href="susebooks.css" type="text/css" /><meta name="generator" content="DocBook XSL Stylesheets V1.75.2" /></head><body><div class="article" title="SuSEfirewall2 configuration examples"><div class="titlepage"><div><div><h2 class="title"><a id="id311990"></a>SuSEfirewall2 configuration examples</h2></div></div><hr /></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="section"><a href="#id273963">1. Simple dialup</a></span></dt><dt><span class="section"><a href="#id273986">2. Small home network</a></span></dt><dt><span class="section"><a href="#id274007">3. Small home network with additional WLAN</a></span></dt><dt><span class="section"><a href="#id274029">4. Small company with external mail and web server</a></span></dt><dt><span class="section"><a href="#id274860">5. Company with IPsec tunnel to subsidiary</a></span></dt><dt><span class="section"><a href="#id293728">6. Company with web server in DMZ</a></span></dt><dt><span class="section"><a href="#id293690">7. Complex scenario</a></span></dt><dt><span class="section"><a href="#id274298">8. Laptop in private network but with additional public IP adresses</a></span></dt></dl></div><div class="important" title="Important" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Important</h3><p>
+      All options <span class="emphasis"><em>not</em></span> mentioned in a scenario should be
+      left as they are in the default
+      <code class="filename">sysconfig/SuSEfirewall2</code> config file.
+      Backup default config:
+      <code class="filename">/usr/share/doc/packages/SuSEfirewall2/SuSEfirewall2.sysconfig</code>
+    </p></div><div class="section" title="1.&#xA0;Simple dialup"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id273963"></a>1. Simple dialup</h2></div></div></div><p>
+      A user with his nice SUSE Linux PC wants to be protected when connected to
+      the internet via the ISDN dialup of his ISP. He wants to offer no
+      services to the internet. He is not connected to any other network, nor
+      are any other network cards active.
+
+      </p><div class="informalexample"><pre class="programlisting">
+FW_DEV_EXT="ippp0"</pre></div><p>
+
+    </p></div><div class="section" title="2.&#xA0;Small home network"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id273986"></a>2. Small home network</h2></div></div></div><p>
+      A family owns multiple PCs, a SUSE Linux PC is connected to the internet
+      via DSL. The family's LAN uses private IPs therefore masquerading has to
+      be used. The Firewall provides no services whatsoever. The address of the
+      LAN is 192.168.10.0/24.
+
+      </p><div class="informalexample"><pre class="programlisting">FW_DEV_EXT="dsl0"
+FW_DEV_INT="eth0"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_MASQ_NETS="192.168.10.0/24"</pre></div><p>
+
+    </p></div><div class="section" title="3.&#xA0;Small home network with additional WLAN"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id274007"></a>3. Small home network with additional WLAN</h2></div></div></div><p>
+      Same network as above but additionally the Firewall is also connected to
+      a wireless network. Hosts in the wireless network should get internet
+      access but are not allowed to communicate with the internal network. The
+      address of the WLAN is 192.168.20.0/24.
+
+      </p><div class="informalexample"><pre class="programlisting">FW_ZONES="wlan"
+FW_DEV_EXT="dsl0"
+FW_DEV_INT="eth0"
+FW_DEV_wlan="wlan0"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_MASQ_NETS="192.168.10.0/24 192.168.20.0/24"</pre></div><p>
+
+    </p></div><div class="section" title="4.&#xA0;Small company with external mail and web server"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id274029"></a>4. Small company with external mail and web server</h2></div></div></div><p>
+      A company uses it's SUSE Linux PC to access the internet via an ISDN
+      dialup of it's ISP. It has got a static IP address and a web server
+      running on the PC plus it's mail-/pop3-server for the company. Squid is
+      running to cache www traffic. No internal PC should have direct access to
+      the internet. The LAN is connected to the interface
+      <code class="literal">eth0</code>.
+
+      </p><div class="informalexample"><pre class="programlisting">FW_DEV_EXT="ippp0"
+FW_DEV_INT="eth0"
+FW_SERVICES_EXT_TCP="smtp www"
+FW_SERVICES_INT_TCP="smtp domain www pop3 3128"
+FW_SERVICES_INT_UDP="domain"
+FW_PROTECT_FROM_INT="yes"</pre></div><p>
+
+    </p></div><div class="section" title="5.&#xA0;Company with IPsec tunnel to subsidiary"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id274860"></a>5. Company with IPsec tunnel to subsidiary</h2></div></div></div><p>
+      A small company wants access to the internet for it's client PCs.
+      Additionally the subsidiariaries client PCs should get access to the
+      local network through an IPsec tunnel. Internet traffic should be
+      masqueraded but not traffic between subsidiaries.
+
+      </p><table border="0" summary="Simple list" class="simplelist"><tr><td>external interface: dsl0</td></tr><tr><td>internal interface: eth0</td></tr><tr><td>internal LAN: 10.10.0.0/16</td></tr><tr><td>remote LAN: 192.168.0.0/24</td></tr></table><p>
+
+      </p><div class="informalexample"><pre class="programlisting">FW_DEV_EXT="dsl0"
+FW_DEV_INT="eth0"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_SERVICES_EXT_UDP="isakmp"
+FW_SERVICES_EXT_IP="esp"
+FW_FORWARD="10.10.0.0/16,192.168.1.0/24,,,ipsec 192.168.1.0/24,10.10.0.0/16,,,ipsec"
+FW_MASQ_NETS="0/0,!192.168.1.0/24</pre></div><p>
+
+      </p><div class="warning" title="Warning" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Warning</h3><p>
+	  Setting up IPsec and a firewall is no guarantee for safe
+	  communication! Use packet sniffers such as <code class="literal">tcpdump</code>
+	  or <code class="literal">ethereal</code> to verify the traffic is actually sent
+	  through the IPsec tunnel. Check the packet counts in the output of
+	  <span class="command"><strong>SuSEfirewall2 status</strong></span>. The ESP accepting rule
+	  must increase it's counter when encrypted traffic is supposed to
+	  flow.
+	</p></div><p>
+
+    </p></div><div class="section" title="6.&#xA0;Company with web server in DMZ"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id293728"></a>6. Company with web server in DMZ</h2></div></div></div><p>
+
+    This company has got a more complex setup:
+
+      </p><pre class="screen">
+Internet
+|
+|           Web server
+|               |
+SUSE-Firewall----
+|
+|---Mail server
+|
+|---Database
+|
+Internal LAN
+      </pre><p>
+
+      All Mail is delivered to the firewall. It also provides DNS service for
+      the internal and external networks. There's a DMZ where a Web server
+      resides (port 80 and port 443) which needs to connect to the Firewall to
+      deliver mail to the internal network, send syslog messages and do DNS
+      lookups. It needs also direct access to an internal database (bad idea!).
+      All mail which is delivered to the firewall, is sent to the internal mail
+      server. The mail server sends all mail destined for the internet to the
+      firewall. Internal PCs which access the internet should be masqueraded.
+
+      </p><table border="0" summary="Simple list" class="simplelist"><tr><td>external interface: eth2</td></tr><tr><td>DMZ interface: eth1</td></tr><tr><td>internal interface: eth0</td></tr><tr><td>IP of database: 192.168.1.3</td></tr><tr><td>TCP port of database: 4545</td></tr><tr><td>IP of web server: 200.200.200.200 (an official, assigned address!)</td></tr><tr><td>internal LAN: 192.168.1.0/24</td></tr></table><p>
+
+      </p><div class="note" title="Note" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Note</h3><p>
+	  The name server on the firewall needs to be setup "split-brained". See
+	  the DNS HOWTO.
+	</p></div><p>
+
+      The mail server on the firewall needs to be setup as a
+      relay for the internal network. The mail server on the internal
+      network has to use the firewall host as relay.
+
+      </p><div class="informalexample"><pre class="programlisting">FW_DEV_EXT="eth2"
+FW_DEV_INT="eth0"
+FW_DEV_DMZ="eth1"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_MASQ_NETS="192.168.1.0/24"
+FW_SERVICES_EXT_TCP="smtp domain"
+FW_SERVICES_EXT_UDP="domain"
+FW_SERVICES_DMZ_TCP="smtp domain"
+FW_SERVICES_DMZ_UDP="domain syslog"
+FW_SERVICES_INT_TCP="smtp domain"
+FW_SERVICES_INT_UDP="domain"
+# access to the web server and allow access from the web server to the database
+FW_FORWARD="0/0,200.200.200.200,tcp,80 \
+    0/0,200.200.200.200,tcp,443 \
+    200.200.200.200,192.168.1.3,tcp,4545"
+# all DNS and mail is done by the firewall
+FW_REDIRECT="192.168.1.0/24,0/0,tcp,53,53 \
+    192.168.1.0/24,0/0,tcp,25,25 \
+    192.168.1.0/24,0/0,udp,53,53"
+FW_ALLOW_PING_DMZ="yes"</pre></div><p>
+
+	The redirect statements in this example are gimmicks to show how to use
+	them. In this example they send <span class="emphasis"><em>any</em></span> traffic from
+	the internal network, which go via the firewall and a are destined to a
+	target port of 53 (DNS) or 25 (Mail) to the local servers on the
+	firewall.
+
+      </p></div><div class="section" title="7.&#xA0;Complex scenario"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id293690"></a>7. Complex scenario</h2></div></div></div><p>
+
+	</p><pre class="screen">
+Internet
+|
+|      Trusted_Company
+|      |
+|      |
+SUSE-Firewall----Web server
+|      |
+|      |
+|      |
+|      |-- Admin Network
+|
+Internal LAN---Server (for the trusted_company)
+|
+Mail server
+      </pre><p>
+
+      The company has a connection to the internet but also to an additional
+      line to a trusted third party company, who needs SSH Access to an internal
+      server ("Server" on the map).
+      There is also a DMZ with a web server (www, https) which sends DNS, mail and
+      syslog to the firewall. The web server has got a private IP Address, hence it
+      must be reverse masqueraded. It gets being administrated with SSH from the
+      Admin LAN.
+      The Admin Network should be masqueraded to the internet and get full access.
+      The Internal LAN should also be masqueraded to the internet but only be allowed
+      to access www, https and ftp.
+      Only TCP connections from the Admin network to the internal LAN should be
+      allowed, not from the internal LAN to the Admin network.
+      No traffic between the internet and the trusted company should be allowed.
+      The firewall receives all mails and sends them to an internal mail server or
+      to the internet. It also provides DNS service to it's internal/dmz networks.
+
+      </p><table border="0" summary="Simple list" class="simplelist"><tr><td>external interface: eth4</td></tr><tr><td>trusted_company interface: eth3</td></tr><tr><td>DMZ interface: eth2</td></tr><tr><td>internal interface: eth1</td></tr><tr><td>admin interface: eth0</td></tr><tr><td>IP of web server : 10.0.10.2</td></tr><tr><td>IP of mail server: 10.0.2.2</td></tr><tr><td>IP of Server (for trusted_company): 10.0.2.3</td></tr><tr><td>Internal LAN: 10.0.2.0/24</td></tr><tr><td>Admin LAN: 10.0.1.0/24</td></tr><tr><td>Trusted_company LAN: 192.168.1.0/24</td></tr></table><p>
+
+      The mail server on the firewall needs to be setup as a
+      relay for the internal network. The mail server on the internal
+      network has to use the firewall host as relay.
+
+      </p><div class="informalexample"><pre class="programlisting">FW_DEV_EXT="eth3 eth4"
+FW_DEV_INT="eth0 eth1"
+FW_DEV_DMZ="eth2"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+# full access for Admin LAN, www/https/ftp for internal
+FW_MASQ_NETS="10.0.1.0/24 10.0.2.0/24,,tcp,21 10.0.2.0/24,,tcp,80 \
+    10.0.2.0/24,,tcp,443"
+FW_SERVICES_EXT_TCP="smtp"
+FW_SERVICES_DMZ_TCP="smtp domain"
+FW_SERVICES_DMZ_UDP="domain syslog"
+FW_SERVICES_INT_TCP="smtp domain"
+FW_SERVICES_INT_UDP="domain"
+FW_FORWARD="10.0.1.0/24,10.0.2.0/24,tcp 10.0.1.0/24,10.0.10.2,tcp,22"
+# internet access to web server and trusted company access to internal Server
+FW_FORWARD_MASQ="0/0,10.0.10.2,tcp,80 0/0,10.0.10.2,tcp,443 \
+192.168.1.0/24,10.0.2.3,tcp,22"</pre></div><p>
+    </p></div><div class="section" title="8.&#xA0;Laptop in private network but with additional public IP adresses"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id274298"></a>8. Laptop in private network but with additional public IP adresses</h2></div></div></div><p>
+
+      </p><pre class="screen">
+Internet
+|
+|
+|
+Router
+|
+|
+LAN -- Laptop with SuSEfirewall2
+|
+|
+LAN Server
+      </pre><p>
+
+      The LAN uses private IP addresses, masquerading is performed by a
+      hardware router or another SuSEfirewall2 host. In addition to the LAN IP
+      the laptop got an official IP address as well. The laptop has only one
+      network interface and wants to offer ssh. The router forwards all traffic
+      for that IP address to the laptop.
+
+      </p><table border="0" summary="Simple list" class="simplelist"><tr><td>network interface: eth0</td></tr><tr><td>official IP of laptop: 200.200.200.200</td></tr><tr><td>internal LAN: 192.168.1.0/24</td></tr></table><p>
+
+      Since all traffic is forwarded to the laptop <code class="literal">eth0</code> must
+      be considered untrustworthy, i.e. external.
+
+      </p><div class="informalexample"><pre class="programlisting">FW_DEV_EXT="eth0"
+FW_SERVICES_EXT_TCP="ssh"
+FW_TRUSTED_NETS="192.168.1.0/24"</pre></div><p>
+
+      Note that broadcasts are blocked in the external zone by default. You may
+      change that to allow them in this scenario.
+
+      </p></div></div></body></html>

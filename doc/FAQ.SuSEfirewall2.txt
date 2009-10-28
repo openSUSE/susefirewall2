@@ -1,0 +1,159 @@
+SuSEfirewall2 FAQ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. How do I allow access to my application XYZ on my firewall?
+2. How can I reduce the generated rule set as much as possible?
+3. How can I be sure that the firewall rules are active when I connect to the
+    internet?
+4. How many interfaces are supported for each zone (EXT/DMZ/INT)?
+5. Why is communication between two interfaces in the same zone not working?
+6. I have set a web server in my DMZ. How do I configure SuSEfirewall2 to let
+    people on the internet access my pages?
+7. What if my Server has a private IP address, how do I enable external access
+    then?
+8. Some service does not work when the firewall is enabled. How do I find out
+    what's wrong?
+9. Some web site that offers port scanning claims my system is not protected
+    properly as it still responds to ICMP echo requests (ping)
+10. Can't the evil guys detect whether my host is online if it responds to ICMP
+    echo requests?
+11. SuSEfirewall2 drops most packets but it doesn't fully hide the presence of
+    my machine. Isn't that a security hole?
+12. The ipsec0 interface I had with kernel 2.4 is gone. How do I assign IPsec
+    traffic to a different zone now?
+13. Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
+
+1.  How do I allow access to my application XYZ on my firewall?
+
+    Usually you need an entry in FW_SERVICES_EXT_TCP or FW_SERVICES_EXT_UDP. The
+    most common problem is to determine which port the application uses. Let's say
+    you are running an apache web server and want to allow access to it. Execute
+    netstat -tunlp and look for httpd. You will see a line like this:
+
+    tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      4497/httpd
+
+    The number 80 is the port you are looking for. In this example put it into
+    FW_SERVICES_EXT_TCP and execute SuSEfirewall2 again.
+
+2.  How can I reduce the generated rule set as much as possible?
+
+      ● Set FW_PROTECT_FROM_INTERNAL to "no"
+
+      ● Disable Logging
+
+      ● Set all FW_ALLOW_* and FW_SERVICE_* to no
+
+      ● Do not use routing or masquerading
+
+      ● Only enable routing/services you really need and make the statements as
+        general as possible to reduce the number of definitions. Then you will have
+        got much less rules, but also a lesser security. Better spend 50$ on a
+        faster processor and more ram instead of using an old 486 as firewall.
+
+3.  How can I be sure that the firewall rules are active when I connect to the
+    internet?
+
+    Make sure that the SuSEfirewall2 boot scripts are enabled and that /etc/
+    sysconfig/network/config contains FIREWALL=yes. Also check that the /etc/
+    sysconfig/network/ifcfg-* files don't contain FIREWALL="no". You can check
+    whether packet filtering rules are actually installed with the command
+    SuSEfirewall2 status
+
+4.  How many interfaces are supported for each zone (EXT/DMZ/INT)?
+
+    Any number you want
+
+5.  Why is communication between two interfaces in the same zone not working?
+
+    For security reasons, no network may communicate to another until configured
+    otherwise. Even if both are "trusted" internal networks. You can allow full
+    traffic with FW_ALLOW_CLASS_ROUTING or specifying all allowed traffic with
+    FW_FORWARD. Keep in mind that this affects all interfaces in all zones.
+
+6.  I have set a web server in my DMZ. How do I configure SuSEfirewall2 to let
+    people on the internet access my pages?
+
+    Lets say your web server has got an official IP address of 1.1.1.1 which you
+    received from your ISP. You would just configure FW_FORWARD_TCP like this:
+
+    FW_FORWARD="0/0,1.1.1.1,tcp,80"
+
+7.  What if my Server has a private IP address, how do I enable external access
+    then?
+
+    You can use reverse masquerading. For this you need to set FW_ROUTE and
+    FW_MASQUERADE to "yes", and additionally FW_FORWARD_MASQ for the web servers
+    private IP (lets say it is 10.0.0.1):
+
+    FW_ROUTE="yes"
+    FW_MASQUERADE="yes"
+    FW_FORWARD_MASQ="0/0,10.0.0.1,tcp,80"
+
+8.  Some service does not work when the firewall is enabled. How do I find out
+    what's wrong?
+
+    Enable logging of all dropped packets and disable the log limit in /etc/
+    sysconfig/SuSEfirewall2:
+
+    FW_LOG_DROP_CRIT="yes"
+    FW_LOG_DROP_ALL="yes"
+    FW_LOG_LIMIT="no"
+
+    Run SuSEfirewall2 again. /var/log/messages will now quickly fill up with log
+    messages about dropped packets when you try to use the not working service.
+    Those messages tell you the protocol and port you need to open.
+
+    You may also run SuSEfirewall2 in test mode: SuSEfirewall2 test. Then try to
+    connect to the service in a way which failed before. It will work because
+    SuSEfirewall2 does not actually filter any packets this time. However, it will
+    still log all packets it normally would have dropped.
+
+    If everything works again don't forget to set the log options back to normal to
+    not fill up you log files.
+
+9.  Some web site that offers port scanning claims my system is not protected
+    properly as it still responds to ICMP echo requests (ping)
+
+    ICMP echo requests are harmless however they are a fundametal means to
+    determine whether hosts are still reachable. Blocking them would seriously
+    impact the ability to track down network problems. It is therefore not
+    considered nice behaviour for an internet citizen to drop pings.
+
+10. Can't the evil guys detect whether my host is online if it responds to ICMP
+    echo requests?
+
+    Yes but they can detect that anyways. The router at your provider behaves
+    different depending on whether someone is dialed in or not.
+
+11. SuSEfirewall2 drops most packets but it doesn't fully hide the presence of my
+    machine. Isn't that a security hole?
+
+    You machine is never fully invisible, see previous question. The purpose of
+    dropping packets is not to hide your machine but to slow down port scans.
+
+12. The ipsec0 interface I had with kernel 2.4 is gone. How do I assign IPsec
+    traffic to a different zone now?
+
+    Set the variable FW_IPSEC_TRUST to the zone you would have put the ipsec0 into
+    before. For example if your IPsec tunnel is set up on the external interface
+    but you want to grant the decrypted traffic access to all your services as if
+    it was in the internal zone:
+
+    FW_IPSEC_TRUST="int"
+    FW_SERVICES_EXT_IP="esp"
+    FW_SERVICES_EXT_UDP="isakmp"
+    FW_PROTECT_FROM_INT="no"
+
+13. Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
+
+    SuSEfirewall2 is implemented in bourne shell which is not exactly the fastest
+    thing on earth especially if it has that much work to do as SuSEfirewall2.
+    Administrators still prefer bourne shell scripts because of readability *cough*
+    . To be able to use iptables-restore SuSEfirewall2 would need a lot more logic
+    than what is be possible with bourne shell as it would need to sort and reorder
+    the rules for example. Furthermore interfaces are not static. They can
+    arbitrarily appear and disapper with different names so a generic solution
+    can't just dump the rules with iptables-store and re-apply them with
+    iptables-restore.
+

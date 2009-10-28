@@ -1,0 +1,273 @@
+SuSEfirewall2 configuration examples
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Table of Contents
+
+1. Simple dialup
+2. Small home network
+3. Small home network with additional WLAN
+4. Small company with external mail and web server
+5. Company with IPsec tunnel to subsidiary
+6. Company with web server in DMZ
+7. Complex scenario
+8. Laptop in private network but with additional public IP adresses
+
+Important
+
+All options not mentioned in a scenario should be left as they are in the
+default sysconfig/SuSEfirewall2 config file. Backup default config: /usr/share/
+doc/packages/SuSEfirewall2/SuSEfirewall2.sysconfig
+
+1. Simple dialup
+
+A user with his nice SUSE Linux PC wants to be protected when connected to the
+internet via the ISDN dialup of his ISP. He wants to offer no services to the
+internet. He is not connected to any other network, nor are any other network
+cards active.
+
+FW_DEV_EXT="ippp0"
+
+2. Small home network
+
+A family owns multiple PCs, a SUSE Linux PC is connected to the internet via
+DSL. The family's LAN uses private IPs therefore masquerading has to be used.
+The Firewall provides no services whatsoever. The address of the LAN is
+192.168.10.0/24.
+
+FW_DEV_EXT="dsl0"
+FW_DEV_INT="eth0"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_MASQ_NETS="192.168.10.0/24"
+
+3. Small home network with additional WLAN
+
+Same network as above but additionally the Firewall is also connected to a
+wireless network. Hosts in the wireless network should get internet access but
+are not allowed to communicate with the internal network. The address of the
+WLAN is 192.168.20.0/24.
+
+FW_ZONES="wlan"
+FW_DEV_EXT="dsl0"
+FW_DEV_INT="eth0"
+FW_DEV_wlan="wlan0"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_MASQ_NETS="192.168.10.0/24 192.168.20.0/24"
+
+4. Small company with external mail and web server
+
+A company uses it's SUSE Linux PC to access the internet via an ISDN dialup of
+it's ISP. It has got a static IP address and a web server running on the PC
+plus it's mail-/pop3-server for the company. Squid is running to cache www
+traffic. No internal PC should have direct access to the internet. The LAN is
+connected to the interface eth0.
+
+FW_DEV_EXT="ippp0"
+FW_DEV_INT="eth0"
+FW_SERVICES_EXT_TCP="smtp www"
+FW_SERVICES_INT_TCP="smtp domain www pop3 3128"
+FW_SERVICES_INT_UDP="domain"
+FW_PROTECT_FROM_INT="yes"
+
+5. Company with IPsec tunnel to subsidiary
+
+A small company wants access to the internet for it's client PCs. Additionally
+the subsidiariaries client PCs should get access to the local network through
+an IPsec tunnel. Internet traffic should be masqueraded but not traffic between
+subsidiaries.
+
+external interface: dsl0
+internal interface: eth0
+internal LAN: 10.10.0.0/16
+remote LAN: 192.168.0.0/24
+
+FW_DEV_EXT="dsl0"
+FW_DEV_INT="eth0"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_SERVICES_EXT_UDP="isakmp"
+FW_SERVICES_EXT_IP="esp"
+FW_FORWARD="10.10.0.0/16,192.168.1.0/24,,,ipsec 192.168.1.0/24,10.10.0.0/16,,,ipsec"
+FW_MASQ_NETS="0/0,!192.168.1.0/24
+
+Warning
+
+Setting up IPsec and a firewall is no guarantee for safe communication! Use
+packet sniffers such as tcpdump or ethereal to verify the traffic is actually
+sent through the IPsec tunnel. Check the packet counts in the output of
+SuSEfirewall2 status. The ESP accepting rule must increase it's counter when
+encrypted traffic is supposed to flow.
+
+6. Company with web server in DMZ
+
+This company has got a more complex setup:
+
+Internet
+|
+|           Web server
+|               |
+SUSE-Firewall----
+|
+|---Mail server
+|
+|---Database
+|
+Internal LAN
+
+
+All Mail is delivered to the firewall. It also provides DNS service for the
+internal and external networks. There's a DMZ where a Web server resides (port
+80 and port 443) which needs to connect to the Firewall to deliver mail to the
+internal network, send syslog messages and do DNS lookups. It needs also direct
+access to an internal database (bad idea!). All mail which is delivered to the
+firewall, is sent to the internal mail server. The mail server sends all mail
+destined for the internet to the firewall. Internal PCs which access the
+internet should be masqueraded.
+
+external interface: eth2
+DMZ interface: eth1
+internal interface: eth0
+IP of database: 192.168.1.3
+TCP port of database: 4545
+IP of web server: 200.200.200.200 (an official, assigned address!)
+internal LAN: 192.168.1.0/24
+
+Note
+
+The name server on the firewall needs to be setup "split-brained". See the DNS
+HOWTO.
+
+The mail server on the firewall needs to be setup as a relay for the internal
+network. The mail server on the internal network has to use the firewall host
+as relay.
+
+FW_DEV_EXT="eth2"
+FW_DEV_INT="eth0"
+FW_DEV_DMZ="eth1"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_MASQ_NETS="192.168.1.0/24"
+FW_SERVICES_EXT_TCP="smtp domain"
+FW_SERVICES_EXT_UDP="domain"
+FW_SERVICES_DMZ_TCP="smtp domain"
+FW_SERVICES_DMZ_UDP="domain syslog"
+FW_SERVICES_INT_TCP="smtp domain"
+FW_SERVICES_INT_UDP="domain"
+# access to the web server and allow access from the web server to the database
+FW_FORWARD="0/0,200.200.200.200,tcp,80 \
+    0/0,200.200.200.200,tcp,443 \
+    200.200.200.200,192.168.1.3,tcp,4545"
+# all DNS and mail is done by the firewall
+FW_REDIRECT="192.168.1.0/24,0/0,tcp,53,53 \
+    192.168.1.0/24,0/0,tcp,25,25 \
+    192.168.1.0/24,0/0,udp,53,53"
+FW_ALLOW_PING_DMZ="yes"
+
+The redirect statements in this example are gimmicks to show how to use them.
+In this example they send any traffic from the internal network, which go via
+the firewall and a are destined to a target port of 53 (DNS) or 25 (Mail) to
+the local servers on the firewall.
+
+7. Complex scenario
+
+Internet
+|
+|      Trusted_Company
+|      |
+|      |
+SUSE-Firewall----Web server
+|      |
+|      |
+|      |
+|      |-- Admin Network
+|
+Internal LAN---Server (for the trusted_company)
+|
+Mail server
+
+
+The company has a connection to the internet but also to an additional line to
+a trusted third party company, who needs SSH Access to an internal server
+("Server" on the map). There is also a DMZ with a web server (www, https) which
+sends DNS, mail and syslog to the firewall. The web server has got a private IP
+Address, hence it must be reverse masqueraded. It gets being administrated with
+SSH from the Admin LAN. The Admin Network should be masqueraded to the internet
+and get full access. The Internal LAN should also be masqueraded to the
+internet but only be allowed to access www, https and ftp. Only TCP connections
+from the Admin network to the internal LAN should be allowed, not from the
+internal LAN to the Admin network. No traffic between the internet and the
+trusted company should be allowed. The firewall receives all mails and sends
+them to an internal mail server or to the internet. It also provides DNS
+service to it's internal/dmz networks.
+
+external interface: eth4
+trusted_company interface: eth3
+DMZ interface: eth2
+internal interface: eth1
+admin interface: eth0
+IP of web server : 10.0.10.2
+IP of mail server: 10.0.2.2
+IP of Server (for trusted_company): 10.0.2.3
+Internal LAN: 10.0.2.0/24
+Admin LAN: 10.0.1.0/24
+Trusted_company LAN: 192.168.1.0/24
+
+The mail server on the firewall needs to be setup as a relay for the internal
+network. The mail server on the internal network has to use the firewall host
+as relay.
+
+FW_DEV_EXT="eth3 eth4"
+FW_DEV_INT="eth0 eth1"
+FW_DEV_DMZ="eth2"
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+# full access for Admin LAN, www/https/ftp for internal
+FW_MASQ_NETS="10.0.1.0/24 10.0.2.0/24,,tcp,21 10.0.2.0/24,,tcp,80 \
+    10.0.2.0/24,,tcp,443"
+FW_SERVICES_EXT_TCP="smtp"
+FW_SERVICES_DMZ_TCP="smtp domain"
+FW_SERVICES_DMZ_UDP="domain syslog"
+FW_SERVICES_INT_TCP="smtp domain"
+FW_SERVICES_INT_UDP="domain"
+FW_FORWARD="10.0.1.0/24,10.0.2.0/24,tcp 10.0.1.0/24,10.0.10.2,tcp,22"
+# internet access to web server and trusted company access to internal Server
+FW_FORWARD_MASQ="0/0,10.0.10.2,tcp,80 0/0,10.0.10.2,tcp,443 \
+192.168.1.0/24,10.0.2.3,tcp,22"
+
+8. Laptop in private network but with additional public IP adresses
+
+Internet
+|
+|
+|
+Router
+|
+|
+LAN -- Laptop with SuSEfirewall2
+|
+|
+LAN Server
+
+
+The LAN uses private IP addresses, masquerading is performed by a hardware
+router or another SuSEfirewall2 host. In addition to the LAN IP the laptop got
+an official IP address as well. The laptop has only one network interface and
+wants to offer ssh. The router forwards all traffic for that IP address to the
+laptop.
+
+network interface: eth0
+official IP of laptop: 200.200.200.200
+internal LAN: 192.168.1.0/24
+
+Since all traffic is forwarded to the laptop eth0 must be considered
+untrustworthy, i.e. external.
+
+FW_DEV_EXT="eth0"
+FW_SERVICES_EXT_TCP="ssh"
+FW_TRUSTED_NETS="192.168.1.0/24"
+
+Note that broadcasts are blocked in the external zone by default. You may
+change that to allow them in this scenario.
+

@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SuSEfirewall2 FAQ</title><link rel="stylesheet" href="susebooks.css" type="text/css" /><meta name="generator" content="DocBook XSL Stylesheets V1.75.2" /></head><body><div class="article" title="SuSEfirewall2 FAQ"><div class="titlepage"><div><div><h2 class="title"><a id="id311997"></a>SuSEfirewall2 FAQ</h2></div></div><hr /></div><div class="qandaset" title="Frequently Asked Questions"><a id="id312008"></a><dl><dt>1. <a href="#id312011">
+	  How do I allow access to my application XYZ on my firewall?
+	</a></dt><dt>2. <a href="#id274901">
+	  How can I reduce the generated rule set as much as possible?
+	</a></dt><dt>3. <a href="#id274280">
+	  How can I be sure that the firewall rules are active when I connect
+	  to the internet?
+	</a></dt><dt>4. <a href="#id274340">
+	  How many interfaces are supported for each zone (EXT/DMZ/INT)?
+	</a></dt><dt>5. <a href="#id274358">
+	  Why is communication between two interfaces in the same zone not working?
+	</a></dt><dt>6. <a href="#id274386">
+	  I have set a web server in my DMZ. How do I configure SuSEfirewall2 to let
+	  people on the internet access my pages?
+	</a></dt><dt>7. <a href="#id293638">
+	  What if my Server has a private IP address, how do I enable external access then?
+	</a></dt><dt>8. <a href="#id293686">Some service does not work when the firewall is enabled. How do I find out what's wrong?
+	</a></dt><dt>9. <a href="#id273985">
+	  Some web site that offers port scanning claims my system is not
+	  protected properly as it still responds to ICMP echo requests (ping)
+	</a></dt><dt>10. <a href="#id274007">
+	  Can't the evil guys detect whether my host is online if it responds
+	  to ICMP echo requests?
+	</a></dt><dt>11. <a href="#id274028">
+	  SuSEfirewall2 drops most packets but it doesn't fully hide the
+	  presence of my machine. Isn't that a security hole?
+	</a></dt><dt>12. <a href="#id274048">
+	  The ipsec0 interface I had with kernel 2.4 is
+	  gone. How do I assign IPsec traffic to a different zone now?
+	</a></dt><dt>13. <a href="#id274099">
+	  Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
+	</a></dt></dl><table border="0" width="100%" summary="Q and A Set"><col align="left" width="1%" /><col /><tbody><tr class="question" title="1."><td align="left" valign="top"><a id="id312011"></a><a id="id312013"></a><p><b>1.</b></p></td><td align="left" valign="top"><p>
+	  How do I allow access to my application XYZ on my firewall?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  Usually you need an entry in <code class="varname">FW_SERVICES_EXT_TCP</code>
+	  or <code class="varname">FW_SERVICES_EXT_UDP</code>. The most common problem is
+	  to determine which port the application uses. Let's say you are
+	  running an apache web server and want to allow access to it. Execute
+	  <span class="command"><strong>netstat -tunlp</strong></span> and look for httpd. You will
+	  see a line like this:
+
+	  </p><div class="informalexample"><pre class="screen">tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      4497/httpd</pre></div><p>
+
+	  The number 80 is the port you are looking for. In this example put it
+	  into <code class="varname">FW_SERVICES_EXT_TCP</code> and execute
+	  <span class="command"><strong>SuSEfirewall2</strong></span> again.
+
+	</p></td></tr><tr class="question" title="2."><td align="left" valign="top"><a id="id274901"></a><a id="id274904"></a><p><b>2.</b></p></td><td align="left" valign="top"><p>
+	  How can I reduce the generated rule set as much as possible?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem"><p>
+	      Set <code class="varname">FW_PROTECT_FROM_INTERNAL</code> to <code class="literal">"no"</code>
+	    </p></li><li class="listitem"><p>
+	      Disable Logging
+	    </p></li><li class="listitem"><p>
+	      Set all <code class="varname">FW_ALLOW_*</code> and
+	      <code class="varname">FW_SERVICE_*</code> to no
+	    </p></li><li class="listitem"><p>
+	      Do not use routing or masquerading
+	    </p></li><li class="listitem"><p>
+	      Only enable routing/services you really need and make the statements
+	      as general as possible to reduce the number of definitions.
+	      Then you will have got much less rules, but also a lesser security.
+	      Better spend 50$ on a faster processor and more ram instead of
+	      using an old 486 as firewall.
+	    </p></li></ul></div></td></tr><tr class="question" title="3."><td align="left" valign="top"><a id="id274280"></a><a id="id274283"></a><p><b>3.</b></p></td><td align="left" valign="top"><p>
+	  How can I be sure that the firewall rules are active when I connect
+	  to the internet?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  Make sure that the <code class="literal">SuSEfirewall2</code> boot scripts are
+	  enabled and that <code class="filename">/etc/sysconfig/network/config</code>
+	  contains <code class="literal">FIREWALL=yes</code>. Also check that the
+	  <code class="filename">/etc/sysconfig/network/ifcfg-*</code> files don't
+	  contain <code class="literal">FIREWALL="no"</code>. You can check whether
+	  packet filtering rules are actually installed with the command
+	  <span class="command"><strong>SuSEfirewall2 status</strong></span>
+
+	</p></td></tr><tr class="question" title="4."><td align="left" valign="top"><a id="id274340"></a><a id="id274342"></a><p><b>4.</b></p></td><td align="left" valign="top"><p>
+	  How many interfaces are supported for each zone (EXT/DMZ/INT)?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+	  Any number you want
+	</p></td></tr><tr class="question" title="5."><td align="left" valign="top"><a id="id274358"></a><a id="id274361"></a><p><b>5.</b></p></td><td align="left" valign="top"><p>
+	  Why is communication between two interfaces in the same zone not working?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  For security reasons, no network may communicate to another until
+	  configured otherwise. Even if both are "trusted" internal networks.
+	  You can allow full traffic with
+	  <code class="varname">FW_ALLOW_CLASS_ROUTING</code> or specifying all allowed
+	  traffic with <code class="varname">FW_FORWARD</code>. Keep in mind that this
+	  affects all interfaces in all zones.
+
+	</p></td></tr><tr class="question" title="6."><td align="left" valign="top"><a id="id274386"></a><a id="id293606"></a><p><b>6.</b></p></td><td align="left" valign="top"><p>
+	  I have set a web server in my DMZ. How do I configure SuSEfirewall2 to let
+	  people on the internet access my pages?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  Lets say your web server has got an official
+	  IP address of 1.1.1.1 which you received from your ISP. You would
+	  just configure <code class="varname">FW_FORWARD_TCP</code> like this:
+	  </p><div class="informalexample"><pre class="programlisting">FW_FORWARD="0/0,1.1.1.1,tcp,80"</pre></div><p>
+
+	</p></td></tr><tr class="question" title="7."><td align="left" valign="top"><a id="id293638"></a><a id="id293641"></a><p><b>7.</b></p></td><td align="left" valign="top"><p>
+	  What if my Server has a private IP address, how do I enable external access then?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  You can use reverse masquerading. For this you need to set
+	  <code class="varname">FW_ROUTE</code> and <code class="varname">FW_MASQUERADE</code> to
+	  <code class="literal">"yes"</code>, and additionally
+	  <code class="varname">FW_FORWARD_MASQ</code> for the web servers private IP
+	  (lets say it is 10.0.0.1):
+
+	  </p><div class="informalexample"><pre class="programlisting">
+FW_ROUTE="yes"
+FW_MASQUERADE="yes"
+FW_FORWARD_MASQ="0/0,10.0.0.1,tcp,80"</pre></div><p>
+
+	</p></td></tr><tr class="question" title="8."><td align="left" valign="top"><a id="id293686"></a><a id="id293689"></a><p><b>8.</b></p></td><td align="left" valign="top"><p>Some service does not work when the firewall is enabled. How do I find out what's wrong?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  Enable logging of all dropped packets and disable the log limit in
+	  <code class="filename">/etc/sysconfig/SuSEfirewall2</code>:
+	  </p><div class="informalexample"><pre class="programlisting">FW_LOG_DROP_CRIT="yes"
+FW_LOG_DROP_ALL="yes"
+FW_LOG_LIMIT="no"</pre></div><p>
+
+	  Run <span class="command"><strong>SuSEfirewall2</strong></span> again.
+	  <code class="filename">/var/log/messages</code> will now quickly fill up with
+	  log messages about dropped packets when you try to use the not
+	  working service. Those messages tell you the protocol and port you
+	  need to open.
+	</p><p>
+
+	  You may also run SuSEfirewall2 in test mode:
+	  <span class="command"><strong>SuSEfirewall2 test</strong></span>. Then try to connect to the
+	  service in a way which failed before. It will work
+	  because SuSEfirewall2 does <span class="emphasis"><em>not</em></span> actually filter any
+	  packets this time. However, it will still log all packets it normally
+	  would have dropped.
+
+	</p><p>
+
+	  If everything works again don't forget to set the log options back to
+	  normal to not fill up you log files.
+
+	</p></td></tr><tr class="question" title="9."><td align="left" valign="top"><a id="id273985"></a><a id="id273988"></a><p><b>9.</b></p></td><td align="left" valign="top"><p>
+	  Some web site that offers port scanning claims my system is not
+	  protected properly as it still responds to ICMP echo requests (ping)
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+	  ICMP echo requests are harmless however they are a fundametal means
+	  to determine whether hosts are still reachable. Blocking them would
+	  seriously impact the ability to track down network problems. It is
+	  therefore not considered nice behaviour for an internet citizen to
+	  drop pings.
+	</p></td></tr><tr class="question" title="10."><td align="left" valign="top"><a id="id274007"></a><a id="id274010"></a><p><b>10.</b></p></td><td align="left" valign="top"><p>
+	  Can't the evil guys detect whether my host is online if it responds
+	  to ICMP echo requests?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+	  Yes but they can detect that anyways. The router at your provider
+	  behaves different depending on whether someone is dialed in or not.
+	</p></td></tr><tr class="question" title="11."><td align="left" valign="top"><a id="id274028"></a><a id="id274030"></a><p><b>11.</b></p></td><td align="left" valign="top"><p>
+	  SuSEfirewall2 drops most packets but it doesn't fully hide the
+	  presence of my machine. Isn't that a security hole?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+	  You machine is never fully invisible, see previous question. The
+	  purpose of dropping packets is not to hide your machine but to slow
+	  down port scans.
+	</p></td></tr><tr class="question" title="12."><td align="left" valign="top"><a id="id274048"></a><a id="id274051"></a><p><b>12.</b></p></td><td align="left" valign="top"><p>
+	  The <code class="literal">ipsec0</code> interface I had with kernel 2.4 is
+	  gone. How do I assign IPsec traffic to a different zone now?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  Set the variable <code class="varname">FW_IPSEC_TRUST</code> to the zone you
+	  would have put the <code class="literal">ipsec0</code> into before. For example
+	  if your IPsec tunnel is set up on the external interface but you want
+	  to grant the <span class="emphasis"><em>decrypted</em></span> traffic access to all
+	  your services as if it was in the internal zone:
+
+	  </p><div class="informalexample"><pre class="programlisting">FW_IPSEC_TRUST="int"
+FW_SERVICES_EXT_IP="esp"
+FW_SERVICES_EXT_UDP="isakmp"
+FW_PROTECT_FROM_INT="no"</pre></div><p>
+
+	</p></td></tr><tr class="question" title="13."><td align="left" valign="top"><a id="id274099"></a><a id="id274102"></a><p><b>13.</b></p></td><td align="left" valign="top"><p>
+	  Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  <code class="literal">SuSEfirewall2</code> is implemented in bourne shell which is not exactly the
+	  fastest thing on earth especially if it has that much work to do as
+	  <code class="literal">SuSEfirewall2</code>. Administrators still prefer bourne shell scripts
+	  because of readability <span class="emphasis"><em>*cough*</em></span>. To be able to
+	  use <span class="command"><strong>iptables-restore</strong></span>
+	  <code class="literal">SuSEfirewall2</code> would need a lot more logic than
+	  what is be possible with bourne shell as it would need to sort and
+	  reorder the rules for example. Furthermore interfaces are not static.
+	  They can arbitrarily appear and disapper with different names so a
+	  generic solution can't just dump the rules with
+	  <span class="command"><strong>iptables-store</strong></span> and re-apply them with
+	  <span class="command"><strong>iptables-restore</strong></span>.
+
+	</p></td></tr></tbody></table></div></div></body></html>
