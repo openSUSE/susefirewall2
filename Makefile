@@ -1,8 +1,3 @@
-VERSION=3.6
-NAME=SuSEfirewall2
-SVNVER=$(shell svnversion .)
-NVER=$(NAME)-$(VERSION)_SVNr$(SVNVER)
-ARCHIVE=$(NVER).tar.bz2
 SCRIPTS=SuSEfirewall2-batch \
 	SuSEfirewall2-open \
 	SuSEfirewall2-showlog \
@@ -27,27 +22,6 @@ allfiles= \
 	LICENCE
 
 all:
-
-dist: $(allfiles) doc
-	rm -rf $(NVER)
-	mkdir $(NVER)
-	for i in $(allfiles); do \
-		ln $$i $(NVER)/$$i; \
-	done
-	ln doc/SuSEfirewall2-doc.desktop $(NVER)/SuSEfirewall2-doc.desktop
-	for i in doc/*SuSEfirewall2.html; do \
-		dest=$${i/.SuSEfirewall2/}; \
-		dest=$${dest##*/}; \
-		ln $$i $(NVER)/$$dest; \
-	done
-	for i in doc/*.txt; do \
-		dest=$${i%.SuSEfirewall2.txt} \
-		dest=$${dest##*/}; \
-		ln $$i $(NVER)/$$dest; \
-	done
-	ln doc/susebooks.css $(NVER)/
-	tar --owner=root --group=root --force-local -cjf $(ARCHIVE) $(NVER)
-	rm -rf $(NVER)
 
 install:
 	install -d -m 755 $(DESTDIR)/sbin
@@ -76,4 +50,4 @@ doc:
 clean:
 	rm -f $(ARCHIVE)
 
-.PHONY: clean doc
+.PHONY: clean doc dist
