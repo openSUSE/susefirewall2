@@ -1,69 +1,50 @@
-# Copyright (c) 2000-2002 SuSE GmbH Nuernberg, Germany.  All rights reserved.
-# Copyright (c) 2003,2004 SuSE Linux AG Nuernberg, Germany.  All rights reserved.
-# Copyright (c) 2005-2008 SUSE LINUX Products GmbH Nuernberg, Germany.  All rights reserved.
+# Copyright (c) 2000-2002 SuSE GmbH Nuernberg, Germany
+# Copyright (c) 2003,2004 SuSE Linux AG Nuernberg, Germany
+# Copyright (c) 2005-2010 SUSE LINUX Products GmbH Nuernberg, Germany
 #
 # Author: Marc Heuse, 2002
-#         Ludwig Nussel, 2004-2008
+#         Ludwig Nussel, 2004-2010
 #
 # /etc/sysconfig/SuSEfirewall2
 #
 # for use with /sbin/SuSEfirewall2 version 3.6
 #
-# ------------------------------------------------------------------------     #
-# PLEASE NOTE THE FOLLOWING:
+# ------------------------------------------------------------------------
 #
-# Just by configuring these settings and using the SuSEfirewall2 you
-# are not secure per se! There is *not* such a thing you install and
-# hence you are saved from all (security) hazards.
+# Note that running a packet filter/firewall is no panacea against
+# network security threats. Make sure to
 #
-# To ensure your security, you need also:
-#
-#   * Secure all services you are offering to untrusted networks
-#     (internet) You can do this by using software which has been
-#     designed with security in mind (like postfix, vsftpd, ssh),
-#     setting these up without misconfiguration and praying, that
-#     they have got really no holes. Apparmor can help in
-#     most circumstances to reduce the risk.
-#   * Do not run untrusted software. (philosophical question, can
-#     you trust SuSE or any other software distributor?)
-#   * Check the security of your server(s) regulary
-#   * If you are using this server as a firewall/bastion host to the
-#     internet for an internal network, try to run proxy services
-#     for everything and disable routing on this machine.
-#   * If you run DNS on the firewall: disable untrusted zone
-#     transfers and either don't allow access to it from the
-#     internet or run it split-brained.
-#
-# Good luck!
-#
-# Yours,
-#	SuSE Security Team
+# - expose only actually needed services
+# - assign different zones to express different levels of trust.
+#   Opening ports for LAN services in the external zone defeats the
+#   purpose of the firewall!
+# - use software that is designed with security in mind (such as
+#   postfix, vsftpd, openssh)
+# - install security updates regularly 
 #
 # ------------------------------------------------------------------------
 #
-# Configuration HELP:
+# Configuration Hints:
 #
-# If you have got any problems configuring this file, take a look at
+# Note that while this file looks like a shell script and is parsed
+# by a shell script it actually is not a shell script itself. More
+# information about sysconfig files can be found here:
+# http://en.opensuse.org/Packaging/SUSE_Package_Conventions/Sysconfig
+# It's generally a good idea to avoid using shell variable
+# substitution (foo="$bar") and multi line values.
+#
+# If you have any problems configuring this file, take a look at
 # /usr/share/doc/packages/SuSEfirewall2/EXAMPLES or use YaST
 #
+# For end user systems that are only connected to one network
+# FW_DEV_EXT and maybe FW_CONFIGURATIONS_EXT to open some ports need
+# to be modified. The defaults for all other settings are usually
+# fine.
 #
-# If you are an end-user who is NOT connected to two networks (read:
-# you have got a single user system and are using a dialup to the
-# internet) you just have to configure (all other settings are OK):
-# 2) and maybe 9).
-#
-# If this server is a firewall, which should act like a proxy (no direct
-# routing between both networks), or you are an end-user connected to the
-# internet and to an internal network, you have to setup your proxys and
-# reconfigure (all other settings are OK): 2), 3), 9) and maybe 7), 11), 14)
-#
-# If this server is a firewall, and should do routing/masquerading between
-# the untrusted and the trusted network, you have to reconfigure (all other
-# settings are OK): 2), 3), 5), 6), 9), and maybe 7), 10), 11), 12), 13),
-# 14)
-#
-# If you want to run a DMZ in either of the above three standard setups, you
-# just have to configure *additionally* 4), 9), 12), 13), 18)
+# For firewalls that should perform routing or masquerading between
+# networks the settings FW_DEV_EXT, FW_DEV_INT, FW_ROUTE, FW_MASQUERADE,
+# FW_SERVICES_EXT_TCP, and maybe FW_SERVICES_ACCEPT_EXT,  FW_FORWARD,
+# FW_FORWARD_MASQ
 #
 # Please note that if you use service names, they have to exist in
 # /etc/services. There is for example no service "dns", it's called
@@ -76,7 +57,6 @@
 ## Type:	string
 ## Default:	any
 #
-# 2.)
 # Which are the interfaces that point to the internet/untrusted
 # networks?
 #
@@ -90,7 +70,7 @@
 # want forwarding or masquerading you still have to add the external interfaces
 # individually. "any" can be mixed with other interface names.
 #
-# Examples: "ippp0 ippp1", "any dsl0"
+# Examples: "wlan0", "ippp0 ippp1", "any dsl0"
 #
 # Note: alias interfaces (like eth0:1) are ignored
 #
@@ -98,7 +78,6 @@ FW_DEV_EXT="any"
 
 ## Type:	string
 #
-# 3.)
 # Which are the interfaces that point to the internal network?
 #
 # Enter all trusted network interfaces here. If you are not
@@ -113,7 +92,6 @@ FW_DEV_INT=""
 
 ## Type:	string
 #
-# 4.)
 # Which are the interfaces that point to the dmz or dialup network?
 #
 # Enter all the network devices here which point to the dmz/dialups.
@@ -135,7 +113,6 @@ FW_DEV_DMZ=""
 ## Type:	yesno
 ## Default:	no
 #
-# 5.)
 # Should routing between the internet, dmz and internal network be
 # activated?
 #
@@ -159,7 +136,6 @@ FW_ROUTE="no"
 ## Type:	yesno
 ## Default:	no
 #
-# 6.)
 # Do you want to masquerade internal networks to the outside?
 #
 # Requires: FW_DEV_INT or FW_DEV_DMZ, FW_ROUTE, FW_MASQ_DEV
@@ -178,7 +154,6 @@ FW_MASQUERADE="no"
 ## Type:	string
 ## Default:     zone:ext
 #
-# 6a.)
 # You also have to define on which interfaces to masquerade on.
 # Those are usually the same as the external interfaces. Most users
 # can leave the default.
@@ -246,7 +221,6 @@ FW_NOMASQ_NETS=""
 ## Type:	list(yes,no,notrack)
 ## Default:	no
 #
-# 7.)
 # Do you want to protect the firewall from the internal network?
 # Requires: FW_DEV_INT
 #
@@ -268,7 +242,6 @@ FW_PROTECT_FROM_INT="no"
 
 ## Type:	string
 #
-# 9.)
 # Which TCP services _on the firewall_ should be accessible from
 # untrusted networks?
 #
@@ -451,7 +424,7 @@ FW_SERVICES_REJECT_INT=""
 ## Type: string
 ## Default:
 #
-# Services to allow. This is a more generic form of FW_SERVICES_{IP,UDP,TCP}
+# Services to allow. This is a more generic form of FW_SERVICES_XXX_{IP,UDP,TCP}
 # and more specific than FW_TRUSTED_NETS
 #
 # Format: space separated list of net,protocol[,dport[,sport[,flags]]]
@@ -518,7 +491,6 @@ FW_SERVICES_ACCEPT_RELATED_INT=""
 
 ## Type:	string
 #
-# 10.)
 # Which services should be accessible from 'trusted' hosts or nets?
 #
 # Define trusted hosts or networks (doesn't matter whether they are internal or
@@ -538,7 +510,6 @@ FW_TRUSTED_NETS=""
 ## Type:	string
 ## Default:
 #
-# 11.)
 # Specify which ports are allowed to access unprivileged ports (>1023)
 #
 # Format: yes, no or space separated list of ports
@@ -578,7 +549,6 @@ FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
 
 ## Type:	string
 #
-# 13.)
 # Which services or networks are allowed to be routed through the
 # firewall, no matter which zone they are in?
 # Requires: FW_ROUTE
@@ -636,7 +606,6 @@ FW_FORWARD_DROP=""
 
 ## Type:	string
 #
-# 14.)
 # Which services accessed from the internet should be allowed to masqueraded
 # servers (on the internal network or dmz)?
 # Requires: FW_ROUTE
@@ -675,7 +644,6 @@ FW_FORWARD_MASQ=""
 
 ## Type:	string
 #
-# 15.)
 # Which accesses to services should be redirected to a local port on
 # the firewall machine?
 #
@@ -700,7 +668,6 @@ FW_REDIRECT=""
 ## Type:	yesno
 ## Default:	yes
 #
-# 16.)
 # Which kind of packets should be logged?
 #
 # When set to "yes", packages that got dropped and are considered
@@ -777,7 +744,6 @@ FW_LOG=""
 ## Type:	yesno
 ## Default:	yes
 #
-# 17.)
 # Do you want to enable additional kernel TCP/IP security features?
 # If set to yes, some obscure kernel options are set.
 # (icmp_ignore_bogus_error_responses, icmp_echoreply_rate,
@@ -797,7 +763,6 @@ FW_KERNEL_SECURITY="yes"
 ## Type:	yesno
 ## Default:	no
 #
-# 18.)
 # Keep the routing set on, if the firewall rules are unloaded?
 # REQUIRES: FW_ROUTE
 #
@@ -808,7 +773,6 @@ FW_STOP_KEEP_ROUTING_STATE="no"
 ## Type:	yesno
 ## Default:	yes
 #
-# 19.)
 # Allow the firewall to reply to icmp echo requests
 #
 # defaults to "no" if not set
@@ -818,7 +782,6 @@ FW_ALLOW_PING_FW="yes"
 ## Type:	yesno
 ## Default:	no
 #
-# 19a.)
 # Allow hosts in the dmz to be pinged from hosts in other zones even
 # if neither FW_FORWARD nor FW_MASQUERADE is set
 #
@@ -831,7 +794,6 @@ FW_ALLOW_PING_DMZ="no"
 ## Type:	yesno
 ## Default:	no
 #
-# 19b.)
 # Allow hosts in the external zone to be pinged from hosts in other
 # zones even if neither FW_FORWARD nor FW_MASQUERADE is set
 #
@@ -844,7 +806,6 @@ FW_ALLOW_PING_EXT="no"
 ## Type:	yesno
 ## Default:	yes
 #
-# 21.)
 # Allow ICMP sourcequench from your ISP?
 #
 # If set to yes, the firewall will notice when connection is choking, however
@@ -856,7 +817,6 @@ FW_ALLOW_FW_SOURCEQUENCH=""
 
 ## Type:	string(yes,no)
 #
-# 22.)
 # Allow IP Broadcasts?
 #
 # Whether the firewall allows broadcasts packets.
@@ -929,7 +889,6 @@ FW_IGNORE_FW_BROADCAST_DMZ=""
 ## Type:	list(yes,no,int,ext,dmz,)
 ## Default:	no
 #
-# 23.)
 # Specifies whether routing between interfaces of the same zone should be allowed
 # Requires: FW_ROUTE="yes"
 #
@@ -951,7 +910,6 @@ FW_ALLOW_CLASS_ROUTING=""
 
 ## Type:	string
 #
-# 25.)
 # Do you want to load customary rules from a file?
 #
 # This is really an expert option. NO HELP WILL BE GIVEN FOR THIS!
@@ -963,7 +921,6 @@ FW_CUSTOMRULES=""
 ## Type:	yesno
 ## Default:	no
 #
-# 26.)
 # Do you want to REJECT packets instead of DROPing?
 #
 # DROPing (which is the default) will make portscans and attacks much
@@ -993,7 +950,6 @@ FW_REJECT_INT="yes"
 
 ## Type:	string
 #
-# 27.)
 # Tuning your upstream a little bit via HTB (Hierarchical Token Bucket)
 # for more information about HTB see http://www.lartc.org
 #
@@ -1030,7 +986,6 @@ FW_HTB_TUNE_DEV=""
 ## Type:	list(no,drop,reject)
 ## Default:	drop
 #
-# 28.)
 # What to do with IPv6 Packets?
 #
 # On older kernels ip6tables was not stateful so it's not possible to implement
@@ -1068,7 +1023,6 @@ FW_IPv6_REJECT_OUTGOING=""
 ## Type:	list(yes,no,int,ext,dmz,)
 ## Default:	no
 #
-# 29.)
 # Trust level of IPsec packets.
 #
 # You do not need to change this if you do not intend to run
@@ -1092,7 +1046,6 @@ FW_IPSEC_TRUST=""
 ## Type:	string
 ## Default:	
 #
-# 30.)
 # Define additional firewall zones
 #
 # The built-in zones INT, EXT and DMZ must not be listed here. Names
@@ -1137,7 +1090,6 @@ FW_ZONE_DEFAULT=''
 ## Type:	list(yes,no,auto,)
 ## Default:	
 #
-# 31.)
 # Whether to use iptables-batch
 #
 # iptables-batch commits all rules in an almost atomic way similar
@@ -1157,7 +1109,6 @@ FW_USE_IPTABLES_BATCH=""
 ## Type:	string
 ## Default:	
 #
-# 32.)
 # Which additional kernel modules to load at startup
 #
 # Example:
@@ -1170,7 +1121,6 @@ FW_LOAD_MODULES=
 ## Type:	string
 ## Default:	
 #
-# 33.)
 # Bridge interfaces without IP address
 #
 # Traffic on bridge interfaces like the one used by xen appears to
