@@ -586,8 +586,6 @@ FW_FORWARD=""
 
 ## Type:	string
 #
-# 13a.)
-#
 # same as FW_FORWARD but packages are rejected instead of accepted
 #
 # Requires: FW_ROUTE
@@ -595,8 +593,6 @@ FW_FORWARD=""
 FW_FORWARD_REJECT=""
 
 ## Type:	string
-#
-# 13b.)
 #
 # same as FW_FORWARD but packages are dropped instead of accepted
 #
@@ -1010,7 +1006,6 @@ FW_IPv6=""
 ## Type:	yesno
 ## Default:	yes
 #
-# 28a.)
 # Reject outgoing IPv6 Packets?
 #
 # Set to yes to avoid timeouts because of dropped IPv6 Packets. This Option
