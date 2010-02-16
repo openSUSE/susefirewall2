@@ -44,10 +44,34 @@ install:
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 	install -m 644 SuSEfirewall2.service.TEMPLATE $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/services/TEMPLATE
 
+pkgdocdir=/usr/share/doc/packages/SuSEfirewall2
+install_doc:
+	install -d -m 755 $(DESTDIR)$(pkgdocdir)
+	@for i in doc/*SuSEfirewall2.html; do \
+		dest=$${i/.SuSEfirewall2/}; \
+		dest=$${dest##*/}; \
+		set -- install -m 644 $$i $(DESTDIR)$(pkgdocdir)/$$dest; \
+		echo "$$@"; \
+		"$$@"; \
+	done
+	@for i in doc/*.txt; do \
+		dest=$${i%.SuSEfirewall2.txt} \
+		dest=$${dest##*/}; \
+		set -- install -m 644 $$i $(DESTDIR)$(pkgdocdir)/$$dest; \
+		echo "$$@"; \
+		"$$@"; \
+	done
+	install -m 644 doc/susebooks.css $(DESTDIR)$(pkgdocdir)/
+	install -m 644 LICENCE $(DESTDIR)$(pkgdocdir)/
+	install -m 644 SuSEfirewall2.sysconfig $(DESTDIR)$(pkgdocdir)/
+
+dist:
+	@./mktar
+
 doc:
 	$(MAKE) -C doc
 
 clean:
 	rm -f $(ARCHIVE)
 
-.PHONY: clean doc dist
+.PHONY: clean doc dist install install_doc all
