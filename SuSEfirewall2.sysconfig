@@ -589,7 +589,7 @@ FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
 # specified network, so please think twice befor using this option!
 #
 # Format: space separated list of
-#    <source network>,<destination network>[,protocol[,port[,flags]]]
+#    <source network>,<destination network>[,protocol[,destination port[,flags]]]
 #
 #  If the protocol is icmp then port is interpreted as icmp type
 #
