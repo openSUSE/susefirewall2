@@ -1,0 +1,9 @@
+#!/bin/bash
+web=~/public_html/SuSEfirewall2
+for i in doc/*SuSEfirewall2.html; do
+	dest=${i/.SuSEfirewall2/}
+	dest=${dest##*/}
+	echo $dest
+	install -m 644 $i $web/$dest
+done
+install -m 644 doc/susebooks.css $web
