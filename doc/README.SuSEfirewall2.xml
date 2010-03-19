@@ -37,6 +37,9 @@
 	<listitem><para>allows special treatment of IPsec packets</para></listitem>
 	<listitem><para>IPv6 support</para></listitem>
 	<listitem><para>allows insertion of custom rules through hooks</para></listitem>
+	<listitem><para>graphical <ulink
+	      url="http://lizards.opensuse.org/2009/08/28/firewall-zone-switcher-updated/">zone
+	      switcher applet</ulink> for desktop use</para></listitem>
       </itemizedlist>
 
     </para>
@@ -176,6 +179,17 @@
 
     </para>
 
+  </section>
+
+  <section>
+    <title>Source Code</title>
+
+    <para>
+
+      Source code is available at 
+      <ulink url="http://gitorious.org/opensuse/susefirewall2">Gitorious</ulink>
+
+    </para>
   </section>
 
   <section>

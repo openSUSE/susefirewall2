@@ -11,9 +11,10 @@ Table of Contents
     2.2. Manual configuration
 
 3. Some words about security
-4. Reporting bugs
-5. Links
-6. Author
+4. Source Code
+5. Reporting bugs
+6. Links
+7. Author
 
 1. Introduction
 
@@ -41,6 +42,8 @@ Main features of SuSEfirewall2:
   ● IPv6 support
 
   ● allows insertion of custom rules through hooks
+
+  ● graphical zone switcher applet for desktop use
 
 2. Quickstart
 
@@ -98,18 +101,22 @@ security risks on a networked system obey the following rules:
 
   ● Check your log files regularly for unusual entries.
 
-4. Reporting bugs
+4. Source Code
+
+Source code is available at Gitorious
+
+5. Reporting bugs
 
 Report any problems via Bugzilla. For discussion about SuSEfirewall2 join the
 opensuse-security mailinglist.
 
-5. Links
+6. Links
 
 Examples
 
 Frequently Asked Questions
 
-6. Author
+7. Author
 
 SuSEfirewall2 was originally created by Marc Heuse. Most of it got rewritten
 and enhanced by it's current maintainer Ludwig Nussel
