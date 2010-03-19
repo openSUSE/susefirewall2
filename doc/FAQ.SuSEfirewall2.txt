@@ -2,199 +2,144 @@ SuSEfirewall2 FAQ
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1. How do I allow access to my application XYZ on my firewall?
-2. How can I reduce the generated rule set as much as possible?
-3. How can I be sure that the firewall rules are active when I connect to the
-    internet?
-4. How many interfaces are supported for each zone (EXT/DMZ/INT)?
-5. Why is communication between two interfaces in the same zone not working?
-6. I have set a web server in my DMZ. How do I configure SuSEfirewall2 to let
-    people on the internet access my pages?
-7. What if my Server has a private IP address, how do I enable external access
-    then?
-8. Some service does not work when the firewall is enabled. How do I find out
+1. Why is communication between two interfaces in the same zone not working?
+2. Some service does not work when the firewall is enabled. How do I find out
     what's wrong?
-9. Some web site that offers port scanning claims my system is not protected
+3. Some web site that offers port scanning claims my system is not protected
     properly as it still responds to ICMP echo requests (ping)
-10. Can't the evil guys detect whether my host is online if it responds to ICMP
+4. Can't the evil guys detect whether my host is online if it responds to ICMP
     echo requests?
-11. SuSEfirewall2 drops most packets but it doesn't fully hide the presence of
+5. SuSEfirewall2 drops most packets but it doesn't fully hide the presence of
     my machine. Isn't that a security hole?
-12. The ipsec0 interface I had with kernel 2.4 is gone. How do I assign IPsec
+6. The ipsec0 interface I had with kernel 2.4 is gone. How do I assign IPsec
     traffic to a different zone now?
-13. Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
-14. Enabling drbd blocks the boot process. How to get around that?
+7. Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
+8. Enabling drbd blocks the boot process. How to get around that?
+9. My wireless LAN network interface is configured for the external zone.
+    Sometimes I need to connect to trusted networks that offer e.g. printing or
+    file sharing. How can I solve that without opening ports in the external
+    zone?
 
-1.  How do I allow access to my application XYZ on my firewall?
+1. Why is communication between two interfaces in the same zone not working?
 
-    Usually you need an entry in FW_SERVICES_EXT_TCP or FW_SERVICES_EXT_UDP. The
-    most common problem is to determine which port the application uses. Let's say
-    you are running an apache web server and want to allow access to it. Execute
-    netstat -tunlp and look for httpd. You will see a line like this:
+   For security reasons, no network may communicate to another until configured
+   otherwise. Even if both are "trusted" internal networks. You can allow full
+   traffic with FW_ALLOW_CLASS_ROUTING or specifying all allowed traffic with
+   FW_FORWARD. Keep in mind that this affects all interfaces in all zones.
 
-    tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      4497/httpd
+2. Some service does not work when the firewall is enabled. How do I find out
+   what's wrong?
 
-    The number 80 is the port you are looking for. In this example put it into
-    FW_SERVICES_EXT_TCP and execute SuSEfirewall2 again.
+   Enable logging of all dropped packets and disable the log limit in /etc/
+   sysconfig/SuSEfirewall2:
 
-2.  How can I reduce the generated rule set as much as possible?
+   FW_LOG_DROP_CRIT="yes"
+   FW_LOG_DROP_ALL="yes"
+   FW_LOG_LIMIT="no"
 
-      ● Set FW_PROTECT_FROM_INTERNAL to "no"
+   Run SuSEfirewall2 again. /var/log/messages will now quickly fill up with log
+   messages about dropped packets when you try to use the not working service.
+   Those messages tell you the protocol and port you need to open.
 
-      ● Disable Logging
+   You may also run SuSEfirewall2 in test mode: SuSEfirewall2 test. Then try to
+   connect to the service in a way which failed before. It will work because
+   SuSEfirewall2 does not actually filter any packets this time. However, it
+   will still log all packets it normally would have dropped.
 
-      ● Set all FW_ALLOW_* and FW_SERVICE_* to no
+   If everything works again don't forget to set the log options back to normal
+   to not fill up you log files.
 
-      ● Do not use routing or masquerading
+3. Some web site that offers port scanning claims my system is not protected
+   properly as it still responds to ICMP echo requests (ping)
 
-      ● Only enable routing/services you really need and make the statements as
-        general as possible to reduce the number of definitions. Then you will have
-        got much less rules, but also a lesser security. Better spend 50$ on a
-        faster processor and more ram instead of using an old 486 as firewall.
+   ICMP echo requests are harmless however they are a fundametal means to
+   determine whether hosts are still reachable. Blocking them would seriously
+   impact the ability to track down network problems. It is therefore not
+   considered nice behaviour for an internet citizen to drop pings.
 
-3.  How can I be sure that the firewall rules are active when I connect to the
-    internet?
+4. Can't the evil guys detect whether my host is online if it responds to ICMP
+   echo requests?
 
-    Make sure that the SuSEfirewall2 boot scripts are enabled and that /etc/
-    sysconfig/network/config contains FIREWALL=yes. Also check that the /etc/
-    sysconfig/network/ifcfg-* files don't contain FIREWALL="no". You can check
-    whether packet filtering rules are actually installed with the command
-    SuSEfirewall2 status
+   Yes but they can detect that anyways. The router at your provider behaves
+   different depending on whether someone is dialed in or not.
 
-4.  How many interfaces are supported for each zone (EXT/DMZ/INT)?
+5. SuSEfirewall2 drops most packets but it doesn't fully hide the presence of
+   my machine. Isn't that a security hole?
 
-    Any number you want
+   You machine is never fully invisible, see previous question. The purpose of
+   dropping packets is not to hide your machine but to slow down port scans.
 
-5.  Why is communication between two interfaces in the same zone not working?
+6. The ipsec0 interface I had with kernel 2.4 is gone. How do I assign IPsec
+   traffic to a different zone now?
 
-    For security reasons, no network may communicate to another until configured
-    otherwise. Even if both are "trusted" internal networks. You can allow full
-    traffic with FW_ALLOW_CLASS_ROUTING or specifying all allowed traffic with
-    FW_FORWARD. Keep in mind that this affects all interfaces in all zones.
+   Set the variable FW_IPSEC_TRUST to the zone you would have put the ipsec0
+   into before. For example if your IPsec tunnel is set up on the external
+   interface but you want to grant the decrypted traffic access to all your
+   services as if it was in the internal zone:
 
-6.  I have set a web server in my DMZ. How do I configure SuSEfirewall2 to let
-    people on the internet access my pages?
+   FW_IPSEC_TRUST="int"
+   FW_SERVICES_EXT_IP="esp"
+   FW_SERVICES_EXT_UDP="isakmp"
+   FW_PROTECT_FROM_INT="no"
 
-    Lets say your web server has got an official IP address of 1.1.1.1 which you
-    received from your ISP. You would just configure FW_FORWARD_TCP like this:
+7. Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
 
-    FW_FORWARD="0/0,1.1.1.1,tcp,80"
+   SuSEfirewall2 is implemented in bourne shell which is not exactly the
+   fastest thing on earth especially if it has that much work to do as
+   SuSEfirewall2. Administrators still prefer bourne shell scripts because of
+   readability *cough*.
 
-7.  What if my Server has a private IP address, how do I enable external access
-    then?
+   SuSEfirewall2 already uses a method similar to iptables-restore to apply as
+   much filter rules as possible at once. SuSEfirewall2 doesn't use
+   iptables-restore natively to be able to easily fall back to individual
+   iptables calls in case of error.
 
-    You can use reverse masquerading. For this you need to set FW_ROUTE and
-    FW_MASQUERADE to "yes", and additionally FW_FORWARD_MASQ for the web servers
-    private IP (lets say it is 10.0.0.1):
+8. Enabling drbd blocks the boot process. How to get around that?
 
-    FW_ROUTE="yes"
-    FW_MASQUERADE="yes"
-    FW_FORWARD_MASQ="0/0,10.0.0.1,tcp,80"
+   During boot process all incoming traffic is blocked unconditionally. The
+   very last boot script then sets up the configured firewall rules. The
+   problem is that drbd blocks the boot process while waiting for incoming
+   connection from other nodes. Therefore configuring the drbd port in
+   SuSEfirewall2 has no effect.
 
-8.  Some service does not work when the firewall is enabled. How do I find out
-    what's wrong?
+     ● SLES10
 
-    Enable logging of all dropped packets and disable the log limit in /etc/
-    sysconfig/SuSEfirewall2:
+       Add a manual iptables call to /etc/init.d/boot.local:
 
-    FW_LOG_DROP_CRIT="yes"
-    FW_LOG_DROP_ALL="yes"
-    FW_LOG_LIMIT="no"
+       iptables -A INPUT -p tcp --dport 7788 -j ACCEPT
 
-    Run SuSEfirewall2 again. /var/log/messages will now quickly fill up with log
-    messages about dropped packets when you try to use the not working service.
-    Those messages tell you the protocol and port you need to open.
+     ● SLES11, openSUSE <= 11.2
 
-    You may also run SuSEfirewall2 in test mode: SuSEfirewall2 test. Then try to
-    connect to the service in a way which failed before. It will work because
-    SuSEfirewall2 does not actually filter any packets this time. However, it will
-    still log all packets it normally would have dropped.
+       On SLES11 SuSEfirewall2_init is called after boot.local, therefore the
+       method for SLES10 doesn't work anymore. It's possible to modify the
+       dependencies of the SuSEfirewall2_setup script to run before drbd
+       though:
 
-    If everything works again don't forget to set the log options back to normal to
-    not fill up you log files.
+         ○ Create the directory /etc/insserv/overrides
 
-9.  Some web site that offers port scanning claims my system is not protected
-    properly as it still responds to ICMP echo requests (ping)
+         ○ Create a new file /etc/insserv/overrides/SuSEfirewall2_setup
 
-    ICMP echo requests are harmless however they are a fundametal means to
-    determine whether hosts are still reachable. Blocking them would seriously
-    impact the ability to track down network problems. It is therefore not
-    considered nice behaviour for an internet citizen to drop pings.
+         ○ Copy the the LSB header (the part between and including the lines "#
+           ## BEGIN INIT INFO" and "### END INIT INFO") from /etc/init.d/
+           SuSEfirewall2_setup to /etc/insserv/overrides/SuSEfirewall2_setup
 
-10. Can't the evil guys detect whether my host is online if it responds to ICMP
-    echo requests?
+         ○ Replace $ALL with $null and add the following line:
 
-    Yes but they can detect that anyways. The router at your provider behaves
-    different depending on whether someone is dialed in or not.
+           # X-Start-Before: drbd
 
-11. SuSEfirewall2 drops most packets but it doesn't fully hide the presence of my
-    machine. Isn't that a security hole?
+         ○ run /sbin/insserv
 
-    You machine is never fully invisible, see previous question. The purpose of
-    dropping packets is not to hide your machine but to slow down port scans.
+     ● openSUSE >= 11.3
 
-12. The ipsec0 interface I had with kernel 2.4 is gone. How do I assign IPsec
-    traffic to a different zone now?
+       Configure the open ports for drbd and set
 
-    Set the variable FW_IPSEC_TRUST to the zone you would have put the ipsec0 into
-    before. For example if your IPsec tunnel is set up on the external interface
-    but you want to grant the decrypted traffic access to all your services as if
-    it was in the internal zone:
+       FW_BOOT_FULL_INIT="yes"
 
-    FW_IPSEC_TRUST="int"
-    FW_SERVICES_EXT_IP="esp"
-    FW_SERVICES_EXT_UDP="isakmp"
-    FW_PROTECT_FROM_INT="no"
+9. My wireless LAN network interface is configured for the external zone.
+   Sometimes I need to connect to trusted networks that offer e.g. printing or
+   file sharing. How can I solve that without opening ports in the external
+   zone?
 
-13. Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
-
-    SuSEfirewall2 is implemented in bourne shell which is not exactly the fastest
-    thing on earth especially if it has that much work to do as SuSEfirewall2.
-    Administrators still prefer bourne shell scripts because of readability *cough*
-    . To be able to use iptables-restore SuSEfirewall2 would need a lot more logic
-    than what is be possible with bourne shell as it would need to sort and reorder
-    the rules for example. Furthermore interfaces are not static. They can
-    arbitrarily appear and disapper with different names so a generic solution
-    can't just dump the rules with iptables-store and re-apply them with
-    iptables-restore.
-
-14. Enabling drbd blocks the boot process. How to get around that?
-
-    During boot process all incoming traffic is blocked unconditionally. The very
-    last boot script then sets up the configured firewall rules. The problem is
-    that drbd blocks the boot process while waiting for incoming connection from
-    other nodes. Therefore configuring the drbd port in SuSEfirewall2 has no
-    effect.
-
-      ● SLES10
-
-        Add a manual iptables call to /etc/init.d/boot.local:
-
-        iptables -A INPUT -p tcp --dport 7788 -j ACCEPT
-
-      ● SLES11, openSUSE <= 11.2
-
-        On SLES11 SuSEfirewall2_init is called after boot.local, therefore the
-        method for SLES10 doesn't work anymore. It's possible to modify the
-        dependencies of the SuSEfirewall2_setup script to run before drbd though:
-
-          ○ Create the directory /etc/insserv/overrides
-
-          ○ Create a new file /etc/insserv/overrides/SuSEfirewall2_setup
-
-          ○ Copy the the LSB header (the part between and including the lines "###
-            BEGIN INIT INFO" and "### END INIT INFO") from /etc/init.d/
-            SuSEfirewall2_setup to /etc/insserv/overrides/SuSEfirewall2_setup
-
-          ○ Replace $ALL with $null and add the following line:
-
-            # X-Start-Before: drbd
-
-          ○ run /sbin/insserv
-
-      ● openSUSE >= 11.3
-
-        Configure the open ports for drbd and set
-
-        FW_BOOT_FULL_INIT="yes"
+   The Firewall Zone Switcher applet allows desktop users to switch zones with
+   only few mouse clicks. It's included in openSUSE since version 11.2.
 

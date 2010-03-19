@@ -7,114 +7,6 @@
     <title>SuSEfirewall2 FAQ</title>
   </articleinfo>
   <qandaset>
-    <qandaentry>
-
-      <question>
-	<para>
-	  How do I allow access to my application XYZ on my firewall?
-	</para>
-      </question>
-
-      <answer>
-
-	<para>
-
-	  Usually you need an entry in <varname>FW_SERVICES_EXT_TCP</varname>
-	  or <varname>FW_SERVICES_EXT_UDP</varname>. The most common problem is
-	  to determine which port the application uses. Let's say you are
-	  running an apache web server and want to allow access to it. Execute
-	  <command>netstat&nbsp;-tunlp</command> and look for httpd. You will
-	  see a line like this:
-
-	  <informalexample>
-	    <screen>tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      4497/httpd</screen>
-	  </informalexample>
-
-	  The number 80 is the port you are looking for. In this example put it
-	  into <varname>FW_SERVICES_EXT_TCP</varname> and execute
-	  <command>SuSEfirewall2</command> again.
-
-	</para>
-
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-	<para>
-	  How can I reduce the generated rule set as much as possible?
-	</para>
-      </question>
-      <answer>
-	<itemizedlist>
-	  <listitem>
-	    <para>
-	      Set <varname>FW_PROTECT_FROM_INTERNAL</varname> to <literal>"no"</literal>
-	    </para>
-	  </listitem>
-	  <listitem>
-	    <para>
-	      Disable Logging
-	    </para>
-	  </listitem>
-	  <listitem>
-	    <para>
-	      Set all <varname>FW_ALLOW_*</varname> and
-	      <varname>FW_SERVICE_*</varname> to no
-	    </para>
-	  </listitem>
-	  <listitem>
-	    <para>
-	      Do not use routing or masquerading
-	    </para>
-	  </listitem>
-	  <listitem>
-	    <para>
-	      Only enable routing/services you really need and make the statements
-	      as general as possible to reduce the number of definitions.
-	      Then you will have got much less rules, but also a lesser security.
-	      Better spend 50$ on a faster processor and more ram instead of
-	      using an old 486 as firewall.
-	    </para>
-	  </listitem>
-	</itemizedlist>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-	<para>
-	  How can I be sure that the firewall rules are active when I connect
-	  to the internet?
-	</para>
-      </question>
-      <answer>
-	<para>
-
-	  Make sure that the <literal>SuSEfirewall2</literal> boot scripts are
-	  enabled and that <filename>/etc/sysconfig/network/config</filename>
-	  contains <literal>FIREWALL=yes</literal>. Also check that the
-	  <filename>/etc/sysconfig/network/ifcfg-*</filename> files don't
-	  contain <literal>FIREWALL="no"</literal>. You can check whether
-	  packet filtering rules are actually installed with the command
-	  <command>SuSEfirewall2 status</command>
-
-	</para>
-      </answer>
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-	<para>
-	  How many interfaces are supported for each zone (EXT/DMZ/INT)?
-	</para>
-      </question>
-      <answer>
-	<para>
-	  Any number you want
-	</para>
-      </answer>
-    </qandaentry>
 
     <qandaentry>
 
@@ -133,62 +25,6 @@
 	  <varname>FW_ALLOW_CLASS_ROUTING</varname> or specifying all allowed
 	  traffic with <varname>FW_FORWARD</varname>. Keep in mind that this
 	  affects all interfaces in all zones.
-
-	</para>
-
-      </answer>
-
-    </qandaentry>
-
-    <qandaentry>
-      <question>
-	<para>
-	  I have set a web server in my DMZ. How do I configure SuSEfirewall2 to let
-	  people on the internet access my pages?
-	</para>
-      </question>
-
-      <answer>
-
-	<para>
-
-	  Lets say your web server has got an official
-	  IP address of 1.1.1.1 which you received from your ISP. You would
-	  just configure <varname>FW_FORWARD_TCP</varname> like this:
-	  <informalexample>
-	    <programlisting>FW_FORWARD="0/0,1.1.1.1,tcp,80"</programlisting>
-	  </informalexample>
-
-	</para>
-
-      </answer>
-
-    </qandaentry>
-
-    <qandaentry>
-
-      <question>
-	<para>
-	  What if my Server has a private IP address, how do I enable external access then?
-	</para>
-      </question>
-
-      <answer>
-
-	<para>
-
-	  You can use reverse masquerading. For this you need to set
-	  <varname>FW_ROUTE</varname> and <varname>FW_MASQUERADE</varname> to
-	  <literal>"yes"</literal>, and additionally
-	  <varname>FW_FORWARD_MASQ</varname> for the web servers private IP
-	  (lets say it is 10.0.0.1):
-
-	  <informalexample>
-	    <programlisting>
-FW_ROUTE="yes"
-FW_MASQUERADE="yes"
-FW_FORWARD_MASQ="0/0,10.0.0.1,tcp,80"</programlisting>
-	  </informalexample>
 
 	</para>
 
@@ -345,16 +181,17 @@ FW_PROTECT_FROM_INT="no"</programlisting>
 	  <literal>SuSEfirewall2</literal> is implemented in bourne shell which is not exactly the
 	  fastest thing on earth especially if it has that much work to do as
 	  <literal>SuSEfirewall2</literal>. Administrators still prefer bourne shell scripts
-	  because of readability <emphasis>*cough*</emphasis>. To be able to
-	  use <command>iptables-restore</command>
-	  <literal>SuSEfirewall2</literal> would need a lot more logic than
-	  what is be possible with bourne shell as it would need to sort and
-	  reorder the rules for example. Furthermore interfaces are not static.
-	  They can arbitrarily appear and disapper with different names so a
-	  generic solution can't just dump the rules with
-	  <command>iptables-store</command> and re-apply them with
-	  <command>iptables-restore</command>.
+	  because of readability <emphasis>*cough*</emphasis>.
+	</para>
 
+	<para>
+	  <literal>SuSEfirewall2</literal> already uses a method
+	  similar to <literal>iptables-restore</literal> to apply
+	  as much filter rules as possible at once.
+	  <literal>SuSEfirewall2</literal> doesn't use
+	  <literal>iptables-restore</literal> natively to be able to
+	  easily fall back to individual <literal>iptables</literal>
+	  calls in case of error.
 	</para>
 
       </answer>
@@ -474,6 +311,33 @@ FW_PROTECT_FROM_INT="no"</programlisting>
 	  </listitem>
 
 	</itemizedlist>
+
+      </answer>
+
+    </qandaentry>
+
+    <qandaentry>
+
+      <question>
+	<para>
+	  My wireless LAN network interface is configured for the
+	  external zone. Sometimes I need to connect to trusted
+	  networks that offer e.g. printing or file sharing. How can
+	  I solve that without opening ports in the external zone?
+	</para>
+      </question>
+
+      <answer>
+
+	<para>
+
+	  The <ulink
+	    url="http://lizards.opensuse.org/2009/08/28/firewall-zone-switcher-updated/">Firewall
+	    Zone Switcher applet</ulink> allows desktop users to
+	  switch zones with only few mouse clicks. It's included in
+	  openSUSE since version 11.2.
+
+	</para>
 
       </answer>
 
