@@ -25,6 +25,11 @@ BOOTLOCKFILE="/var/lock/SuSEfirewall2.booting"
 test -x $SUSEFWALL || exit 5
 test -r /etc/sysconfig/SuSEfirewall2 || exit 6
 
+startmode=close
+if (. /etc/sysconfig/SuSEfirewall2; test "$FW_BOOT_FULL_INIT" = yes); then
+	startmode=start
+fi >/dev/null 2>&1
+
 . /etc/rc.status
 
 rc_reset
@@ -35,7 +40,7 @@ case "$1" in
 	if test -x /usr/sbin/iptables; then
 		echo -n '(phase 1 of 2) '
 		/bin/rm -rf /var/run/SuSEfirewall2
-		$SUSEFWALL --bootlock -q close
+		$SUSEFWALL --bootlock -q $startmode
 	else
 		echo -n "${extd}iptables not available (yet)${norm}"
 		rc_failed 5

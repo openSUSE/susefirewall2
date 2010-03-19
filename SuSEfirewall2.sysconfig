@@ -1184,3 +1184,15 @@ FW_RUNTIME_OVERRIDE=
 # Defaults to "yes" if not set
 #
 FW_LO_NOTRACK=
+
+## Type:	yesno
+## Default:	no
+#
+# Specifies whether /etc/init.d/SuSEfirewall2_init should install the
+# full rule set already. Default is to just install minimum rules
+# that block incoming traffic. Set to "yes" if you user services
+# such as drbd that require open ports during boot already. 
+#
+# Defaults to "no" if not set
+# 
+FW_BOOT_FULL_INIT=""
