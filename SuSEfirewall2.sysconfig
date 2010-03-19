@@ -1173,3 +1173,16 @@ FW_FORWARD_ALWAYS_INOUT_DEV=
 # Defaults to "auto" if not set
 #
 FW_FORWARD_ALLOW_BRIDGING=
+
+
+## Type:	yesno
+## Default:	no
+#
+# Specifies whether /etc/init.d/SuSEfirewall2_init should install the
+# full rule set already. Default is to just install minimum rules
+# that block incoming traffic. Set to "yes" if you user services
+# such as drbd that require open ports during boot already. 
+#
+# Defaults to "no" if not set
+# 
+FW_BOOT_FULL_INIT=""
