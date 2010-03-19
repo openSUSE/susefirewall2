@@ -1,37 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SuSEfirewall2 FAQ</title><link rel="stylesheet" href="susebooks.css" type="text/css" /><meta name="generator" content="DocBook XSL Stylesheets V1.75.2" /></head><body><div class="article" title="SuSEfirewall2 FAQ"><div class="titlepage"><div><div><h2 class="title"><a id="id311997"></a>SuSEfirewall2 FAQ</h2></div></div><hr /></div><div class="qandaset" title="Frequently Asked Questions"><a id="id312008"></a><dl><dt>1. <a href="#id312011">
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SuSEfirewall2 FAQ</title><link rel="stylesheet" href="susebooks.css" type="text/css" /><meta name="generator" content="DocBook XSL Stylesheets V1.75.2" /></head><body><div class="article" title="SuSEfirewall2 FAQ"><div class="titlepage"><div><div><h2 class="title"><a id="id301529"></a>SuSEfirewall2 FAQ</h2></div></div><hr /></div><div class="qandaset" title="Frequently Asked Questions"><a id="id301543"></a><dl><dt>1. <a href="#id301545">
 	  How do I allow access to my application XYZ on my firewall?
-	</a></dt><dt>2. <a href="#id274901">
+	</a></dt><dt>2. <a href="#id282564">
 	  How can I reduce the generated rule set as much as possible?
-	</a></dt><dt>3. <a href="#id274280">
+	</a></dt><dt>3. <a href="#id290706">
 	  How can I be sure that the firewall rules are active when I connect
 	  to the internet?
-	</a></dt><dt>4. <a href="#id274340">
+	</a></dt><dt>4. <a href="#id265844">
 	  How many interfaces are supported for each zone (EXT/DMZ/INT)?
-	</a></dt><dt>5. <a href="#id274358">
+	</a></dt><dt>5. <a href="#id265861">
 	  Why is communication between two interfaces in the same zone not working?
-	</a></dt><dt>6. <a href="#id274386">
+	</a></dt><dt>6. <a href="#id265885">
 	  I have set a web server in my DMZ. How do I configure SuSEfirewall2 to let
 	  people on the internet access my pages?
-	</a></dt><dt>7. <a href="#id293638">
+	</a></dt><dt>7. <a href="#id283889">
 	  What if my Server has a private IP address, how do I enable external access then?
-	</a></dt><dt>8. <a href="#id293686">Some service does not work when the firewall is enabled. How do I find out what's wrong?
-	</a></dt><dt>9. <a href="#id273985">
+	</a></dt><dt>8. <a href="#id283931">Some service does not work when the firewall is enabled. How do I find out what's wrong?
+	</a></dt><dt>9. <a href="#id283996">
 	  Some web site that offers port scanning claims my system is not
 	  protected properly as it still responds to ICMP echo requests (ping)
-	</a></dt><dt>10. <a href="#id274007">
+	</a></dt><dt>10. <a href="#id284016">
 	  Can't the evil guys detect whether my host is online if it responds
 	  to ICMP echo requests?
-	</a></dt><dt>11. <a href="#id274028">
+	</a></dt><dt>11. <a href="#id265263">
 	  SuSEfirewall2 drops most packets but it doesn't fully hide the
 	  presence of my machine. Isn't that a security hole?
-	</a></dt><dt>12. <a href="#id274048">
+	</a></dt><dt>12. <a href="#id265282">
 	  The ipsec0 interface I had with kernel 2.4 is
 	  gone. How do I assign IPsec traffic to a different zone now?
-	</a></dt><dt>13. <a href="#id274099">
+	</a></dt><dt>13. <a href="#id265329">
 	  Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
-	</a></dt></dl><table border="0" width="100%" summary="Q and A Set"><col align="left" width="1%" /><col /><tbody><tr class="question" title="1."><td align="left" valign="top"><a id="id312011"></a><a id="id312013"></a><p><b>1.</b></p></td><td align="left" valign="top"><p>
+	</a></dt><dt>14. <a href="#id265390">
+	  Enabling drbd blocks the boot process. How to get around that?
+	</a></dt></dl><table border="0" width="100%" summary="Q and A Set"><col align="left" width="1%" /><col /><tbody><tr class="question" title="1."><td align="left" valign="top"><a id="id301545"></a><a id="id301547"></a><p><b>1.</b></p></td><td align="left" valign="top"><p>
 	  How do I allow access to my application XYZ on my firewall?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
@@ -48,7 +50,7 @@
 	  into <code class="varname">FW_SERVICES_EXT_TCP</code> and execute
 	  <span class="command"><strong>SuSEfirewall2</strong></span> again.
 
-	</p></td></tr><tr class="question" title="2."><td align="left" valign="top"><a id="id274901"></a><a id="id274904"></a><p><b>2.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="2."><td align="left" valign="top"><a id="id282564"></a><a id="id282105"></a><p><b>2.</b></p></td><td align="left" valign="top"><p>
 	  How can I reduce the generated rule set as much as possible?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem"><p>
 	      Set <code class="varname">FW_PROTECT_FROM_INTERNAL</code> to <code class="literal">"no"</code>
@@ -65,7 +67,7 @@
 	      Then you will have got much less rules, but also a lesser security.
 	      Better spend 50$ on a faster processor and more ram instead of
 	      using an old 486 as firewall.
-	    </p></li></ul></div></td></tr><tr class="question" title="3."><td align="left" valign="top"><a id="id274280"></a><a id="id274283"></a><p><b>3.</b></p></td><td align="left" valign="top"><p>
+	    </p></li></ul></div></td></tr><tr class="question" title="3."><td align="left" valign="top"><a id="id290706"></a><a id="id303777"></a><p><b>3.</b></p></td><td align="left" valign="top"><p>
 	  How can I be sure that the firewall rules are active when I connect
 	  to the internet?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
@@ -78,11 +80,11 @@
 	  packet filtering rules are actually installed with the command
 	  <span class="command"><strong>SuSEfirewall2 status</strong></span>
 
-	</p></td></tr><tr class="question" title="4."><td align="left" valign="top"><a id="id274340"></a><a id="id274342"></a><p><b>4.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="4."><td align="left" valign="top"><a id="id265844"></a><a id="id265847"></a><p><b>4.</b></p></td><td align="left" valign="top"><p>
 	  How many interfaces are supported for each zone (EXT/DMZ/INT)?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 	  Any number you want
-	</p></td></tr><tr class="question" title="5."><td align="left" valign="top"><a id="id274358"></a><a id="id274361"></a><p><b>5.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="5."><td align="left" valign="top"><a id="id265861"></a><a id="id265863"></a><p><b>5.</b></p></td><td align="left" valign="top"><p>
 	  Why is communication between two interfaces in the same zone not working?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
@@ -93,7 +95,7 @@
 	  traffic with <code class="varname">FW_FORWARD</code>. Keep in mind that this
 	  affects all interfaces in all zones.
 
-	</p></td></tr><tr class="question" title="6."><td align="left" valign="top"><a id="id274386"></a><a id="id293606"></a><p><b>6.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="6."><td align="left" valign="top"><a id="id265885"></a><a id="id265887"></a><p><b>6.</b></p></td><td align="left" valign="top"><p>
 	  I have set a web server in my DMZ. How do I configure SuSEfirewall2 to let
 	  people on the internet access my pages?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
@@ -103,7 +105,7 @@
 	  just configure <code class="varname">FW_FORWARD_TCP</code> like this:
 	  </p><div class="informalexample"><pre class="programlisting">FW_FORWARD="0/0,1.1.1.1,tcp,80"</pre></div><p>
 
-	</p></td></tr><tr class="question" title="7."><td align="left" valign="top"><a id="id293638"></a><a id="id293641"></a><p><b>7.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="7."><td align="left" valign="top"><a id="id283889"></a><a id="id283891"></a><p><b>7.</b></p></td><td align="left" valign="top"><p>
 	  What if my Server has a private IP address, how do I enable external access then?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
@@ -118,7 +120,7 @@ FW_ROUTE="yes"
 FW_MASQUERADE="yes"
 FW_FORWARD_MASQ="0/0,10.0.0.1,tcp,80"</pre></div><p>
 
-	</p></td></tr><tr class="question" title="8."><td align="left" valign="top"><a id="id293686"></a><a id="id293689"></a><p><b>8.</b></p></td><td align="left" valign="top"><p>Some service does not work when the firewall is enabled. How do I find out what's wrong?
+	</p></td></tr><tr class="question" title="8."><td align="left" valign="top"><a id="id283931"></a><a id="id283934"></a><p><b>8.</b></p></td><td align="left" valign="top"><p>Some service does not work when the firewall is enabled. How do I find out what's wrong?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
 	  Enable logging of all dropped packets and disable the log limit in
@@ -146,7 +148,7 @@ FW_LOG_LIMIT="no"</pre></div><p>
 	  If everything works again don't forget to set the log options back to
 	  normal to not fill up you log files.
 
-	</p></td></tr><tr class="question" title="9."><td align="left" valign="top"><a id="id273985"></a><a id="id273988"></a><p><b>9.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="9."><td align="left" valign="top"><a id="id283996"></a><a id="id283999"></a><p><b>9.</b></p></td><td align="left" valign="top"><p>
 	  Some web site that offers port scanning claims my system is not
 	  protected properly as it still responds to ICMP echo requests (ping)
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
@@ -155,20 +157,20 @@ FW_LOG_LIMIT="no"</pre></div><p>
 	  seriously impact the ability to track down network problems. It is
 	  therefore not considered nice behaviour for an internet citizen to
 	  drop pings.
-	</p></td></tr><tr class="question" title="10."><td align="left" valign="top"><a id="id274007"></a><a id="id274010"></a><p><b>10.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="10."><td align="left" valign="top"><a id="id284016"></a><a id="id284019"></a><p><b>10.</b></p></td><td align="left" valign="top"><p>
 	  Can't the evil guys detect whether my host is online if it responds
 	  to ICMP echo requests?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 	  Yes but they can detect that anyways. The router at your provider
 	  behaves different depending on whether someone is dialed in or not.
-	</p></td></tr><tr class="question" title="11."><td align="left" valign="top"><a id="id274028"></a><a id="id274030"></a><p><b>11.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="11."><td align="left" valign="top"><a id="id265263"></a><a id="id265265"></a><p><b>11.</b></p></td><td align="left" valign="top"><p>
 	  SuSEfirewall2 drops most packets but it doesn't fully hide the
 	  presence of my machine. Isn't that a security hole?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 	  You machine is never fully invisible, see previous question. The
 	  purpose of dropping packets is not to hide your machine but to slow
 	  down port scans.
-	</p></td></tr><tr class="question" title="12."><td align="left" valign="top"><a id="id274048"></a><a id="id274051"></a><p><b>12.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="12."><td align="left" valign="top"><a id="id265282"></a><a id="id265284"></a><p><b>12.</b></p></td><td align="left" valign="top"><p>
 	  The <code class="literal">ipsec0</code> interface I had with kernel 2.4 is
 	  gone. How do I assign IPsec traffic to a different zone now?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
@@ -184,7 +186,7 @@ FW_SERVICES_EXT_IP="esp"
 FW_SERVICES_EXT_UDP="isakmp"
 FW_PROTECT_FROM_INT="no"</pre></div><p>
 
-	</p></td></tr><tr class="question" title="13."><td align="left" valign="top"><a id="id274099"></a><a id="id274102"></a><p><b>13.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="13."><td align="left" valign="top"><a id="id265329"></a><a id="id265332"></a><p><b>13.</b></p></td><td align="left" valign="top"><p>
 	  Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
@@ -201,4 +203,61 @@ FW_PROTECT_FROM_INT="no"</pre></div><p>
 	  <span class="command"><strong>iptables-store</strong></span> and re-apply them with
 	  <span class="command"><strong>iptables-restore</strong></span>.
 
-	</p></td></tr></tbody></table></div></div></body></html>
+	</p></td></tr><tr class="question" title="14."><td align="left" valign="top"><a id="id265390"></a><a id="id264990"></a><p><b>14.</b></p></td><td align="left" valign="top"><p>
+	  Enabling drbd blocks the boot process. How to get around that?
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  During boot process all incoming traffic is blocked
+	  unconditionally. The very last boot script then sets up
+	  the configured firewall rules. The problem is that drbd
+	  blocks the boot process while waiting for incoming
+	  connection from other nodes. Therefore configuring the
+	  drbd port in <code class="literal">SuSEfirewall2</code> has no
+	  effect.
+
+	</p><div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem"><p>
+	      SLES10
+	    </p><p>
+	      Add a manual iptables call to
+	      <code class="literal">/etc/init.d/boot.local</code>:
+	    </p><div class="informalexample"><pre class="programlisting">iptables -A INPUT -p tcp --dport 7788 -j ACCEPT</pre></div><p>
+
+	    </p></li><li class="listitem"><p>
+	      SLES11, openSUSE &lt;= 11.2
+	    </p><p>
+	      On SLES11 SuSEfirewall2_init is called after
+	      boot.local, therefore the method for SLES10
+	      doesn't work anymore. It's possible to modify the
+	      dependencies of the SuSEfirewall2_setup script to run
+	      before drbd though:
+	      </p><div class="itemizedlist"><ul class="itemizedlist" type="circle"><li class="listitem"><p>
+		    Create the directory
+		    <code class="filename">/etc/insserv/overrides</code>
+		  </p></li><li class="listitem"><p>
+		    Create a new file
+		    <code class="filename">/etc/insserv/overrides/SuSEfirewall2_setup</code>
+		  </p></li><li class="listitem"><p>
+		    Copy the the LSB header (the part between and
+		    including the lines "<code class="literal">### BEGIN INIT
+		      INFO</code>" and "<code class="literal">### END INIT
+		      INFO</code>") from
+		    <code class="filename">/etc/init.d/SuSEfirewall2_setup</code>
+		    to
+		    <code class="filename">/etc/insserv/overrides/SuSEfirewall2_setup</code>
+		  </p></li><li class="listitem"><p>
+		    Replace <code class="literal">$ALL</code> with
+		    <code class="literal">$null</code> and add the following
+		    line:
+		    </p><div class="informalexample"><pre class="programlisting"># X-Start-Before: drbd</pre></div><p>
+
+		  </p></li><li class="listitem"><p>
+		    run <span class="command"><strong>/sbin/insserv</strong></span>
+		  </p></li></ul></div><p>
+
+	    </p></li><li class="listitem"><p>
+	      openSUSE &gt;= 11.3
+	    </p><p>
+	      Configure the open ports for <code class="literal">drbd</code> and set
+	    </p><div class="informalexample"><pre class="programlisting">FW_BOOT_FULL_INIT="yes"</pre></div><p>
+
+	    </p></li></ul></div></td></tr></tbody></table></div></div></body></html>

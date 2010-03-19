@@ -361,6 +361,124 @@ FW_PROTECT_FROM_INT="no"</programlisting>
 
     </qandaentry>
 
+    <qandaentry>
+
+      <question>
+	<para>
+	  Enabling drbd blocks the boot process. How to get around that?
+	</para>
+      </question>
+
+      <answer>
+
+	<para>
+
+	  During boot process all incoming traffic is blocked
+	  unconditionally. The very last boot script then sets up
+	  the configured firewall rules. The problem is that drbd
+	  blocks the boot process while waiting for incoming
+	  connection from other nodes. Therefore configuring the
+	  drbd port in <literal>SuSEfirewall2</literal> has no
+	  effect.
+
+	</para>
+
+	<itemizedlist>
+
+	  <listitem>
+	    <para>
+	      SLES10
+	    </para>
+	    <para>
+	      Add a manual iptables call to
+	      <literal>/etc/init.d/boot.local</literal>:
+	    <informalexample>
+	      <programlisting>iptables -A INPUT -p tcp --dport 7788 -j ACCEPT</programlisting>
+	    </informalexample>
+
+	    </para>
+	  </listitem>
+
+	  <listitem>
+	    <para>
+	      SLES11, openSUSE &lt;= 11.2
+	    </para>
+	    <para>
+	      On SLES11 SuSEfirewall2_init is called after
+	      boot.local, therefore the method for SLES10
+	      doesn't work anymore. It's possible to modify the
+	      dependencies of the SuSEfirewall2_setup script to run
+	      before drbd though:
+	      <itemizedlist>
+
+		<listitem>
+		  <para>
+		    Create the directory
+		    <filename>/etc/insserv/overrides</filename>
+		  </para>
+		</listitem>
+
+		<listitem>
+		  <para>
+		    Create a new file
+		    <filename>/etc/insserv/overrides/SuSEfirewall2_setup</filename>
+		  </para>
+		</listitem>
+
+		<listitem>
+		  <para>
+		    Copy the the LSB header (the part between and
+		    including the lines "<literal>### BEGIN INIT
+		      INFO</literal>" and "<literal>### END INIT
+		      INFO</literal>") from
+		    <filename>/etc/init.d/SuSEfirewall2_setup</filename>
+		    to
+		    <filename>/etc/insserv/overrides/SuSEfirewall2_setup</filename>
+		  </para>
+		</listitem>
+
+		<listitem>
+		  <para>
+		    Replace <literal>$ALL</literal> with
+		    <literal>$null</literal> and add the following
+		    line:
+		    <informalexample>
+		      <programlisting># X-Start-Before: drbd</programlisting>
+		    </informalexample>
+
+		  </para>
+		</listitem>
+
+		<listitem>
+		  <para>
+		    run <command>/sbin/insserv</command>
+		  </para>
+		</listitem>
+
+	      </itemizedlist>
+
+	    </para>
+	  </listitem>
+
+	  <listitem>
+	    <para>
+	      openSUSE &gt;= 11.3
+	    </para>
+	    <para>
+	      Configure the open ports for <literal>drbd</literal> and set
+	    <informalexample>
+	      <programlisting>FW_BOOT_FULL_INIT="yes"</programlisting>
+	    </informalexample>
+
+	    </para>
+	  </listitem>
+
+	</itemizedlist>
+
+      </answer>
+
+    </qandaentry>
+
   </qandaset>
 
 </article>
