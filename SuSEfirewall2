@@ -737,7 +737,7 @@ getdevinfo()
     local dev=
     local d="$1"
     local var="$2"
-    if [ -e /sys/class/net/"$d" ]; then
+    if [ -d /sys/class/net/"$d" ]; then
 	dev="$d"
     else
 	local deprecatediface=
@@ -750,7 +750,7 @@ getdevinfo()
 	    esac
 	fi
 
-	if [ -z "$dev" -o ! -e /sys/class/net/"$dev" ]; then
+	if [ -z "$dev" -o ! -d /sys/class/net/"$dev" ]; then
 	    return 1
 	fi
 	
@@ -874,8 +874,10 @@ source_config_for_iface()
 autodetect_interfaces()
 {
     local d z
-    set -- `cd /sys/class/net; echo *` 2>/dev/null
+    set -- /sys/class/net/*
     for d in "$@"; do
+	test -d "$d" || continue
+	d="${d#/sys/class/net/}"
 	[ -z "$d" -o "$d" = 'lo' -o "$d" = 'sit0' ] && continue
 	d=${d//[^A-Za-z0-9]/_}
 	eval z=\${iface_$d}
