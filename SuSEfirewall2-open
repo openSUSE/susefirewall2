@@ -40,20 +40,23 @@ open(OUT,">$tmpconfig") or die "Unable to open file $tmpconfig";
 
 while(<CONF>)
 {
-	if(/^$var=/)
+	if(/^$var=(['"])?([^'"]*)(['"])?/)
 	{
-		s/^$var=//;
-		my $fc = '';
-		if(/^(['"])/)
+		my @val = split(/\s+/, $2);
+		my $fc = $1 || '"';
+		if ($fc ne ($3 || '"'))
 		{
-			$fc = substr $_, 0, 1;
-			$_ = substr $_, 1;
+			unlink $tmpconfig;
+			die "invalid line $.\n";
 		}
-		foreach my $service (@ARGV)
+		my %new = map { $_ => 1 } @val;
+		for my $service (@ARGV)
 		{
-			$_ = $service.' '.$_ unless ($_ =~ /\W$service\W/)
+			next if $new{$service};
+			$new{$service} = 1;
+			push @val, $service;
 		}
-		print OUT "$var=$fc$_";
+		print OUT "$var=$fc",join(' ',  @val), $fc, "\n";
 	}
 	else
 	{
