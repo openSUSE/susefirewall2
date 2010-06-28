@@ -353,21 +353,24 @@ check_ip6tables_support()
     [ "$IP6TABLES" != ':' ] || return
 
     # Do we have a kernel with IPv6 enabled?
-    $IP6TABLES_BIN -nvL >/dev/null 2>&1 || IP6TABLES=:
-    if ! $IP6TABLES_BIN -m state --help >/dev/null 2>&1 || \
-    ( ! $modinfo ip6t_state >/dev/null 2>&1 && ! $modinfo xt_state >/dev/null 2>&1); then
-	warning "ip6tables does not support state matching. Extended IPv6 support disabled."
-	IP6TABLES_HAVE_STATE=0
-	# reject incoming packets if not specified otherwise
-	[ "$FW_IPv6" != 'no' -a "$FW_IPv6" != 'drop' ] && FW_IPv6='reject'
+    if $IP6TABLES_BIN -nvL >/dev/null 2>&1; then
+	if ! $IP6TABLES_BIN -m state --help >/dev/null; then
+	    warning "ip6tables does not support state matching. Extended IPv6 support disabled."
+	    IP6TABLES_HAVE_STATE=0
+	    # reject incoming packets if not specified otherwise
+	    [ "$FW_IPv6" != 'no' -a "$FW_IPv6" != 'drop' ] && FW_IPv6='reject'
+	fi
+    else
+	IP6TABLES=:
     fi
 
-    $modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
+# assume kernel just supports this nowadays
+#    $modinfo ip6t_REJECT >/dev/null 2>&1 || IP6TABLES_HAVE_REJECT=0
 
-    if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
-	    -a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
-	    warning "Kernel lacks support for IPv6 REJECT target! Using DROP for IPv6 instead."
-    fi
+#    if [ \( "$FW_REJECT" = "yes" -o "$FW_IPv6" = "reject" \) \
+#	    -a "$IP6TABLES_HAVE_REJECT" != 1 ]; then
+#	    warning "Kernel lacks support for IPv6 REJECT target! Using DROP for IPv6 instead."
+#    fi
 }
 
 is_running()

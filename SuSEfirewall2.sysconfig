@@ -999,7 +999,7 @@ FW_HTB_TUNE_DEV=""
 # Disallowing IPv6 packets may lead to long timeouts when connecting to IPv6
 # Adresses. See FW_IPv6_REJECT_OUTGOING to avoid this.
 #
-# Leave empty to automatically detect whether your kernel supports stateful matching.
+# Leave empty to automatically detect whether ip6tables supports stateful matching.
 #
 FW_IPv6=""
 
