@@ -910,7 +910,6 @@ parse_interfaces()
     done
     if [ -z "$FW_ZONE_DEFAULT" ]; then
 	FW_ZONE_DEFAULT='ext'
-	warning "no default firewall zone defined, assuming 'ext'"
     fi
 }
 
