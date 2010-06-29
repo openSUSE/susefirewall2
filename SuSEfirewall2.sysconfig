@@ -508,46 +508,6 @@ FW_SERVICES_ACCEPT_RELATED_INT=""
 FW_TRUSTED_NETS=""
 
 ## Type:	string
-## Default:
-#
-# Specify which ports are allowed to access unprivileged ports (>1023)
-#
-# Format: yes, no or space separated list of ports
-#
-# You may either allow everyone from anyport access to your highports ("yes"),
-# disallow anyone ("no"), anyone who comes from a defined port (portnumber or
-# known portname). Note that this is easy to circumvent! The best choice is to
-# keep this option unset or set to 'no'
-#
-# defaults to "no" if not set (good choice)
-#
-# Note: Use of this variable is deprecated and it will likely be
-# removed in the future. If you think it should be kept please
-# report your use case at
-# http://forge.novell.com/modules/xfmod/project/?susefirewall2
-#
-FW_ALLOW_INCOMING_HIGHPORTS_TCP=""
-
-## Type:	string
-## Default:
-#
-# See FW_ALLOW_INCOMING_HIGHPORTS_TCP
-#
-# defaults to "no" if not set (good choice)
-#
-# Note: Use of this variable is deprecated and it will likely be
-# removed in the future. If you think it should be kept please
-# report your use case at
-# http://forge.novell.com/modules/xfmod/project/?susefirewall2
-#
-# If you use this variable to enable browsing samba/windows shares
-# you most likely have misconfigured your firewall. You should
-# either put the utilized interface into the internal zone or use
-# e.g. FW_SERVICES_ACCEPT_RELATED_EXT
-#
-FW_ALLOW_INCOMING_HIGHPORTS_UDP=""
-
-## Type:	string
 #
 # Which services or networks are allowed to be routed through the
 # firewall, no matter which zone they are in?

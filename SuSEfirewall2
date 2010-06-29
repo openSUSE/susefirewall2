@@ -3,7 +3,7 @@
 # SuSEfirewall2 - stateful packetfilter rules generator
 # Copyright (C) 2000-2002 Marc Heuse <marc@suse.de>
 # Copyright (C) 2003,2004 SUSE Linux AG
-# Copyright (C) 2005-2008 SUSE LINUX Products GmbH
+# Copyright (C) 2005-2010 SUSE LINUX Products GmbH
 #
 # Author:     Marc Heuse
 # Maintainer: Ludwig Nussel
@@ -1799,6 +1799,16 @@ allow_udp_services()
     done
 }
 
+warn_highports()
+{
+    if [ -n "$FW_ALLOW_INCOMING_HIGHPORTS_UDP" ]; then
+	warning "FW_ALLOW_INCOMING_HIGHPORTS_UDP is obsolete, ignored"
+    fi
+    if [ -n "$FW_ALLOW_INCOMING_HIGHPORTS_TCP" ]; then
+	warning "FW_ALLOW_INCOMING_HIGHPORTS_TCP is obsolete, ignored"
+    fi
+}
+
 # redirect packets from one port to another, opens ports in input_*
 redirect_rules()
 {
@@ -2301,6 +2311,8 @@ accept_services
 reject_or_drop_services DROP
 
 reject_or_drop_services REJECT
+
+warn_highports
 
 # HOOK
 fw_custom_before_masq
