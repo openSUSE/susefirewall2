@@ -1735,36 +1735,6 @@ accept_services()
     done
 }
 
-allow_tcp_highports()
-{
-    local j chain
-    for j in $FW_ALLOW_INCOMING_HIGHPORTS_TCP; do
-	case "$j" in
-	[Dd][Nn][Ss]) warning "FW_ALLOW_INCOMING_HIGHPORTS_TCP=DNS is no longer supported" ;;
-	no) ;;
-	yes)
-	    deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_TCP'
-	    for chain in $input_zones; do
-		chain=input_$chain
-		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiTCP " -p tcp --dport 1024: --syn
-		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiTCP " -p tcp --dport 1024:
-		$IPTABLES -A $chain -j "$ACCEPT" -p tcp --dport 1024:
-	    done
-	    break;
-	    ;;
-	*)
-	    deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_TCP'
-	    for chain in $input_zones; do
-		chain=input_$chain
-		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HIGH " -p tcp --sport $j --dport 1024: --syn
-		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HIGH " -p tcp --sport $j --dport 1024:
-		$IPTABLES -A $chain -j "$ACCEPT" -p tcp --sport $j --dport 1024:
-	    done
-	    ;;
-	esac
-    done
-}
-
 allow_rpc_services()
 {
     local zone chain ports
@@ -1826,40 +1796,6 @@ allow_udp_services()
 		$iptables -A $chain -j "$ACCEPT" -p udp --dport $port
 	    done
 	done
-    done
-}
-
-allow_highports_udp()
-{
-    local j chain
-    # checking "yes" in the loop allows you to log individual services plus
-    # allowing all
-    for j in $FW_ALLOW_INCOMING_HIGHPORTS_UDP; do
-	case "$j" in
-	    [Dd][Nn][Ss])
-		    warning "FW_ALLOW_INCOMING_HIGHPORTS_UDP=DNS is no longer supported"
-		    ;;
-	    no) ;;
-	    yes)
-		deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_UDP'
-		for chain in $input_zones; do
-		    chain=input_$chain
-		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m conntrack --ctstate NEW -p udp --dport 1024:
-		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -p udp --dport 1024:
-		    $IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW -p udp --dport 1024:
-		done
-		break;
-		;;
-	    *)
-		deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_UDP'
-		for chain in $input_zones; do
-		    chain=input_$chain
-		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m conntrack --ctstate NEW -p udp --sport $j --dport 1024:
-		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -p udp --sport $j --dport 1024:
-		    $IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW -p udp --sport $j --dport 1024:
-		done
-		;;
-	esac
     done
 }
 
@@ -2365,10 +2301,6 @@ accept_services
 reject_or_drop_services DROP
 
 reject_or_drop_services REJECT
-
-allow_tcp_highports
-
-allow_highports_udp
 
 # HOOK
 fw_custom_before_masq
