@@ -67,7 +67,6 @@ iptables_batch_commitpoint()
 commit_iptables_batch()
 {
     if [ -n "$USE_IPTABLES_BATCH" ]; then
-	message "batch committing..."
 	if ! $IPTABLES_BATCH "$iptables_batchfile"; then
 	    error "iptables-batch failed, re-running using iptables"
 	    iptables() { $IPTABLES_BIN "$@"; }
