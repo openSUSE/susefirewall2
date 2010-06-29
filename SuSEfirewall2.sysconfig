@@ -55,7 +55,6 @@
 ## Path:	Network/Firewall/SuSEfirewall2
 ## Description:	SuSEfirewall2 configuration
 ## Type:	string
-## Default:	any
 #
 # Which are the interfaces that point to the internet/untrusted
 # networks?
@@ -74,7 +73,7 @@
 #
 # Note: alias interfaces (like eth0:1) are ignored
 #
-FW_DEV_EXT="any"
+FW_DEV_EXT=""
 
 ## Type:	string
 #
@@ -111,7 +110,6 @@ FW_DEV_INT=""
 FW_DEV_DMZ=""
 
 ## Type:	yesno
-## Default:	no
 #
 # Should routing between the internet, dmz and internal network be
 # activated?
@@ -131,10 +129,9 @@ FW_DEV_DMZ=""
 #
 # defaults to "no" if not set
 #
-FW_ROUTE="no"
+FW_ROUTE=""
 
 ## Type:	yesno
-## Default:	no
 #
 # Do you want to masquerade internal networks to the outside?
 #
@@ -149,10 +146,9 @@ FW_ROUTE="no"
 #
 # defaults to "no" if not set
 #
-FW_MASQUERADE="no"
+FW_MASQUERADE=""
 
 ## Type:	string
-## Default:     zone:ext
 #
 # You also have to define on which interfaces to masquerade on.
 # Those are usually the same as the external interfaces. Most users
@@ -167,10 +163,9 @@ FW_MASQUERADE="no"
 #
 # Examples: "ippp0", "zone:ext"
 #
-FW_MASQ_DEV="zone:ext"
+FW_MASQ_DEV=""
 
 ## Type:	string
-## Default:	0/0
 #
 # Which internal computers/networks are allowed to access the
 # internet via masquerading (not via proxys on the firewall)?
@@ -193,10 +188,9 @@ FW_MASQ_DEV="zone:ext"
 #             with the exception of 10.0.0.8 which will not be
 #             masqueraded.
 #           
-FW_MASQ_NETS="0/0"
+FW_MASQ_NETS=""
 
 ## Type:	string
-## Default:	0/0
 #
 # Which computers/networks to exclude from masquerading.
 #
@@ -238,7 +232,7 @@ FW_NOMASQ_NETS=""
 #
 # see also FW_REJECT_INT
 # 
-FW_PROTECT_FROM_INT="no"
+FW_PROTECT_FROM_INT=""
 
 ## Type:	string
 #
@@ -622,7 +616,6 @@ FW_FORWARD_MASQ=""
 FW_REDIRECT=""
 
 ## Type:	yesno
-## Default:	yes
 #
 # Which kind of packets should be logged?
 #
@@ -635,7 +628,6 @@ FW_REDIRECT=""
 FW_LOG_DROP_CRIT=""
 
 ## Type:	yesno
-## Default:	no
 #
 # whether all dropped packets should be logged
 #
@@ -647,19 +639,18 @@ FW_LOG_DROP_CRIT=""
 FW_LOG_DROP_ALL=""
 
 ## Type:	yesno
-## Default:	yes
 #
 # When set to "yes", packages that got accepted and are considered
 # 'critical' will be logged. Such packets include for example tcp
-# connection requests, rpc connection requests, access to high
-# udp/tcp port and forwarded pakets.
+# connection requests, rpc connection requests and forwarded pakets.
+#
+# Set to "no" for on systems with high traffic
 #
 # defaults to "yes" if not set
 #
 FW_LOG_ACCEPT_CRIT=""
 
 ## Type:	yesno
-## Default:	no
 #
 # whether all accepted packets should be logged
 #
@@ -698,7 +689,6 @@ FW_LOG_LIMIT=""
 FW_LOG=""
 
 ## Type:	yesno
-## Default:	yes
 #
 # Do you want to enable additional kernel TCP/IP security features?
 # If set to yes, some obscure kernel options are set.
@@ -714,29 +704,26 @@ FW_LOG=""
 #
 # Choice: "yes" or "no", if not set defaults to "yes"
 #
-FW_KERNEL_SECURITY="yes"
+FW_KERNEL_SECURITY=""
 
 ## Type:	yesno
-## Default:	no
 #
 # Keep the routing set on, if the firewall rules are unloaded?
 # REQUIRES: FW_ROUTE
 #
 # Choices "yes" or "no", if not set defaults to "no"
 #
-FW_STOP_KEEP_ROUTING_STATE="no"
+FW_STOP_KEEP_ROUTING_STATE=""
 
 ## Type:	yesno
-## Default:	yes
 #
 # Allow the firewall to reply to icmp echo requests
 #
-# defaults to "no" if not set
+# defaults to "yes" if not set
 #
-FW_ALLOW_PING_FW="yes"
+FW_ALLOW_PING_FW=""
 
 ## Type:	yesno
-## Default:	no
 #
 # Allow hosts in the dmz to be pinged from hosts in other zones even
 # if neither FW_FORWARD nor FW_MASQUERADE is set
@@ -745,10 +732,9 @@ FW_ALLOW_PING_FW="yes"
 #
 # defaults to "no" if not set
 #
-FW_ALLOW_PING_DMZ="no"
+FW_ALLOW_PING_DMZ=""
 
 ## Type:	yesno
-## Default:	no
 #
 # Allow hosts in the external zone to be pinged from hosts in other
 # zones even if neither FW_FORWARD nor FW_MASQUERADE is set
@@ -757,10 +743,9 @@ FW_ALLOW_PING_DMZ="no"
 #
 # defaults to "no" if not set
 #
-FW_ALLOW_PING_EXT="no"
+FW_ALLOW_PING_EXT=""
 
 ## Type:	yesno
-## Default:	yes
 #
 # Allow ICMP sourcequench from your ISP?
 #
@@ -830,7 +815,7 @@ FW_ALLOW_FW_BROADCAST_DMZ=""
 #
 #
 # defaults to "no" if not set
-FW_IGNORE_FW_BROADCAST_EXT="yes"
+FW_IGNORE_FW_BROADCAST_EXT=""
 
 ## Type:	string
 #
@@ -843,7 +828,6 @@ FW_IGNORE_FW_BROADCAST_INT=""
 FW_IGNORE_FW_BROADCAST_DMZ=""
 
 ## Type:	list(yes,no,int,ext,dmz,)
-## Default:	no
 #
 # Specifies whether routing between interfaces of the same zone should be allowed
 # Requires: FW_ROUTE="yes"
@@ -875,7 +859,6 @@ FW_ALLOW_CLASS_ROUTING=""
 FW_CUSTOMRULES=""
 
 ## Type:	yesno
-## Default:	no
 #
 # Do you want to REJECT packets instead of DROPing?
 #
@@ -894,7 +877,6 @@ FW_CUSTOMRULES=""
 FW_REJECT=""
 
 ## Type:	yesno
-## Default:	no
 #
 # see FW_REJECT for description
 #
@@ -902,7 +884,7 @@ FW_REJECT=""
 # portscans is not strictly required in the internal zone even if
 # you protect yourself from the internal zone 
 #
-FW_REJECT_INT="yes"
+FW_REJECT_INT=""
 
 ## Type:	string
 #
@@ -999,7 +981,6 @@ FW_IPv6_REJECT_OUTGOING=""
 FW_IPSEC_TRUST=""
 
 ## Type:	string
-## Default:	
 #
 # Define additional firewall zones
 #
@@ -1018,7 +999,6 @@ FW_IPSEC_TRUST=""
 FW_ZONES=""
 
 ## Type:	string(no,auto)
-## Default:	
 #
 # Set default firewall zone
 #
@@ -1038,7 +1018,7 @@ FW_ZONES=""
 # was run to the default zone. Normally SuSEfirewall2 needs to be
 # run if new interfaces appear to avoid such unknown interfaces.
 #
-# Default to 'auto' if not set
+# Defaults to 'auto' if not set
 #
 FW_ZONE_DEFAULT=''
 
@@ -1062,7 +1042,6 @@ FW_ZONE_DEFAULT=''
 FW_USE_IPTABLES_BATCH=""
 
 ## Type:	string
-## Default:	
 #
 # Which additional kernel modules to load at startup
 #
@@ -1092,7 +1071,6 @@ FW_LOAD_MODULES=
 FW_FORWARD_ALWAYS_INOUT_DEV=
 
 ## Type:	string
-## Default:
 #
 # Whether traffic that is only bridged but not routed should be
 # allowed. Such packets appear to pass though the forward chain so
@@ -1112,7 +1090,6 @@ FW_FORWARD_ALWAYS_INOUT_DEV=
 FW_FORWARD_ALLOW_BRIDGING=
 
 ## Type:	yesno
-## Default:	yes
 #
 # Write status information to /var/run/SuSEfirewall2/status for use
 # by e.g. graphical user interfaces. Can safely be disabled on
@@ -1123,7 +1100,6 @@ FW_FORWARD_ALLOW_BRIDGING=
 FW_WRITE_STATUS=
 
 ## Type:	yesno
-## Default:	yes
 #
 # Allow dynamic configuration overrides in
 # /var/run/SuSEfirewall2/override for use by e.g. graphical user
@@ -1134,7 +1110,6 @@ FW_WRITE_STATUS=
 FW_RUNTIME_OVERRIDE=
 
 ## Type:	yesno
-## Default:	yes
 #
 # Install NOTRACK target for interface lo in the raw table. Doing so
 # speeds up packet processing on the loopback interface. This breaks
@@ -1146,7 +1121,6 @@ FW_RUNTIME_OVERRIDE=
 FW_LO_NOTRACK=
 
 ## Type:	yesno
-## Default:	no
 #
 # Specifies whether /etc/init.d/SuSEfirewall2_init should install the
 # full rule set already. Default is to just install minimum rules

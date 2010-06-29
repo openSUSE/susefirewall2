@@ -154,8 +154,29 @@ need()
     . "$SCRIPTSDIR/SuSEfirewall2-$1"
 }
 
+set_defaults()
+{
+    local dir file line var val
+    for dir in "${DEFAULTSDIR[@]}"; do
+	for file in "$dir"/*.cfg; do
+	    test -r "$file" || continue
+	    # we can't just source it as this would override config settings
+	    while read line; do
+		[ "$line" = "${line#\#}" ] || continue
+		var="${line%%=*}"
+		[ "$var" = ${var//[^A-Za-z0-9]/_} ] || continue
+		eval val=\"\$$var\"
+		if [ -z "$val" ]; then
+		    eval "$line"
+		fi
+	    done < "$file"
+	done
+    done
+}
+
 CONFIGURATIONSDIR_0="/etc/sysconfig/SuSEfirewall2.d/services"
 CONFIGURATIONSDIR_1="/usr/share/SuSEfirewall2/services"
+DEFAULTSDIR=("/etc/sysconfig/SuSEfirewall2.d/defaults" "/usr/share/SuSEfirewall2/defaults")
 SCRIPTSDIR="/etc/sysconfig/scripts"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
 LOCKFILE="/var/lock/SuSEfirewall2.pid"
@@ -247,6 +268,8 @@ if [ -r "$FWCONFIG" ]; then
 elif [ -n "$needconfig" ]; then
     die 6 " Can not read $FWCONFIG"
 fi
+
+set_defaults
 
 if [ -z "$USE_IPTABLES_BATCH" ]; then
     case "$FW_USE_IPTABLES_BATCH" in
@@ -693,7 +716,7 @@ function set_basic_rules()
 	    $LAA $IP6TABLES -A INPUT ${LOG}"-IN-ACC-ICMP " -p icmpv6 --icmpv6-type $itype
 	    $IP6TABLES -A INPUT -j "$ACCEPT" -p icmpv6 --icmpv6-type $itype
 	done
-	if [ "$FW_ALLOW_PING_FW" = yes ]; then
+	if [ "$FW_ALLOW_PING_FW" != no ]; then
 	    $LAA $IP6TABLES -A INPUT ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request
 	    $IP6TABLES -A INPUT -j "$ACCEPT" -p icmpv6 --icmpv6-type echo-request
 	fi
@@ -1498,7 +1521,7 @@ allow_icmp()
 	done
     fi
 
-    if [ "$FW_ALLOW_PING_FW" = yes ]; then
+    if [ "$FW_ALLOW_PING_FW" != no ]; then
 	for chain in $input_zones; do
 	    chain=input_$chain
 	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request
