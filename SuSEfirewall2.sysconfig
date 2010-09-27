@@ -313,7 +313,7 @@ FW_SERVICES_EXT_RPC=""
 # FW_SERVICES_$zone_$protocol, ie has precedence over
 # FW_SERVICES_ACCEPT_*
 #
-# Example: "samba-server nfs-server"
+# Example: "samba-server nfs-kernel-server"
 FW_CONFIGURATIONS_EXT=""
 
 ## Type:	string
