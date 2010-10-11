@@ -1414,8 +1414,6 @@ finish_chains()
 	    $iptables -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
 	fi
 
-	$iptables -A OUTPUT -j ACCEPT -m conntrack --ctstate NEW,ESTABLISHED,RELATED
-	$LDAC $iptables -A OUTPUT ${LOG}"-OUT-ERROR " 
 	# we want to let locally generated packets out since our task is not
 	# to protect the world from us, but protect us from the world ;)
 	# policy is ACCEPT $iptables -A OUTPUT -j ACCEPT
