@@ -11,7 +11,7 @@
 ### BEGIN INIT INFO
 # Provides: SuSEfirewall2_setup
 # Required-Start: SuSEfirewall2_init $network $remote_fs
-# Should-Start:   $ALL
+# Should-Start:   $ALL network-remotefs ypbind nfs nfsserver rpcbind
 # Required-Stop:  $remote_fs
 # Should-Stop:    $null
 # Default-Start:  3 4 5
