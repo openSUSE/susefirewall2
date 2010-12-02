@@ -36,9 +36,8 @@ rc_reset
 
 case "$1" in
     start)
-	echo -n "Starting Firewall Initialization "
+	echo -n "Loading basic firewall rules "
 	if test -x /usr/sbin/iptables; then
-		echo -n '(phase 1 of 2) '
 		/bin/rm -rf /var/run/SuSEfirewall2
 		$SUSEFWALL --bootlock -q $startmode
 	else

@@ -31,17 +31,24 @@ rc_reset
 
 case "$1" in
     start)
-	echo -n "Starting Firewall Initialization "
-	echo -n '(phase 2 of 2) '
+	echo -n "Loading firewall rules "
 	$SUSEFWALL -q --bootunlock start
 	rc_status -v
 	;;
     stop)
-	echo -n "Shutting down the Firewall "
-	if [ -z "$REDIRECT" ]; then
+	if [ -e /sys/fs/cgroup/systemd ]; then
+		# when using systemd we don't know whether we are
+		# called due to shutdown of the machine. So we can't
+		# unload rules here. Call /sbin/SuSEfirewall2
+		# directly instead to unload rules.
+		echo -n "Not unloading firewall rules when using systemd "
+		rc_status -s
+	elif [ -z "$REDIRECT" ]; then
+		echo -n "Unloading firewall rules"
 		$SUSEFWALL -q stop
 		rc_status -v
 	else
+		echo -n "Not unloading firewall rules at system shutdown"
 		rc_status -s
 	fi
 	;;
