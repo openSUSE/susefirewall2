@@ -57,22 +57,29 @@ sub dnsresolve($)
 
 my $hostname = hostname;
 
-my ($sflog,$src,$dst,$spt,$dpt,$interface,$proto);
+my ($dir, $zone, $sflog,$src,$dst,$spt,$dpt,$interface,$proto);
 
 format STDOUT =
-@<<<<<<<<<<<<<<< @<<<<<< @>>>>>>>>>>>>>>>>>>>>>>>>>>>@<<<<< @|||||| @>>>>>>>>>>>>>>>>>>>>>>>>>>>@<<<<<
-$sflog,         $proto, $src,                        $spt,  $interface, $dst,$dpt
+@< @<<<< @<<<<<<<<< @<<<<<< @>>>>>>>>>>>>>>>>>>>>>>>>>>>@<<<<< @|||||| @>>>>>>>>>>>>>>>>>>>>>>>>>>>@<<<<<
+$dir, $zone, $sflog,         $proto, $src,                        $spt,  $interface, $dst,$dpt
 .
 
 while(<>)
 {
-    next unless /^.*$hostname kernel: SFW2/;
+    next unless s/^.*$hostname kernel: (?:\[.*\] )?//;
     chomp;
-    s/^.*$hostname kernel: //;
     s/OPT \((.*)\)/OPT=$1/;
     my @arr = split(/ /);
-    $sflog = shift @arr;
-    $sflog =~ s/^SFW2-//;
+    if ($arr[0] =~ s/^SFW2-//) {
+	$sflog = shift @arr;
+	if ($sflog =~ /(IN|OUT)([^-]*)-(.*)/) {
+	    $dir = ($1 eq 'IN')?'i':(($1 eq 'OUT')?'o':'?');
+	    $zone = $2;
+	    $sflog = $3;
+	}
+    } else {
+	$sflog = $dir = '?';
+    }
 
     my %tags = map { my @a = split(/=/,$_,2); $a[0] => $a[1]; } @arr;
 
@@ -99,8 +106,8 @@ while(<>)
 
     $spt = ' '.$tags{TYPE} if ($proto =~ /ICMP.*/);
 
-    $src =~ s/(.*):.*:.*:.*:(.*:.*:.*:.*)/$1...$2/;
-    $dst =~ s/(.*):.*:.*:.*:(.*:.*:.*:.*)/$1...$2/;
+    $src =~ s/:(0000:)+/::/;
+    $dst =~ s/:(0000:)+/::/;
 
     write;
 }
