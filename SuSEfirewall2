@@ -581,15 +581,14 @@ function load_modules()
 
 function rulelog()
 {
-    rule=$1
-    case $rule in
-	input_*)
-		echo IN${rule#input_}
-		;;
-	forward_*)
-		echo FWD${rule#forward_}
-		;;
-    esac	
+    local chain="$1"
+    if [ "$chain" != "${chain#input_}" ]; then
+	chain="IN${chain#input_}"
+    else
+	chain="FWD${chain#forward_}"
+    fi
+    # cut off too long strings (bnc#644527)
+    echo "${chain:0:11}"
 }
 
 
@@ -1514,7 +1513,7 @@ allow_icmp()
     if [ "$FW_ALLOW_FW_SOURCEQUENCH" != "no" ]; then
 	for chain in $input_zones; do
 	    chain=input_$chain
-	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-SOURCEQUENCH "  -p icmp --icmp-type source-quench
+	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-SQUENCH "  -p icmp --icmp-type source-quench
 	    $IPTABLES -A $chain -j "$ACCEPT" -p icmp --icmp-type source-quench
 	done
     fi
