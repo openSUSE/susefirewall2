@@ -21,7 +21,7 @@
 
 set -e
 
-unset ${!LC_*} LANUGUAGE
+unset ${!LC_*} LANGUAGE
 export LANG=POSIX
 
 export PATH=/sbin:/usr/sbin:/usr/bin:/bin

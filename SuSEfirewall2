@@ -71,8 +71,8 @@ Options:
   help    this output
   open    open the specified services in the specified zone. You need to
           restart SuSEfirewall2 for changes to take effect.
-  on      add SuSEfirwall2 initscripts to boot process and start
-  off     remove SuSEfirwall2 initscripts from boot process and stop
+  on      add SuSEfirewall2 initscripts to boot process and start
+  off     remove SuSEefirwall2 initscripts from boot process and stop
 
   file FILENAME  same as "start" but load alternate config file FILENAME
 
@@ -129,7 +129,7 @@ deprecated()
 {
     warning "$@ is deprecated and will likely be removed in the future."
     warning "If you think it should be kept please report your use case at"
-    warning "http://forge.novell.com/modules/xfmod/project/?susefirewall2"
+    warning "https://features.opensuse.org/"
 }
 
 error()
