@@ -517,8 +517,12 @@ FW_TRUSTED_NETS=""
 #
 #  If the protocol is icmp then port is interpreted as icmp type
 #
-#  The only flag currently supported is 'ipsec' which means to only
-#  match packets that originate from an IPsec tunnel
+#  flags, separated by comma:
+#    ipsec:
+#       match packets that originate from an IPsec tunnel
+#    zonein=ZONE, zoneout=ZONE:
+#       match only packets coming in/going out on interfaces from
+#       the specified zone.
 #
 # Examples: - "1.1.1.1,2.2.2.2" allow the host 1.1.1.1 to access any
 #             service on the host 2.2.2.2

@@ -1175,13 +1175,39 @@ set_proc_stuff()
 create_chains()
 {
     local iptables
+    local zone target
     for iptables in "$IPTABLES" "$IP6TABLES"; do
-	for TARGET in input forward; do
-	    for CHAIN in $all_zones; do
-		$iptables -N ${TARGET}_${CHAIN}
+	for target in input forward; do
+	    for zone in $all_zones; do
+		$iptables -N ${target}_${zone}
 	    done
 	done
     done
+}
+
+# accept a packet coming from ext zone:
+#  create_cond_chain ACCEPT in ext
+# reject paket leaving int zone:
+#  create_cond_chain REJECT out int
+create_cond_chain()
+{
+    local iptables dir
+    local zone target chain chain devs
+    local check
+    target="$1"
+    dir="$2"
+    zone="$3"
+    chain="${target}_if_${dir}_${zone}"
+    eval check=\"\$${chain}_created\"
+    [ -z "$check" ] || return
+    eval devs="\$FW_DEV_$zone"
+    for iptables in "$IPTABLES" "$IP6TABLES"; do
+	$iptables -N $chain
+	for dev in $devs; do
+	    $iptables -A $chain -j $target -i $dev
+	done
+    done
+    eval ${chain}_created=1
 }
 
 ### configurations ###
@@ -1914,6 +1940,7 @@ allow_related_forward_icmp()
 forwarding_rules()
 {
     local nets net1 net2 flags more_args_in more_args_out chain iptables var services
+    local zone zonein zoneout
     local target="$1"
     if [ "$target" = ACCEPT ]; then
 	var="FW_FORWARD"
@@ -1928,22 +1955,25 @@ forwarding_rules()
 	net2="$2"
 	proto="$3"
 	port="$4"
-	flags="$5"
+	shift; shift; shift; shift
 	rport=""
 	more_args_in=
 	more_args_out=
+	zonein=
+	zoneout=
 
-	case "$flags" in
-	    "") ;;
-	    ipsec)
-		more_args_in="$IPSEC_INPUT_MATCH"
-		more_args_out="$IPSEC_OUTPUT_MATCH"
-		;;
-	    *)
-		echo "Error: unsupported flag in FW_FORWARD: $flags"
-		net1=""
-		;;
-	esac
+	while [ "$#" -gt 0 ]; do
+	    case "$1" in
+		ipsec)
+		    more_args_in="$IPSEC_INPUT_MATCH"
+		    more_args_out="$IPSEC_OUTPUT_MATCH"
+		    ;;
+		zonein=*) zonein="${1#*=}" ;;
+		zoneout=*) zoneout="${1#*=}" ;;
+		*) error "unknown parameter $1 in FW_FORWARD -> $1"; net1= ;;
+	    esac
+	    shift
+	done
 
 	if ! check_proto_port "$proto" "$port" '' "FW_FORWARD"; then
 	    continue
@@ -1955,17 +1985,38 @@ forwarding_rules()
 	    else
 		iptables=$IPTABLES
 	    fi
-	    for chain in $forward_zones; do
-		chain=forward_$chain
-		$LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port -m conntrack --ctstate NEW $more_args_in
-		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port $more_args_in
-		$iptables -A $chain -j "$target" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_in
-		$iptables -A $chain -j "$target" -m conntrack --ctstate ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_in
+	    for zone in $forward_zones; do
+		chain=forward_$zone
+		set -- $iptables -A $chain -s $net1 -d $net2 $proto $more_args_in
+		if [ -z "$zonein" -o "$zonein" = "$zone" ]; then
+		    if [ -n "$zoneout" ]; then
+			create_cond_chain "$target" "out" "$zoneout"
+			jt=${target}_if_out_$zoneout
+		    else
+			jt="$target"
+		    fi
+		    $LAC "$@" ${LOG}"-`rulelog $chain`-${target:0:3}-FORW " $port -m conntrack --ctstate NEW $more_args_in
+		    $LAA "$@" ${LOG}"-`rulelog $chain`-${target:0:3}-FORW " $port $more_args_in
+		    "$@" -j "$jt" -m conntrack --ctstate NEW,ESTABLISHED,RELATED $port
+		fi
+		if [ -z "$zoneout" -o "$zoneout" = "$zone" ]; then
+		    if [ -n "$zonein" ]; then
+			create_cond_chain "$target" "in" "$zonein"
+			jt=${target}_if_in_$zonein
+		    else
+			jt="$target"
+		    fi
+		    "$@" -j "$jt" -m conntrack --ctstate ESTABLISHED,RELATED $rport
+		fi
 		if [ -n "$more_args_out" ]; then
-		    $LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port -m conntrack --ctstate NEW $more_args_out
-		    $LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port $more_args_out
-		    $iptables -A $chain -j "$target" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_out
-		    $iptables -A $chain -j "$target" -m conntrack --ctstate ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_out
+		    if [ -z "$zonein" -o "$zonein" = "$zone" ]; then
+			$LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port -m conntrack --ctstate NEW $more_args_out
+			$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port $more_args_out
+		    fi
+		    if [ -z "$zoneout" -o "$zoneout" = "$zone" ]; then
+			$iptables -A $chain -j "$target" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_out
+			$iptables -A $chain -j "$target" -m conntrack --ctstate ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_out
+		    fi
 		fi
 	    done
 	else
