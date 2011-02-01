@@ -63,6 +63,31 @@ foreach my $service (@ARGV)
     }
 }
 
+# {
+#    'status' => 104,
+# }
+my %rpcusers;
+for my $file (qw(/usr/share/SuSEfirewall2/rpcusers /etc/sysconfig/SuSEfirewall2.d/rpcusers)) {
+    next unless open(F, '<', $file);
+    while (<F>) {
+	chomp;
+	s/#.*//;
+	next if /^ *$/;
+	my $uid;
+	my ($service, $user) = split(/\s+/, $_, 2);
+	unless (defined $service && defined $user) {
+	    print STDERR "$file:$. syntax error\n";
+	    next;
+	}
+	$uid = getpwnam($user);
+	unless (defined $uid) {
+	    print STDERR "$file:$. invalid user name: $user\n";
+	    next;
+	}
+	$rpcusers{$service} = $uid;
+    }
+}
+
 my %udpports = ();
 my %tcpports = ();
 
@@ -100,17 +125,22 @@ sub getportsfor($$)
     {
 	chomp;
 	my @line = split;
-	next if($line[7] != 0); # only root allowed
 	my ($addr, $port) = split(/:/, $line[1], 2);
 	$port = pack('H*', $port); # "007B" => "\x00\x7B"
 	$port = unpack('n', $port); # "\x00\x7B" => 0x007B
-	if(exists $href->{$port})
+	my $service = $href->{$port} || undef;
+	next unless $service;
+
+	my $uid = $line[7];
+	if ($uid && !($rpcusers{$service} && $uid == $rpcusers{$service})) {
+	    print STDERR "$service/$proto doesn't run as root, ignored.\n";
+	    next;
+	}
+
+	++$ret;
+	foreach my $h (@{$services{$service}})
 	{
-	    ++$ret;
-	    foreach my $h (@{$services{$href->{$port}}})
-	    {
-		push @{$h->{$proto}}, $port;
-	    }
+	    push @{$h->{$proto}}, $port;
 	}
     }
     close FILE;

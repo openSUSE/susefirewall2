@@ -1,0 +1,6 @@
+# don't edit this file,
+# use /etc/sysconfig/SuSEfirewall2.d/rpcusers instead
+# format:
+# service  username
+
+status    statd
