@@ -2094,6 +2094,8 @@ masquerading_rules()
 }
 
 # <source network>,<ip to forward to>,<protocol>,<port>[,redirect port,[destination ip]]
+# XXX: really stupid syntax. That one would be more obvious:
+# <source network>,<destination>,<protocol>,<port>,<ip to forward to>,<redirect port>
 forward_masquerading_rules()
 {
     local nets net1 net2 proto port1 port2 lip

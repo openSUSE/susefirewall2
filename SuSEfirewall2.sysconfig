@@ -118,8 +118,10 @@ FW_DEV_DMZ=""
 # machines or allow access to the dmz (or internal machines, but
 # this is not a good idea).
 # 
-# This option overrides IP_FORWARD from
-# /etc/sysconfig/network/options
+# This option overrides IP_FORWARD from /etc/sysconfig/sysctl and
+# net.ipv4.ip_forward settings in /etc/sysctl.conf
+# Note: IPv4 only. The IPv6 forwarding sysctl has to be turned on
+# manually.
 #
 # Setting this option one alone doesn't do anything. Either activate
 # masquerading with FW_MASQUERADE below if you want to masquerade
@@ -157,11 +159,13 @@ FW_MASQUERADE=""
 # The special string "zone:" concatenated with the name of a zone
 # means to take all interfaces in the specified zone.
 #
-# Old version of SuSEfirewall2 used a shell variable ($FW_DEV_EXT)
-# here. That method is deprecated as it breaks auto detection of
-# interfaces. Please use zone:ext instead.
+# Note: Old version of SuSEfirewall2 used a shell variable
+# ($FW_DEV_EXT) here. That method is deprecated as it breaks auto
+# detection of interfaces. Please use zone:ext instead.
 #
-# Examples: "ippp0", "zone:ext"
+# Examples: "ippp0", "zone:dmz"
+#
+# defaults to "zone:ext" if not set
 #
 FW_MASQ_DEV=""
 
@@ -591,8 +595,8 @@ FW_FORWARD_DROP=""
 #             address 202.202.202.202 on port 80 will be forwarded
 #             to the internal server 10.0.0.10 on port 81
 #
-# Note: du to inconsitent iptables behaviour only port numbers are possible but
-# no service names (https://bugzilla.netfilter.org/bugzilla/show_bug.cgi?id=273)
+# Note: du to inconsistent iptables behaviour only port numbers are possible
+# but no service names (http://bugzilla.netfilter.org/show_bug.cgi?id=273)
 #
 FW_FORWARD_MASQ=""
 
@@ -712,10 +716,14 @@ FW_KERNEL_SECURITY=""
 
 ## Type:	yesno
 #
-# Keep the routing set on, if the firewall rules are unloaded?
-# REQUIRES: FW_ROUTE
+# Whether ip routing should be disabled when the firewall is shut
+# down.
+# 
+# Note: IPv4 only, IPv6 sysctls are left untouched
 #
-# Choices "yes" or "no", if not set defaults to "no"
+# Requires: FW_ROUTE
+#
+# defaults to "no" if not set
 #
 FW_STOP_KEEP_ROUTING_STATE=""
 
