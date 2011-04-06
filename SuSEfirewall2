@@ -1987,7 +1987,7 @@ forwarding_rules()
 	    fi
 	    for zone in $forward_zones; do
 		chain=forward_$zone
-		set -- $iptables -A $chain -s $net1 -d $net2 $proto $more_args_in
+		set -- $iptables -A $chain $proto $more_args_in
 		if [ -z "$zonein" -o "$zonein" = "$zone" ]; then
 		    if [ -n "$zoneout" ]; then
 			create_cond_chain "$target" "out" "$zoneout"
@@ -1995,9 +1995,9 @@ forwarding_rules()
 		    else
 			jt="$target"
 		    fi
-		    $LAC "$@" ${LOG}"-`rulelog $chain`-${target:0:3}-FORW " $port -m conntrack --ctstate NEW $more_args_in
-		    $LAA "$@" ${LOG}"-`rulelog $chain`-${target:0:3}-FORW " $port $more_args_in
-		    "$@" -j "$jt" -m conntrack --ctstate NEW,ESTABLISHED,RELATED $port
+		    $LAC "$@" -s $net1 -d $net2 ${LOG}"-`rulelog $chain`-${target:0:3}-FORW " $port -m conntrack --ctstate NEW $more_args_in
+		    $LAA "$@" -s $net1 -d $net2 ${LOG}"-`rulelog $chain`-${target:0:3}-FORW " $port $more_args_in
+		    "$@" -s $net1 -d $net2 -j "$jt" -m conntrack --ctstate NEW,ESTABLISHED,RELATED $port
 		fi
 		if [ -z "$zoneout" -o "$zoneout" = "$zone" ]; then
 		    if [ -n "$zonein" ]; then
@@ -2006,7 +2006,7 @@ forwarding_rules()
 		    else
 			jt="$target"
 		    fi
-		    "$@" -j "$jt" -m conntrack --ctstate ESTABLISHED,RELATED $rport
+		    "$@" -s $net2 -d $net1 -j "$jt" -m conntrack --ctstate ESTABLISHED,RELATED $rport
 		fi
 		if [ -n "$more_args_out" ]; then
 		    if [ -z "$zonein" -o "$zonein" = "$zone" ]; then
