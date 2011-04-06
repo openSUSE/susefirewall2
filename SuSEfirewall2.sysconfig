@@ -372,7 +372,7 @@ FW_CONFIGURATIONS_INT=""
 
 ## Type: string
 #
-# Packets to silently drop without log message
+# Packets to drop.
 #
 # Format: space separated list of net,protocol[,port][,sport]
 # Example: "0/0,tcp,445 0/0,udp,4662"
@@ -380,6 +380,9 @@ FW_CONFIGURATIONS_INT=""
 # The special value _rpc_ is recognized as protocol and means that dport is
 # interpreted as rpc service name. See FW_SERVICES_EXT_RPC for
 # details.
+#
+# Note: In older SuSEfirewall2 version this setting took place after
+# FW_SERVICES_ACCEPT_*, not it takes precedence.
 #
 FW_SERVICES_DROP_EXT=""
 
@@ -396,9 +399,9 @@ FW_SERVICES_DROP_INT=""
 ## Type: string
 ## Default:
 #
-# Packets to silently reject without log message. Common usage is
-# TCP port 113 which if dropped would cause long timeouts when
-# sending mail or connecting to IRC servers.
+# Packets to reject. Common usage is TCP port 113 which if dropped
+# would cause long timeouts when sending mail or connecting to IRC
+# servers.
 #
 # Format: space separated list of net,protocol[,dport][,sport]
 # Example: "0/0,tcp,113"
@@ -406,6 +409,9 @@ FW_SERVICES_DROP_INT=""
 # The special value _rpc_ is recognized as protocol and means that dport is
 # interpreted as rpc service name. See FW_SERVICES_EXT_RPC for
 # details.
+#
+# Note: In older SuSEfirewall2 version this setting took place after
+# FW_SERVICES_ACCEPT_*, not it takes precedence.
 #
 FW_SERVICES_REJECT_EXT=""
 

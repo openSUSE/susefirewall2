@@ -2369,6 +2369,12 @@ fw_custom_before_port_handling
 
 process_trusted_nets
 
+if [ "$FW_LEGACY_ACCEPT_FIRST" != 'yes' ]; then
+    reject_or_drop_services DROP
+
+    reject_or_drop_services REJECT
+fi
+
 allow_related
 
 allow_ip_services
@@ -2381,9 +2387,11 @@ allow_rpc_services
 
 accept_services
 
-reject_or_drop_services DROP
+if [ "$FW_LEGACY_ACCEPT_FIRST" = 'yes' ]; then
+    reject_or_drop_services DROP
 
-reject_or_drop_services REJECT
+    reject_or_drop_services REJECT
+fi
 
 warn_highports
 
