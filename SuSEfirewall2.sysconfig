@@ -660,7 +660,7 @@ FW_LOG_DROP_ALL=""
 #
 # Set to "no" for on systems with high traffic
 #
-# defaults to "yes" if not set
+# defaults to "no" if not set
 #
 FW_LOG_ACCEPT_CRIT=""
 

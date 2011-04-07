@@ -443,7 +443,7 @@ parse_logging()
 
     if [ "$FW_LOG_ACCEPT_ALL" != yes ]; then
 	LAA=":"
-	if [ "$FW_LOG_ACCEPT_CRIT" = no ]; then
+	if [ "$FW_LOG_ACCEPT_CRIT" != yes ]; then
 	    LAC=":"
 	    LAAC=":"
 	fi
