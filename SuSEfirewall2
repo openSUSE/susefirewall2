@@ -1204,7 +1204,7 @@ create_cond_chain()
     for iptables in "$IPTABLES" "$IP6TABLES"; do
 	$iptables -N $chain
 	for dev in $devs; do
-	    $iptables -A $chain -j $target -i $dev
+	    $iptables -A $chain -j $target -${dir:0:1} $dev
 	done
     done
     eval ${chain}_created=1
@@ -2001,8 +2001,8 @@ forwarding_rules()
 		fi
 		if [ -z "$zoneout" -o "$zoneout" = "$zone" ]; then
 		    if [ -n "$zonein" ]; then
-			create_cond_chain "$target" "in" "$zonein"
-			jt=${target}_if_in_$zonein
+			create_cond_chain "$target" "out" "$zonein"
+			jt=${target}_if_out_$zonein
 		    else
 			jt="$target"
 		    fi
