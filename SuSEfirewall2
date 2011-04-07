@@ -1871,15 +1871,21 @@ redirect_rules()
 	
 	if [ -n "$6" ]; then
 	    error "Too many arguments in FW_REDIRECT -> $nets"
-	elif [ -z "$net1" -o -z "$net2" -o -z "$proto" -o -z "$port1" -o -z "$port2" ]; then
+	elif [ -z "$net1" -o -z "$net2" -o -z "$proto" ]; then
 	    error "Missing parameter in FW_REDIRECT -> $nets"
 	elif [ "$proto" != tcp -a "$proto" != udp ]; then
 	    error "FW_REDIRECT supports only tcp and udp -> $nets"
 	else
+	    if [ -n "$port1" ]; then
+		port1="--dport $port1"
+	    fi
+	    if [ -n "$port2" ]; then
+		port2="--to-ports $port2"
+	    fi
 	    net1=${net1/\!/\! }
 	    net2=${net2/\!/\! }
-	    $IPTABLES -A PREROUTING -t mangle -j MARK  -p $proto -s $net1 -d $net2 --dport $port1 --set-mark $mark_redir
-	    $IPTABLES -A PREROUTING -t nat -j REDIRECT -p $proto -s $net1 -d $net2 --dport $port1 --to-ports $port2
+	    $IPTABLES -A PREROUTING -t mangle -j MARK  -p $proto -s $net1 -d $net2 $port1 --set-mark $mark_redir
+	    $IPTABLES -A PREROUTING -t nat -j REDIRECT -p $proto -s $net1 -d $net2 $port1 $port2
 	    redirectinstalled=1
 	fi
     done
