@@ -2270,6 +2270,7 @@ if [ "$ACTION" = "stop" ]; then
     reset_rules
     clear_qdisc_settings
     handle_initscripts
+    rm -rf "$STATUSDIR"/{override,status}
     [ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
     die 0 "Firewall rules unloaded."
 fi
