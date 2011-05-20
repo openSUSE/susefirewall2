@@ -14,7 +14,4 @@ FAQ.html:
 
 links: EXAMPLES.html FAQ.html README.html
 
-sync:
-	rsync -rptLvP susebooks.css {README,FAQ,EXAMPLES}.html forgeftp.novell.com:susefirewall2/web
-
-.PHONY: links sync
+.PHONY: links
