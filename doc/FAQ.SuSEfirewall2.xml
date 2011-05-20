@@ -320,10 +320,9 @@ FW_PROTECT_FROM_INT="no"</programlisting>
 
       <question>
 	<para>
-	  My wireless LAN network interface is configured for the
-	  external zone. Sometimes I need to connect to trusted
-	  networks that offer e.g. printing or file sharing. How can
-	  I solve that without opening ports in the external zone?
+	  I need to connect to differntly trusted networks, e.g. to
+	  use printing or file sharing. How can I solve that without
+	  opening ports in the external zone?
 	</para>
       </question>
 
@@ -336,6 +335,30 @@ FW_PROTECT_FROM_INT="no"</programlisting>
 	    Zone Switcher applet</ulink> allows desktop users to
 	  switch zones with only few mouse clicks. It's included in
 	  openSUSE since version 11.2.
+
+	</para>
+
+      </answer>
+
+    </qandaentry>
+
+    <qandaentry>
+
+      <question>
+	<para>
+	  I'm executing an external script from within <literal>FW_CUSTOMRULES</literal> but the rules my script installs vanish.
+	</para>
+      </question>
+
+      <answer>
+
+	<para>
+
+	  When <literal>FW_USE_IPTABLES_BATCH</literal> is on (which
+	  is the default) the <command>iptables</command> command is
+	  an alias that doesn't exist outside the script context of
+	  SuSEfirewall2. So either must source your script or set
+	  <literal>FW_USE_IPTABLES_BATCH="no"</literal>
 
 	</para>
 
