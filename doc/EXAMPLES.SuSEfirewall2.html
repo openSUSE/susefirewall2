@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SuSEfirewall2 configuration examples</title><link rel="stylesheet" href="susebooks.css" type="text/css" /><meta name="generator" content="DocBook XSL Stylesheets V1.75.2" /></head><body><div class="article" title="SuSEfirewall2 configuration examples"><div class="titlepage"><div><div><h2 class="title"><a id="id311990"></a>SuSEfirewall2 configuration examples</h2></div></div><hr /></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="section"><a href="#id273963">1. Simple dialup</a></span></dt><dt><span class="section"><a href="#id273986">2. Small home network</a></span></dt><dt><span class="section"><a href="#id274007">3. Small home network with additional WLAN</a></span></dt><dt><span class="section"><a href="#id274029">4. Small company with external mail and web server</a></span></dt><dt><span class="section"><a href="#id274860">5. Company with IPsec tunnel to subsidiary</a></span></dt><dt><span class="section"><a href="#id293728">6. Company with web server in DMZ</a></span></dt><dt><span class="section"><a href="#id293690">7. Complex scenario</a></span></dt><dt><span class="section"><a href="#id274298">8. Laptop in private network but with additional public IP adresses</a></span></dt></dl></div><div class="important" title="Important" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Important</h3><p>
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SuSEfirewall2 configuration examples</title><link rel="stylesheet" href="susebooks.css" type="text/css" /><meta name="generator" content="DocBook XSL Stylesheets V1.75.2" /></head><body><div class="article" title="SuSEfirewall2 configuration examples"><div class="titlepage"><div><div><h2 class="title"><a id="id265940"></a>SuSEfirewall2 configuration examples</h2></div></div><hr /></div><div class="toc"><p><b>Table of Contents</b></p><dl><dt><span class="section"><a href="#id265976">1. Simple dialup</a></span></dt><dt><span class="section"><a href="#id284314">2. Small home network</a></span></dt><dt><span class="section"><a href="#id284333">3. Small home network with additional WLAN</a></span></dt><dt><span class="section"><a href="#id284353">4. Small company with external mail and web server</a></span></dt><dt><span class="section"><a href="#id284381">5. Company with IPsec tunnel to subsidiary</a></span></dt><dt><span class="section"><a href="#id282086">6. Company with web server in DMZ</a></span></dt><dt><span class="section"><a href="#id294413">7. Complex scenario</a></span></dt><dt><span class="section"><a href="#id266790">8. Laptop in private network but with additional public IP adresses</a></span></dt></dl></div><div class="important" title="Important" style="margin-left: 0.5in; margin-right: 0.5in;"><h3 class="title">Important</h3><p>
       All options <span class="emphasis"><em>not</em></span> mentioned in a scenario should be
       left as they are in the default
       <code class="filename">sysconfig/SuSEfirewall2</code> config file.
       Backup default config:
       <code class="filename">/usr/share/doc/packages/SuSEfirewall2/SuSEfirewall2.sysconfig</code>
-    </p></div><div class="section" title="1.&#xA0;Simple dialup"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id273963"></a>1. Simple dialup</h2></div></div></div><p>
+    </p></div><div class="section" title="1. Simple dialup"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id265976"></a>1. Simple dialup</h2></div></div></div><p>
       A user with his nice SUSE Linux PC wants to be protected when connected to
       the internet via the ISDN dialup of his ISP. He wants to offer no
       services to the internet. He is not connected to any other network, nor
@@ -15,7 +15,7 @@
       </p><div class="informalexample"><pre class="programlisting">
 FW_DEV_EXT="ippp0"</pre></div><p>
 
-    </p></div><div class="section" title="2.&#xA0;Small home network"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id273986"></a>2. Small home network</h2></div></div></div><p>
+    </p></div><div class="section" title="2. Small home network"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id284314"></a>2. Small home network</h2></div></div></div><p>
       A family owns multiple PCs, a SUSE Linux PC is connected to the internet
       via DSL. The family's LAN uses private IPs therefore masquerading has to
       be used. The Firewall provides no services whatsoever. The address of the
@@ -27,7 +27,7 @@ FW_ROUTE="yes"
 FW_MASQUERADE="yes"
 FW_MASQ_NETS="192.168.10.0/24"</pre></div><p>
 
-    </p></div><div class="section" title="3.&#xA0;Small home network with additional WLAN"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id274007"></a>3. Small home network with additional WLAN</h2></div></div></div><p>
+    </p></div><div class="section" title="3. Small home network with additional WLAN"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id284333"></a>3. Small home network with additional WLAN</h2></div></div></div><p>
       Same network as above but additionally the Firewall is also connected to
       a wireless network. Hosts in the wireless network should get internet
       access but are not allowed to communicate with the internal network. The
@@ -41,7 +41,7 @@ FW_ROUTE="yes"
 FW_MASQUERADE="yes"
 FW_MASQ_NETS="192.168.10.0/24 192.168.20.0/24"</pre></div><p>
 
-    </p></div><div class="section" title="4.&#xA0;Small company with external mail and web server"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id274029"></a>4. Small company with external mail and web server</h2></div></div></div><p>
+    </p></div><div class="section" title="4. Small company with external mail and web server"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id284353"></a>4. Small company with external mail and web server</h2></div></div></div><p>
       A company uses it's SUSE Linux PC to access the internet via an ISDN
       dialup of it's ISP. It has got a static IP address and a web server
       running on the PC plus it's mail-/pop3-server for the company. Squid is
@@ -56,7 +56,7 @@ FW_SERVICES_INT_TCP="smtp domain www pop3 3128"
 FW_SERVICES_INT_UDP="domain"
 FW_PROTECT_FROM_INT="yes"</pre></div><p>
 
-    </p></div><div class="section" title="5.&#xA0;Company with IPsec tunnel to subsidiary"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id274860"></a>5. Company with IPsec tunnel to subsidiary</h2></div></div></div><p>
+    </p></div><div class="section" title="5. Company with IPsec tunnel to subsidiary"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id284381"></a>5. Company with IPsec tunnel to subsidiary</h2></div></div></div><p>
       A small company wants access to the internet for it's client PCs.
       Additionally the subsidiariaries client PCs should get access to the
       local network through an IPsec tunnel. Internet traffic should be
@@ -83,7 +83,7 @@ FW_MASQ_NETS="0/0,!192.168.1.0/24</pre></div><p>
 	  flow.
 	</p></div><p>
 
-    </p></div><div class="section" title="6.&#xA0;Company with web server in DMZ"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id293728"></a>6. Company with web server in DMZ</h2></div></div></div><p>
+    </p></div><div class="section" title="6. Company with web server in DMZ"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id282086"></a>6. Company with web server in DMZ</h2></div></div></div><p>
 
     This company has got a more complex setup:
 
@@ -149,7 +149,7 @@ FW_ALLOW_PING_DMZ="yes"</pre></div><p>
 	target port of 53 (DNS) or 25 (Mail) to the local servers on the
 	firewall.
 
-      </p></div><div class="section" title="7.&#xA0;Complex scenario"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id293690"></a>7. Complex scenario</h2></div></div></div><p>
+      </p></div><div class="section" title="7. Complex scenario"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id294413"></a>7. Complex scenario</h2></div></div></div><p>
 
 	</p><pre class="screen">
 Internet
@@ -207,7 +207,7 @@ FW_FORWARD="10.0.1.0/24,10.0.2.0/24,tcp 10.0.1.0/24,10.0.10.2,tcp,22"
 # internet access to web server and trusted company access to internal Server
 FW_FORWARD_MASQ="0/0,10.0.10.2,tcp,80 0/0,10.0.10.2,tcp,443 \
 192.168.1.0/24,10.0.2.3,tcp,22"</pre></div><p>
-    </p></div><div class="section" title="8.&#xA0;Laptop in private network but with additional public IP adresses"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id274298"></a>8. Laptop in private network but with additional public IP adresses</h2></div></div></div><p>
+    </p></div><div class="section" title="8. Laptop in private network but with additional public IP adresses"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id266790"></a>8. Laptop in private network but with additional public IP adresses</h2></div></div></div><p>
 
       </p><pre class="screen">
 Internet

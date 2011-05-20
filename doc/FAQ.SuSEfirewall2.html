@@ -1,30 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SuSEfirewall2 FAQ</title><link rel="stylesheet" href="susebooks.css" type="text/css" /><meta name="generator" content="DocBook XSL Stylesheets V1.75.2" /></head><body><div class="article" title="SuSEfirewall2 FAQ"><div class="titlepage"><div><div><h2 class="title"><a id="id301529"></a>SuSEfirewall2 FAQ</h2></div></div><hr /></div><div class="qandaset" title="Frequently Asked Questions"><a id="id301543"></a><dl><dt>1. <a href="#id301545">
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SuSEfirewall2 FAQ</title><link rel="stylesheet" href="susebooks.css" type="text/css" /><meta name="generator" content="DocBook XSL Stylesheets V1.75.2" /></head><body><div class="article" title="SuSEfirewall2 FAQ"><div class="titlepage"><div><div><h2 class="title"><a id="id265940"></a>SuSEfirewall2 FAQ</h2></div></div><hr /></div><div class="qandaset" title="Frequently Asked Questions"><a id="id265953"></a><dl><dt>1. <a href="#id265955">
 	  Why is communication between two interfaces in the same zone not working?
-	</a></dt><dt>2. <a href="#id265830">Some service does not work when the firewall is enabled. How do I find out what's wrong?
-	</a></dt><dt>3. <a href="#id297412">
+	</a></dt><dt>2. <a href="#id284299">Some service does not work when the firewall is enabled. How do I find out what's wrong?
+	</a></dt><dt>3. <a href="#id284177">
 	  Some web site that offers port scanning claims my system is not
 	  protected properly as it still responds to ICMP echo requests (ping)
-	</a></dt><dt>4. <a href="#id304338">
+	</a></dt><dt>4. <a href="#id300911">
 	  Can't the evil guys detect whether my host is online if it responds
 	  to ICMP echo requests?
-	</a></dt><dt>5. <a href="#id305185">
+	</a></dt><dt>5. <a href="#id287255">
 	  SuSEfirewall2 drops most packets but it doesn't fully hide the
 	  presence of my machine. Isn't that a security hole?
-	</a></dt><dt>6. <a href="#id292467">
+	</a></dt><dt>6. <a href="#id283023">
 	  The ipsec0 interface I had with kernel 2.4 is
 	  gone. How do I assign IPsec traffic to a different zone now?
-	</a></dt><dt>7. <a href="#id300867">
+	</a></dt><dt>7. <a href="#id296343">
 	  Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
-	</a></dt><dt>8. <a href="#id283911">
+	</a></dt><dt>8. <a href="#id284377">
 	  Enabling drbd blocks the boot process. How to get around that?
-	</a></dt><dt>9. <a href="#id265332">
-	  My wireless LAN network interface is configured for the
-	  external zone. Sometimes I need to connect to trusted
-	  networks that offer e.g. printing or file sharing. How can
-	  I solve that without opening ports in the external zone?
-	</a></dt></dl><table border="0" width="100%" summary="Q and A Set"><col align="left" width="1%" /><col /><tbody><tr class="question" title="1."><td align="left" valign="top"><a id="id301545"></a><a id="id301547"></a><p><b>1.</b></p></td><td align="left" valign="top"><p>
+	</a></dt><dt>9. <a href="#id265660">
+	  I need to connect to differntly trusted networks, e.g. to
+	  use printing or file sharing. How can I solve that without
+	  opening ports in the external zone?
+	</a></dt><dt>10. <a href="#id265685">
+	  I'm executing an external script from within FW_CUSTOMRULES but the rules my script installs vanish.
+	</a></dt></dl><table border="0" width="100%" summary="Q and A Set"><col align="left" width="1%" /><col /><tbody><tr class="question" title="1."><td align="left" valign="top"><a id="id265955"></a><a id="id265958"></a><p><b>1.</b></p></td><td align="left" valign="top"><p>
 	  Why is communication between two interfaces in the same zone not working?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
@@ -35,7 +36,7 @@
 	  traffic with <code class="varname">FW_FORWARD</code>. Keep in mind that this
 	  affects all interfaces in all zones.
 
-	</p></td></tr><tr class="question" title="2."><td align="left" valign="top"><a id="id265830"></a><a id="id265832"></a><p><b>2.</b></p></td><td align="left" valign="top"><p>Some service does not work when the firewall is enabled. How do I find out what's wrong?
+	</p></td></tr><tr class="question" title="2."><td align="left" valign="top"><a id="id284299"></a><a id="id284301"></a><p><b>2.</b></p></td><td align="left" valign="top"><p>Some service does not work when the firewall is enabled. How do I find out what's wrong?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
 	  Enable logging of all dropped packets and disable the log limit in
@@ -63,7 +64,7 @@ FW_LOG_LIMIT="no"</pre></div><p>
 	  If everything works again don't forget to set the log options back to
 	  normal to not fill up you log files.
 
-	</p></td></tr><tr class="question" title="3."><td align="left" valign="top"><a id="id297412"></a><a id="id291503"></a><p><b>3.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="3."><td align="left" valign="top"><a id="id284177"></a><a id="id298654"></a><p><b>3.</b></p></td><td align="left" valign="top"><p>
 	  Some web site that offers port scanning claims my system is not
 	  protected properly as it still responds to ICMP echo requests (ping)
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
@@ -72,20 +73,20 @@ FW_LOG_LIMIT="no"</pre></div><p>
 	  seriously impact the ability to track down network problems. It is
 	  therefore not considered nice behaviour for an internet citizen to
 	  drop pings.
-	</p></td></tr><tr class="question" title="4."><td align="left" valign="top"><a id="id304338"></a><a id="id292572"></a><p><b>4.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="4."><td align="left" valign="top"><a id="id300911"></a><a id="id280233"></a><p><b>4.</b></p></td><td align="left" valign="top"><p>
 	  Can't the evil guys detect whether my host is online if it responds
 	  to ICMP echo requests?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 	  Yes but they can detect that anyways. The router at your provider
 	  behaves different depending on whether someone is dialed in or not.
-	</p></td></tr><tr class="question" title="5."><td align="left" valign="top"><a id="id305185"></a><a id="id302781"></a><p><b>5.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="5."><td align="left" valign="top"><a id="id287255"></a><a id="id304035"></a><p><b>5.</b></p></td><td align="left" valign="top"><p>
 	  SuSEfirewall2 drops most packets but it doesn't fully hide the
 	  presence of my machine. Isn't that a security hole?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 	  You machine is never fully invisible, see previous question. The
 	  purpose of dropping packets is not to hide your machine but to slow
 	  down port scans.
-	</p></td></tr><tr class="question" title="6."><td align="left" valign="top"><a id="id292467"></a><a id="id293084"></a><p><b>6.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="6."><td align="left" valign="top"><a id="id283023"></a><a id="id297483"></a><p><b>6.</b></p></td><td align="left" valign="top"><p>
 	  The <code class="literal">ipsec0</code> interface I had with kernel 2.4 is
 	  gone. How do I assign IPsec traffic to a different zone now?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
@@ -101,7 +102,7 @@ FW_SERVICES_EXT_IP="esp"
 FW_SERVICES_EXT_UDP="isakmp"
 FW_PROTECT_FROM_INT="no"</pre></div><p>
 
-	</p></td></tr><tr class="question" title="7."><td align="left" valign="top"><a id="id300867"></a><a id="id292485"></a><p><b>7.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="7."><td align="left" valign="top"><a id="id296343"></a><a id="id292896"></a><p><b>7.</b></p></td><td align="left" valign="top"><p>
 	  Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
@@ -117,7 +118,7 @@ FW_PROTECT_FROM_INT="no"</pre></div><p>
 	  <code class="literal">iptables-restore</code> natively to be able to
 	  easily fall back to individual <code class="literal">iptables</code>
 	  calls in case of error.
-	</p></td></tr><tr class="question" title="8."><td align="left" valign="top"><a id="id283911"></a><a id="id283913"></a><p><b>8.</b></p></td><td align="left" valign="top"><p>
+	</p></td></tr><tr class="question" title="8."><td align="left" valign="top"><a id="id284377"></a><a id="id284379"></a><p><b>8.</b></p></td><td align="left" valign="top"><p>
 	  Enabling drbd blocks the boot process. How to get around that?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
@@ -174,16 +175,25 @@ FW_PROTECT_FROM_INT="no"</pre></div><p>
 	      Configure the open ports for <code class="literal">drbd</code> and set
 	    </p><div class="informalexample"><pre class="programlisting">FW_BOOT_FULL_INIT="yes"</pre></div><p>
 
-	    </p></li></ul></div></td></tr><tr class="question" title="9."><td align="left" valign="top"><a id="id265332"></a><a id="id265334"></a><p><b>9.</b></p></td><td align="left" valign="top"><p>
-	  My wireless LAN network interface is configured for the
-	  external zone. Sometimes I need to connect to trusted
-	  networks that offer e.g. printing or file sharing. How can
-	  I solve that without opening ports in the external zone?
+	    </p></li></ul></div></td></tr><tr class="question" title="9."><td align="left" valign="top"><a id="id265660"></a><a id="id265662"></a><p><b>9.</b></p></td><td align="left" valign="top"><p>
+	  I need to connect to differntly trusted networks, e.g. to
+	  use printing or file sharing. How can I solve that without
+	  opening ports in the external zone?
 	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
 
 	  The <a class="ulink" href="http://lizards.opensuse.org/2009/08/28/firewall-zone-switcher-updated/" target="_top">Firewall
 	    Zone Switcher applet</a> allows desktop users to
 	  switch zones with only few mouse clicks. It's included in
 	  openSUSE since version 11.2.
+
+	</p></td></tr><tr class="question" title="10."><td align="left" valign="top"><a id="id265685"></a><a id="id265687"></a><p><b>10.</b></p></td><td align="left" valign="top"><p>
+	  I'm executing an external script from within <code class="literal">FW_CUSTOMRULES</code> but the rules my script installs vanish.
+	</p></td></tr><tr class="answer"><td align="left" valign="top"></td><td align="left" valign="top"><p>
+
+	  When <code class="literal">FW_USE_IPTABLES_BATCH</code> is on (which
+	  is the default) the <span class="command"><strong>iptables</strong></span> command is
+	  an alias that doesn't exist outside the script context of
+	  SuSEfirewall2. So either must source your script or set
+	  <code class="literal">FW_USE_IPTABLES_BATCH="no"</code>
 
 	</p></td></tr></tbody></table></div></div></body></html>
