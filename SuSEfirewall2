@@ -840,6 +840,7 @@ fw_custom_after_antispoofing() { true; }
 fw_custom_before_port_handling() { true; }
 fw_custom_before_masq() { true; }
 fw_custom_before_denyall() { true; }
+fw_custom_after_finished() { true; }
 
 evaluateinterfaces()
 {
@@ -2441,6 +2442,9 @@ fi
 [ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
 
 handle_initscripts
+
+# HOOK
+fw_custom_after_finished
 
 # END #
 die 0 "Firewall rules successfully set"

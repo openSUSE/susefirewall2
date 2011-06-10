@@ -70,3 +70,9 @@ fw_custom_before_denyall() { # could also be named "after_forwardmasq()"
 
     true
 }
+
+fw_custom_after_finished() {
+    # these are the rules to be loaded after the firewall is fully configured
+
+    true
+}
