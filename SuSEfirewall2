@@ -1407,6 +1407,10 @@ fork_to_chains()
 		# already have rules for that
 		continue
 	    fi
+	    if [ -n "$FW_ZONE_DEFAULT" -a "$FW_ZONE_DEFAULT" = "$zone" ]; then
+		# default rule will catch it
+		continue
+	    fi
 	    eval devs="\$FW_DEV_$zone"
 	    for dev in $devs; do
 		$iptables -A INPUT -j input_$zone -i $dev
