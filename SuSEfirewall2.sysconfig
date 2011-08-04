@@ -1142,7 +1142,7 @@ FW_LO_NOTRACK=
 #
 # Specifies whether /etc/init.d/SuSEfirewall2_init should install the
 # full rule set already. Default is to just install minimum rules
-# that block incoming traffic. Set to "yes" if you user services
+# that block incoming traffic. Set to "yes" if you use services
 # such as drbd that require open ports during boot already. 
 #
 # Defaults to "no" if not set
