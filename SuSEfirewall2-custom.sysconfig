@@ -7,12 +7,18 @@
 # ------------------------------------------------------------------------
 #
 # This is file is for SuSEfirewall2 and is an example for using
-# the hooks which are supplied to load customized ipchains rules.
+# the hooks which are supplied to load customized iptables rules.
 #
 # THERE IS NO HELP FOR USING HOOKS EXCEPT THIS FILE ! SO READ CAREFULLY !
 # IT IS USEFUL TO CROSS-READ /sbin/SuSEfirewall2 TO SEE HOW HOOKS WORK !
 #
 # ------------------------------------------------------------------------
+#
+# Note: always use iptables resp ip6tables without path. You are not actually
+# calling the binary here. SuSEfirewall2 internally defines an alias to
+# collect all rules and apply them in batch later. Set
+# FW_USE_IPTABLES_BATCH="no" if you need the rules to be applied
+# immediately.
 
 fw_custom_after_chain_creation() {
     # these rules will be loaded after the various input_* and forward_* chains
