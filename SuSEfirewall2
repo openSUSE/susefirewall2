@@ -546,7 +546,13 @@ reset_rules() {
     $IPTABLES -P OUTPUT $policy_output
     $IPTABLES -P FORWARD $policy_forward
     # yes we need cat for /proc
-    for i in `sort < /proc/net/ip_tables_names`; do
+    local names
+    if [ -r /proc/net/ip_tables_names ]; then
+	names=`sort < /proc/net/ip_tables_names`
+    else
+	names="filter nat raw"
+    fi
+    for i in $names; do
 	$IPTABLES -t $i -F
 	$IPTABLES -t $i -X
     done
@@ -554,7 +560,12 @@ reset_rules() {
 	$IP6TABLES -P INPUT $policy_input
 	$IP6TABLES -P OUTPUT $policy_output
 	$IP6TABLES -P FORWARD $policy_forward
-	for i in `sort /proc/net/ip6_tables_names`; do
+	if [ -r /proc/net/ip6_tables_names ]; then
+	    names=`sort < /proc/net/ip6_tables_names`
+	else
+	    names="filter nat raw"
+	fi
+	for i in $names; do
 	    $IP6TABLES -t $i -F
 	    $IP6TABLES -t $i -X
 	done
