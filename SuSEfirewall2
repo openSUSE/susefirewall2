@@ -962,8 +962,8 @@ autodetect_interfaces()
 		error "invalid zone '$z' specified for interface '$d'"
 	    fi
 	elif [ -n "$FW_ZONE_DEFAULT" -a "$FW_ZONE_DEFAULT" != 'no' ]; then
-	    message "using default zone '$FW_ZONE_DEFAULT' for interface $d"
-	    z="$FW_ZONE_DEFAULT"
+	    z=${FW_ZONE_DEFAULT//[^A-Za-z0-9]/_}
+	    message "using default zone '$z' for interface $d"
 	    eval FW_DEV_$z="\"\$FW_DEV_$z \$d\""
 	    #" fix vim syntax
 	    eval iface_$d=$z
