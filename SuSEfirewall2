@@ -997,7 +997,8 @@ write_interface_status()
 	    rm -rf "$STATUSDIR/status/interfaces/$d"
 	else
 	    eval local seen_$d=1
-	    echo $z > "$STATUSDIR/status/interfaces/$d/zone"
+	    echo $z > "$STATUSDIR/status/interfaces/$d/.zone.new"
+	    mv "$STATUSDIR/status/interfaces/$d/.zone.new" "$STATUSDIR/status/interfaces/$d/zone"
 	fi
     done
     for d in ${!iface_*}; do
@@ -1005,7 +1006,8 @@ write_interface_status()
 	d=${d#iface_}
 	eval [ -n "\"\$seen_$d\"" ] && continue
 	mkdir "$STATUSDIR/status/interfaces/$d"
-	echo $z > "$STATUSDIR/status/interfaces/$d/zone"
+	echo $z > "$STATUSDIR/status/interfaces/$d/.zone.new"
+	mv "$STATUSDIR/status/interfaces/$d/.zone.new" "$STATUSDIR/status/interfaces/$d/zone"
     done
 }
 
