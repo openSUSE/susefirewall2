@@ -382,7 +382,7 @@ FW_CONFIGURATIONS_INT=""
 # details.
 #
 # Note: In older SuSEfirewall2 version this setting took place after
-# FW_SERVICES_ACCEPT_*, not it takes precedence.
+# FW_SERVICES_ACCEPT_*, now it takes precedence.
 #
 FW_SERVICES_DROP_EXT=""
 
@@ -411,7 +411,7 @@ FW_SERVICES_DROP_INT=""
 # details.
 #
 # Note: In older SuSEfirewall2 version this setting took place after
-# FW_SERVICES_ACCEPT_*, not it takes precedence.
+# FW_SERVICES_ACCEPT_*, now it takes precedence.
 #
 FW_SERVICES_REJECT_EXT=""
 
