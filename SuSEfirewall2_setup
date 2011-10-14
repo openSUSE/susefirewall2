@@ -36,14 +36,16 @@ case "$1" in
 	rc_status -v
 	;;
     stop)
+	called_manually=''
 	if [ -e /sys/fs/cgroup/systemd ]; then
-		# when using systemd we don't know whether we are
-		# called due to shutdown of the machine. So we can't
-		# unload rules here. Call /sbin/SuSEfirewall2
-		# directly instead to unload rules.
-		echo -n "Not unloading firewall rules when using systemd "
-		rc_status -s
+		# XXX: find a better way to check whether shutdown is in progress
+		if ! systemctl --no-pager --full --all  list-units | grep -q 'basic\.target.*active.*stop'; then
+			called_manually=yes
+		fi
 	elif [ -z "$REDIRECT" ]; then
+		called_manually=yes
+	fi
+	if [ "$called_manually" = yes ]; then
 		echo -n "Unloading firewall rules"
 		$SUSEFWALL -q stop
 		rc_status -v
