@@ -26,6 +26,7 @@ SUSEFWALL="/sbin/SuSEfirewall2"
 
 test -x $SUSEFWALL || exit 5
 
+test "$1" != 'status' || SYSTEMD_NO_WRAP=1 # bnc#727445
 . /etc/rc.status
 rc_reset
 
