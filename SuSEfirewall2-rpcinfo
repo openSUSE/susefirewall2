@@ -92,7 +92,7 @@ my %udpports = ();
 my %tcpports = ();
 
 # collect registered rpc services
-open (RPCINFO, '/usr/sbin/rpcinfo -p localhost|') or die;
+open (RPCINFO, '/sbin/rpcinfo -p localhost|') or die;
 <RPCINFO>; # header line
 while(<RPCINFO>)
 {
