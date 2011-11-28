@@ -1873,10 +1873,34 @@ warn_highports()
     fi
 }
 
+# construct -s/-d pairs with correct negation
+net2srcdst()
+{
+	local name="$1"
+	local value=${2#\!}
+	if [ -z "$value" ]; then
+		echo "${name}_src="
+		echo "${name}_dst="
+		echo "${name}_neg="
+		return
+	fi
+	local neg=
+	if [ "$2" != "$value" ]; then
+		neg='! '
+		echo "${name}_neg=1"
+	else
+		echo "${name}_neg="
+	fi
+	echo "${name}_src=\"$neg-s $value\""
+	echo "${name}_dst=\"$neg-d $value\""
+}
+
 # redirect packets from one port to another, opens ports in input_*
 redirect_rules()
 {
-    local chain nets net1 net2 proto port1 port2
+    local chain nets proto port1 port2
+    local net1 net1_neg net1_src net1_dst
+    local net2 net2_neg net2_src net2_dst
     local redirectinstalled
     for nets in $FW_REDIRECT; do
 	IFS=, eval set -- \$nets
@@ -1900,10 +1924,10 @@ redirect_rules()
 	    if [ -n "$port2" ]; then
 		port2="--to-ports $port2"
 	    fi
-	    net1=${net1/\!/\! }
-	    net2=${net2/\!/\! }
-	    $IPTABLES -A PREROUTING -t mangle -j MARK  -p $proto -s $net1 -d $net2 $port1 --set-mark $mark_redir
-	    $IPTABLES -A PREROUTING -t nat -j REDIRECT -p $proto -s $net1 -d $net2 $port1 $port2
+	    eval `net2srcdst net1 "$net1"`
+	    eval `net2srcdst net2 "$net2"`
+	    $IPTABLES -A PREROUTING -t mangle -j MARK  -p $proto $net1_src $net2_dst $port1 --set-mark $mark_redir
+	    $IPTABLES -A PREROUTING -t nat -j REDIRECT -p $proto $net1_src $net2_dst $port1 $port2
 	    redirectinstalled=1
 	fi
     done
@@ -2051,7 +2075,9 @@ forwarding_rules()
 
 masquerading_rules()
 {
-    local nets net1 net2 proto port dev snet2 sport
+    local nets proto port dev sport
+    local net1 net1_neg net1_src net1_dst
+    local net2 net2_neg net2_src net2_dst
     local szone dzone sdev sdevs
     local z d
     local var='FW_NOMASQ_NETS'
@@ -2073,20 +2099,14 @@ masquerading_rules()
 	elif [ -z "$net1" ]; then
 	    error "source network must not be empty in $var -> $nets"
 	elif check_proto_port "$proto" "$port" '' "$var"; then
-	    net1=${net1/\!/\! }
-	    net2=${net2/\!/\! }
-	    snet2=""
-	    if [ -n "$net2" ]; then
-		snet2="-s $net2"
-		net2="-d $net2"
-	    fi
-
+	    eval `net2srcdst net1 "$net1"`
+	    eval `net2srcdst net2 "$net2"`
 	    for dev in $FW_MASQ_DEV; do
 		d=${dev//[^A-Za-z0-9]/_}
 		eval z=\${iface_$d}
 
 		if [ "$var" = "FW_NOMASQ_NETS" ]; then # cheap hack
-		    $IPTABLES -A POSTROUTING -j ACCEPT -t nat -s $net1 $net2 $proto $port -o $dev
+		    $IPTABLES -A POSTROUTING -j ACCEPT -t nat $net1_src $net2_dst $proto $port -o $dev
 		    continue
 		fi
 
@@ -2099,19 +2119,19 @@ masquerading_rules()
 			    [ "$sdev" = "$dev" ] && continue
 			    if [ "forward_$z" != "$dzone" ]; then
 				#echo "$dzone: $sdev ($szone) -> $dev ($z)"
-				$LAA $IPTABLES -A $dzone ${LOG}"-`rulelog $dzone`-ACC-MASQ "  -s $net1 $net2 $proto $port -i $sdev -o $dev
-				$IPTABLES -A $dzone -j "$ACCEPT" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net1 $net2 $proto $port -i $sdev -o $dev
+				$LAA $IPTABLES -A $dzone ${LOG}"-`rulelog $dzone`-ACC-MASQ "  $net1_src $net2_dst $proto $port -i $sdev -o $dev
+				$IPTABLES -A $dzone -j "$ACCEPT" -m conntrack --ctstate NEW,ESTABLISHED,RELATED $net1_src $net2_dst $proto $port -i $sdev -o $dev
 			    else
 				#echo "$dzone: $sdev ($szone) <- $dev ($z)"
 				# we need to allow the replies as well
-				$LAA $IPTABLES -A $dzone -d $net1 $snet2 $proto $rport -i $dev -o $sdev ${LOG}"-`rulelog $dzone`-ACC-MASQ " -m conntrack --ctstate ESTABLISHED,RELATED
-				$IPTABLES -A $dzone -d $net1 $snet2 $proto $rport -i $dev -o $sdev -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED,RELATED
+				$LAA $IPTABLES -A $dzone $net1_dst $net2_src $proto $rport -i $dev -o $sdev ${LOG}"-`rulelog $dzone`-ACC-MASQ " -m conntrack --ctstate ESTABLISHED,RELATED
+				$IPTABLES -A $dzone $net1_dst $net2_src $proto $rport -i $dev -o $sdev -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED,RELATED
 			    fi
 			done
 		    done
 	        done
 
-		$IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $net1 $net2 $proto $port -o $dev
+		$IPTABLES -A POSTROUTING -j MASQUERADE -t nat $net1_src $net2_dst $proto $port -o $dev
 	    done
 	fi
     done
@@ -2122,19 +2142,21 @@ masquerading_rules()
 # <source network>,<destination>,<protocol>,<port>,<ip to forward to>,<redirect port>
 forward_masquerading_rules()
 {
-    local nets net1 net2 proto port1 port2 lip
+    local nets proto port1 port2 lip
+    local net1 net1_neg net1_src net1_dst
+    local net2 net2_neg net2_src net2_dst
     for nets in $FW_FORWARD_MASQ; do
 	IFS=, eval set -- \$nets
 
 	net1="$1"
-	net2="$2"
+	target="$2"
 	proto="$3"
 	port1="$4"
 	port2="$5"
-	lip="$6"
+	net2="$6"
 
-	case "$net2" in
-	    */*|'')
+	case "$target" in
+	    */*|\!*|'')
 		error "target must be a single host in FW_FORWARD_MASQ -> $nets"
 		continue
 		;;
@@ -2149,29 +2171,28 @@ forward_masquerading_rules()
         elif [ -z "$port1" ]; then
 	    error "Port missing in FW_FORWARD_MASQ -> $nets"
 	else
-	    net1=${net1/\!/\! }
-	    net2=${net2/\!/\! }
+	    eval `net2srcdst net1 "$net1"`
+	    eval `net2srcdst net2 "$net2"`
 	    proto="-p $proto"
 	    test -z "$port2" && port2="$port1"
 	    port1="--dport $port1"
 	    dport2="--dport $port2"
 	    port2=":${port2/:/-}"
-	    test -n "$lip" && lip="-d $lip"
 	    for dev in $FW_MASQ_DEV; do
-		$IPTABLES -A PREROUTING -j DNAT -t nat $proto -s $net1 $lip $port1 --to-destination ${net2}${port2} -i $dev
+		$IPTABLES -A PREROUTING -j DNAT -t nat $proto $net1_src $net2_dst $port1 --to-destination ${target}${port2} -i $dev
 		# to install minimal rule set we'd need to check if
 		# $net1 is covered by $FW_MASQ_NETS. Not feasible in
 		# bash code so just check for 0/0
 		if [ "$FW_MASQ_NETS" != "0/0" ]; then
-		    $IPTABLES -A POSTROUTING -j MASQUERADE -t nat -s $net1 -d $net2 $proto $dport2 -o $dev
+		    $IPTABLES -A POSTROUTING -j MASQUERADE -t nat $net1_src $net2_dst $proto $dport2 -o $dev
 		fi
 	    done
 	    for chain in $forward_zones; do
 		chain=forward_$chain
-		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto -s $net1 -d $net2 $dport2 -m conntrack --ctstate NEW
-		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto -s $net1 -d $net2 $dport2
-		$IPTABLES -A $chain -j "$ACCEPT" $proto -s $net1 -d $net2 $dport2
-		$IPTABLES -A $chain -j "$ACCEPT" $proto -d $net1 -s $net2 -m conntrack --ctstate ESTABLISHED,RELATED
+		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1_src $net2_dst $dport2 -m conntrack --ctstate NEW
+		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1_src $net2_dst $dport2
+		$IPTABLES -A $chain -j "$ACCEPT" $proto $net1_src $net2_dst $dport2
+		$IPTABLES -A $chain -j "$ACCEPT" $proto $net1_dst $net2_src -m conntrack --ctstate ESTABLISHED,RELATED
 	    done
 	fi
     done
