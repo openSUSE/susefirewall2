@@ -321,6 +321,10 @@ if [ "$MODE" = debug ]; then
     {
 	echo modprobe "$@"
     }
+    syslog()
+    {
+	echo "# <$1> ${*:2}"
+    }
 else
     IPTABLES="$IPTABLES_BIN"
     IP6TABLES="$IP6TABLES_BIN"
@@ -778,6 +782,10 @@ getdevinfo()
     local dev=
     local d="$1"
     local var="$2"
+    if [ "${FW_AUTODETECT_INTERFACES:-yes}" != 'yes' ]; then
+	echo "$d"
+	return 0
+    fi
     if [ -d /sys/class/net/"$d" ]; then
 	dev="$d"
     else
@@ -928,6 +936,7 @@ autodetect_interfaces()
 {
     local d z
     local have_override=''
+    [ "${FW_AUTODETECT_INTERFACES:-yes}" = 'yes' ] || return
     set -- /sys/class/net/*
     for d in "$@"; do
 	test -d "$d" || continue
