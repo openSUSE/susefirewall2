@@ -2182,6 +2182,7 @@ forward_masquerading_rules()
 	else
 	    eval `net2srcdst net1 "$net1"`
 	    eval `net2srcdst net2 "$net2"`
+	    eval `net2srcdst target "$target"`
 	    proto="-p $proto"
 	    test -z "$port2" && port2="$port1"
 	    port1="--dport $port1"
@@ -2198,10 +2199,10 @@ forward_masquerading_rules()
 	    done
 	    for chain in $forward_zones; do
 		chain=forward_$chain
-		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1_src $net2_dst $dport2 -m conntrack --ctstate NEW
-		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1_src $net2_dst $dport2
-		$IPTABLES -A $chain -j "$ACCEPT" $proto $net1_src $net2_dst $dport2
-		$IPTABLES -A $chain -j "$ACCEPT" $proto $net1_dst $net2_src -m conntrack --ctstate ESTABLISHED,RELATED
+		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1_src $target_dst $dport2 -m conntrack --ctstate NEW
+		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto $net1_src $target_dst $dport2
+		$IPTABLES -A $chain -j "$ACCEPT" $proto $net1_src $target_dst $dport2
+		$IPTABLES -A $chain -j "$ACCEPT" $proto $net1_dst $target_src -m conntrack --ctstate ESTABLISHED,RELATED
 	    done
 	fi
     done
