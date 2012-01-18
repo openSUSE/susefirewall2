@@ -776,42 +776,6 @@ handle_initscripts()
     esac
 }
 
-# set $dev to actual name of device $1
-getdevinfo()
-{
-    local dev=
-    local d="$1"
-    local var="$2"
-    if [ "${FW_AUTODETECT_INTERFACES:-yes}" != 'yes' ]; then
-	echo "$d"
-	return 0
-    fi
-    if [ -d /sys/class/net/"$d" ]; then
-	dev="$d"
-    else
-	local deprecatediface=
-	if [ -x /sbin/getcfg-interface ]; then
-	    dev=`/sbin/getcfg-interface "$d"`
-	elif [ -x "$hwdesc2iface" ]; then
-	    case "$d" in
-		*-id-*) dev=`$hwdesc2iface id ${d#*-id-}`; deprecatediface=1 ;;
-		*-bus-*) dev=`$hwdesc2iface bus ${d#*-bus-}`; deprecatediface=1 ;;
-	    esac
-	fi
-
-	if [ -z "$dev" -o ! -d /sys/class/net/"$dev" ]; then
-	    return 1
-	fi
-	
-	if [ -n "$deprecatediface" ]; then
-	    warning "$var: the notation '$d' is deprecated. Please use '$dev' instead" 
-	fi
-    fi
-
-    echo "$dev"
-    return 0
-}
-
 setlock()
 {
     if [ "$remove_bootlock" -ne 0 ]; then
@@ -880,7 +844,6 @@ evaluateinterfaces()
 	    warning "ignoring deprecated interface 'auto' in $var"
 	    continue
 	fi
-	dev=`getdevinfo "$dev" "$var"` || continue
 	case "$dev" in *:*) continue; ;; esac
 
 	devs="$devs $dev"
@@ -1080,7 +1043,6 @@ process_masq_dev()
 		continue
 	    fi
 	fi
-	dev=`getdevinfo "$dev" FW_MASQ_DEV` || continue
 	case "$dev" in *:*) continue; ;; esac
 
 	devs="$devs $dev"
