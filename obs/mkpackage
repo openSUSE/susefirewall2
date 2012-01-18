@@ -56,6 +56,6 @@ if [ -n "`git rev-list remotes/origin/master..HEAD`" ]; then
 		echo "*** Warning: changes not pushed!"
 	else
 		cd "$dstdir"
-		echo osc ci
+		osc ci
 	fi
 fi
