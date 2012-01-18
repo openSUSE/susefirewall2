@@ -69,8 +69,8 @@ install_doc:
 	install -m 644 LICENCE $(DESTDIR)$(pkgdocdir)/
 	install -m 644 SuSEfirewall2.sysconfig $(DESTDIR)$(pkgdocdir)/
 
-dist:
-	@./mktar
+package:
+	@./obs/mkpackage
 
 doc:
 	$(MAKE) -C doc
@@ -78,4 +78,4 @@ doc:
 clean:
 	rm -f $(ARCHIVE)
 
-.PHONY: clean doc dist install install_doc all
+.PHONY: clean doc package install install_doc all

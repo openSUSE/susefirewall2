@@ -9,5 +9,9 @@ let revs=revs+2
 vers="${VERSION:+${VERSION}.}$revs"
 pfx="$NAME-$vers"
 fn="$pfx".tar.bz2
+if ! git config --get tar.umask >/dev/null 2>&1 ; then
+       git config --add tar.umask 022
+fi
 git archive --prefix="$pfx"/ HEAD | bzip2 > $fn
-echo "version $vers -> $fn"
+echo "VERSION=$vers"
+echo "FILENAME=$fn"
