@@ -72,7 +72,7 @@ Options:
   open    open the specified services in the specified zone. You need to
           restart SuSEfirewall2 for changes to take effect.
   on      add SuSEfirewall2 initscripts to boot process and start
-  off     remove SuSEefirwall2 initscripts from boot process and stop
+  off     remove SuSEfirwall2 initscripts from boot process and stop
 
   file FILENAME  same as "start" but load alternate config file FILENAME
 
