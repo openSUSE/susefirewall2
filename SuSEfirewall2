@@ -527,7 +527,23 @@ check_proto_port()
 		sport=''
 		rsport=''
 	    fi
-	;;
+	    ;;
+	icmpv6)
+	    if [ -n "$port" ]; then
+		port="--icmpv6-type $port"
+		rport="$port"
+	    else
+		port=''
+		rport=''
+	    fi
+	    if [ -n "$sport" ]; then
+		sport="--icmpv6-type $sport"
+		rsport="$sport"
+	    else
+		sport=''
+		rsport=''
+	    fi
+	    ;;
 	*)
 	    if [ -n "$port" ]; then
 		error "port is only valid with tcp, udp or icmp in ${var}"
