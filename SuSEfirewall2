@@ -371,7 +371,7 @@ input_zones=
 
 safe_icmp_replies="echo-reply destination-unreachable time-exceeded parameter-problem timestamp-reply address-mask-reply protocol-unreachable redirect"
 safe_icmpv6_replies="echo-reply destination-unreachable packet-too-big time-exceeded parameter-problem"
-stateless_icmpv6_types="router-solicitation router-advertisement neighbour-solicitation neighbour-advertisement redirect"
+stateless_icmpv6_types="router-solicitation router-advertisement neighbour-solicitation neighbour-advertisement redirect 130"
 
 ###############
 
