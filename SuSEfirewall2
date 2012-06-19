@@ -1292,7 +1292,7 @@ drop_broadcast()
 	if [ "$ignore" != yes ]; then
 	    for port in $ignore; do
 		[ $port = no ] && continue
-		$IPTABLES $match -p udp --dport $port -j DROP
+		$IPTABLES $match -p udp --dport $port -j "$DROP"
 	    done
 
 	    if [ "$allow" != 'yes' ]; then
@@ -1301,7 +1301,7 @@ drop_broadcast()
 	fi
 
 	if [ "$allow" != 'yes' ]; then
-	    $IPTABLES $match -j DROP # no need to send icmp for broadcasts
+	    $IPTABLES $match -j "$DROP" # no need to send icmp for broadcasts
 	fi
     done
 }
@@ -2252,14 +2252,24 @@ fi
 
 ###############
 
-parse_logging
-
 setlock
 
 if [ "$ACTION" = "bootlock" -o "$ACTION" = "bootunlock" ]; then
     # lock file already set in setlock
     die 0
 fi
+
+if [ "$MODE" = "test" ]; then
+    DROP="ACCEPT"
+    REJECT="ACCEPT"
+    FW_LOG_DROP_ALL=yes
+    FW_LOG_DROP_CRIT=yes
+    FW_LOG_ACCEPT_ALL=no
+    FW_LOG_ACCEPT_CRIT=no
+    warning "SuSEfirewall2 is running in TEST MODE, no packet filtering is done!"
+fi
+
+parse_logging
 
 if [ "$ACTION" = "basic" ]; then
     # Reset the filter rules
@@ -2278,16 +2288,6 @@ if [ "$ACTION" = "basic" ]; then
     die 0 "Firewall rules successfully set in simple mode"
 fi
 
-if [ "$MODE" = "test" ]; then
-    DROP="ACCEPT"
-    REJECT="ACCEPT"
-    FW_LOG_DROP_ALL=yes
-    FW_LOG_DROP_CRIT=yes
-    FW_LOG_ACCEPT_ALL=no
-    FW_LOG_ACCEPT_CRIT=no
-    warning "SuSEfirewall2 is running in TEST MODE, no packet filtering is done!"
-fi
-	
 if [ "$ACTION" = "stop" ]; then
     if [ "$FW_STOP_KEEP_ROUTING_STATE" != "yes" ]; then
 	setproc 0 /proc/sys/net/ipv4/ip_forward
