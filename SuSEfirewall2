@@ -325,6 +325,13 @@ if [ "$MODE" = debug ]; then
     {
 	echo "# <$1> ${*:2}"
     }
+
+    ### ipv6 checks
+    case "$FW_IPv6" in
+	    drop|reject) IP6TABLES_HAVE_STATE=0 ;;
+	    no) IP6TABLES=":" ;;
+	    *) FW_IPv6="" ;;
+    esac
 else
     IPTABLES="$IPTABLES_BIN"
     IP6TABLES="$IP6TABLES_BIN"
@@ -335,7 +342,6 @@ else
 	    no) IP6TABLES=":" ;;
 	    *) FW_IPv6="" ;;
     esac
-
 
     ####
 
