@@ -40,6 +40,7 @@ do_qdisc_settings()
 
         # sanity check
         if [ -n "$DEV" -a -n "$BANDWIDTH" ]; then
+            test -e "/sys/class/net/$DEV" || continue
             # reserve about 15% for small packets (TCP ACK),
             # interactive SSH from and to us and DNS querys.
             # We don't need too much bandwidth but we need it fast.
