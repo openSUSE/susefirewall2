@@ -38,8 +38,6 @@ do_qdisc_settings()
     for DEVICE_DATA in $FW_HTB_TUNE_DEV; do
         IFS="," read DEV BANDWIDTH < <(echo "$DEVICE_DATA")
 
-	DEV=`getdevinfo "$DEV"` || continue
-
         # sanity check
         if [ -n "$DEV" -a -n "$BANDWIDTH" ]; then
             # reserve about 15% for small packets (TCP ACK),
