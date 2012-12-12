@@ -721,8 +721,8 @@ function set_basic_rules()
 	$iptables -A INPUT  -j "$ACCEPT" -i lo
 	$iptables -A OUTPUT -j "$ACCEPT" -o lo
 	if [ "$FW_LO_NOTRACK" != 'no' ]; then
-	    $iptables -t raw -A PREROUTING -j NOTRACK -i lo
-	    $iptables -t raw -A OUTPUT -j NOTRACK -o lo
+	    $iptables -t raw -A PREROUTING -j CT --notrack -i lo
+	    $iptables -t raw -A OUTPUT -j CT --notrack -o lo
 	fi
     done
 
@@ -1480,8 +1480,8 @@ protect_from_internal()
 	    eval devs="\$FW_DEV_$zone"
 	    for dev in $devs; do
 		for iptables in "$IPTABLES" "$IP6TABLES"; do
-		    $iptables -t raw -i $dev -I PREROUTING -j NOTRACK
-		    $iptables -t raw -o $dev -I OUTPUT -j NOTRACK
+		    $iptables -t raw -i $dev -I PREROUTING -j CT --notrack
+		    $iptables -t raw -o $dev -I OUTPUT -j CT --notrack
 		    $iptables -i $dev -I INPUT -j ACCEPT
 		    $iptables -o $dev -I OUTPUT -j ACCEPT
 		done
