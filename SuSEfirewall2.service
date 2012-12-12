@@ -1,0 +1,14 @@
+[Unit]
+Description=SuSEfirewall2 phase 2
+After=network.target ypbind.service nfs.service nfsserver.service rpcbind.service
+Wants=SuSEfirewall2_init.service
+
+[Service]
+ExecStart=/usr/sbin/SuSEfirewall2 boot_setup
+ExecStop=/usr/sbin/SuSEfirewall2 systemd_stop
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+Alias=SuSEfirewall2_setup.service
+Also=SuSEfirewall2_init.service

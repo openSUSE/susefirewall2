@@ -1,0 +1,14 @@
+[Unit]
+Description=SuSEfirewall2 phase 1
+After=YaST2-Second-Stage.service
+Before=network.service
+Before=basic.service
+
+[Service]
+ExecStart=/usr/sbin/SuSEfirewall2 boot_init
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+Also=SuSEfirewall2.service
+

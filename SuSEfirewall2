@@ -245,9 +245,22 @@ case "$1" in
     help) help ;;
     off) ACTION="stop"; needconfig=1; INITSCRIPTS="off" ;;
     on) ACTION="start"; needconfig=1; INITSCRIPTS="on" ;;
+    boot_init) ACTION="init"; create_bootlock=1 ;;
+    boot_setup) ACTION="start"; remove_bootlock=1 ;;
+    systemd_stop) ACTION="$1"; needconfig=1 ;;
     *) help ;;
 esac
 shift
+
+if [ "$ACTION" = "systemd_stop" ]; then
+	# XXX: find a better way to check whether shutdown is in progress
+	if systemctl --no-pager --full --all  list-units | grep -q 'basic\.target.*active.*stop'; then
+		die 0 "Not unloading firewall rules at system shutdown"
+	else
+		ACTION="stop"
+	fi
+fi
+
 
 case "$ACTION" in
     start|stop)
@@ -267,6 +280,14 @@ if [ -r "$FWCONFIG" ]; then
     . "$FWCONFIG"
 elif [ -n "$needconfig" ]; then
     die 6 " Can not read $FWCONFIG"
+fi
+
+if [ "$ACTION" = "init" ]; then
+    if [ "$FW_BOOT_FULL_INIT" = 'yes' ]; then
+	ACTION='start'
+    else
+	ACTION='close'
+    fi
 fi
 
 set_defaults
@@ -786,13 +807,13 @@ handle_initscripts()
     local i
     case "$INITSCRIPTS" in
 	on)
-	    for i in SuSEfirewall2_init SuSEfirewall2_setup; do
-		/sbin/insserv -f $i
+	    for i in SuSEfirewall2_init SuSEfirewall2; do
+		/bin/systemctl enable $i.service
 	    done
 	    ;;
 	off)
-	    for i in SuSEfirewall2_setup SuSEfirewall2_init; do
-		/sbin/insserv -r -f $i
+	    for i in SuSEfirewall2 SuSEfirewall2_init; do
+		/bin/systemctl disable $i.service
 	    done
 	    ;;
     esac

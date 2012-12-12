@@ -10,6 +10,8 @@ DESTDIR=
 allfiles= \
 	SuSEfirewall2_init \
 	SuSEfirewall2_setup \
+	SuSEfirewall2_init.service \
+	SuSEfirewall2.service \
 	$(SCRIPTS) \
 	SuSEfirewall2_ifup \
 	SuSEfirewall2-custom.sysconfig \
@@ -33,8 +35,9 @@ install:
 	install -d -m 755 $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/defaults
 	install -d -m 755 $(DESTDIR)/usr/share/SuSEfirewall2/defaults
 	install -m 755 SuSEfirewall2 $(DESTDIR)/sbin
-	install -m 755 SuSEfirewall2_init $(DESTDIR)/etc/init.d
-	install -m 755 SuSEfirewall2_setup $(DESTDIR)/etc/init.d
+	install -m 755 -d $(DESTDIR)/lib/systemd/system
+	install -m 644 SuSEfirewall2_init.service $(DESTDIR)/lib/systemd/system
+	install -m 644 SuSEfirewall2.service $(DESTDIR)/lib/systemd/system
 	rm -f $(DESTDIR)/sbin/rcSuSEfirewall2
 	ln -s /etc/init.d/SuSEfirewall2_setup $(DESTDIR)/sbin/rcSuSEfirewall2
 	for i in $(SCRIPTS); do \
