@@ -179,8 +179,8 @@ CONFIGURATIONSDIR_1="/usr/share/SuSEfirewall2/services"
 DEFAULTSDIR=("/etc/sysconfig/SuSEfirewall2.d/defaults" "/usr/share/SuSEfirewall2/defaults")
 SCRIPTSDIR="/etc/sysconfig/scripts"
 FWCONFIG="/etc/sysconfig/SuSEfirewall2"
-LOCKFILE="/var/lock/SuSEfirewall2.pid"
-BOOTLOCKFILE="/var/lock/SuSEfirewall2.booting"
+LOCKFILE="/run/SuSEfirewall2.pid"
+BOOTLOCKFILE="/run/SuSEfirewall2.booting"
 STATUSDIR="/var/run/SuSEfirewall2"
 FW_CUSTOMRULES=""
 
