@@ -8,8 +8,6 @@ SCRIPTS=SuSEfirewall2-batch \
 DESTDIR=
 
 allfiles= \
-	SuSEfirewall2_init \
-	SuSEfirewall2_setup \
 	SuSEfirewall2_init.service \
 	SuSEfirewall2.service \
 	$(SCRIPTS) \
@@ -26,7 +24,7 @@ allfiles= \
 all:
 
 install:
-	install -d -m 755 $(DESTDIR)/sbin
+	install -d -m 755 $(DESTDIR)/usr/sbin
 	install -d -m 755 $(DESTDIR)/etc/init.d
 	install -d -m 755 $(DESTDIR)/etc/sysconfig/scripts
 	install -d -m 755 $(DESTDIR)/etc/sysconfig/network/scripts
@@ -34,12 +32,12 @@ install:
 	install -d -m 755 $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/services
 	install -d -m 755 $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/defaults
 	install -d -m 755 $(DESTDIR)/usr/share/SuSEfirewall2/defaults
-	install -m 755 SuSEfirewall2 $(DESTDIR)/sbin
-	install -m 755 -d $(DESTDIR)/lib/systemd/system
-	install -m 644 SuSEfirewall2_init.service $(DESTDIR)/lib/systemd/system
-	install -m 644 SuSEfirewall2.service $(DESTDIR)/lib/systemd/system
-	rm -f $(DESTDIR)/sbin/rcSuSEfirewall2
-	ln -s /etc/init.d/SuSEfirewall2_setup $(DESTDIR)/sbin/rcSuSEfirewall2
+	install -m 755 -d $(DESTDIR)/usr/lib/systemd/system
+	install -m 755 SuSEfirewall2 $(DESTDIR)/usr/sbin
+	install -m 644 SuSEfirewall2_init.service $(DESTDIR)/usr/lib/systemd/system
+	install -m 644 SuSEfirewall2.service $(DESTDIR)/usr/lib/systemd/system
+	rm -f $(DESTDIR)/usr/sbin/rcSuSEfirewall2
+	ln -s /usr/sbin/service $(DESTDIR)/usr/sbin/rcSuSEfirewall2
 	for i in $(SCRIPTS); do \
 		install -m 644 $$i $(DESTDIR)/etc/sysconfig/scripts; \
 	done
