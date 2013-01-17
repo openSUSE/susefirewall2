@@ -216,8 +216,7 @@ FW_MASQ_NETS=""
 #           
 FW_NOMASQ_NETS=""
 
-## Type:	list(yes,no,notrack)
-## Default:	no
+## Type:	list(yes,no,notrack,)
 #
 # Do you want to protect the firewall from the internal network?
 # Requires: FW_DEV_INT
@@ -232,7 +231,7 @@ FW_NOMASQ_NETS=""
 # This is useful to gain better performance on high speed
 # interfaces.
 #
-# defaults to "yes" if not set
+# defaults to "no" if not set
 #
 # see also FW_REJECT_INT
 # 
