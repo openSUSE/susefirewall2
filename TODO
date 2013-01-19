@@ -1,3 +1,5 @@
 * only create forward/dmz etc. tables when devices are there/used
 
 * add rule numbers to logged packets
+
+* reload feature (bnc#419913)
