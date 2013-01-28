@@ -1,6 +1,5 @@
 [Unit]
 Description=SuSEfirewall2 phase 1
-After=YaST2-Second-Stage.service
 Before=network.service
 Before=basic.service
 
