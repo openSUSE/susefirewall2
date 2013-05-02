@@ -1776,7 +1776,7 @@ accept_services()
 
 	    if [ -n "$ipt_recent_update" ]; then
 		ipt_recent_rcheck="-m recent --rcheck$ipt_recent_update"
-		ipt_recent_update="-m recent --update$ipt_recent_update --rttl"
+		ipt_recent_update="-m recent --update$ipt_recent_update"
 		ipt_recent_set="-m recent --set$ipt_recent_set"
 	    fi
 
