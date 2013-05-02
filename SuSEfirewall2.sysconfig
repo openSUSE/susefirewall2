@@ -180,6 +180,7 @@ FW_MASQ_DEV=""
 #  If the protocol is icmp then port is interpreted as icmp type
 #
 # Examples: - "0/0" unrestricted access to the internet
+#             This is also the default if you leave FW_MASQ_NETS empty.
 #           - "10.0.0.0/8" allows the whole 10.0.0.0 network with
 #             unrestricted access.
 #           - "10.0.1.0/24,0/0,tcp,80 10.0.1.0/24,0/0,tcp,21" allows
