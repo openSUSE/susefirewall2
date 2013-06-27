@@ -6,6 +6,7 @@ Before=basic.service
 [Service]
 ExecStart=/usr/sbin/SuSEfirewall2 boot_init
 RemainAfterExit=true
+Type=oneshot
 
 [Install]
 WantedBy=multi-user.target
