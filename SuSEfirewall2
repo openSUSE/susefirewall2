@@ -1098,10 +1098,10 @@ load_customrules()
     ### Load custom rules
     if [ -n "$FW_CUSTOMRULES" ]; then
 	if [ ! -r "$FW_CUSTOMRULES" ]; then
-	    die 1 "Firewall customary rules file can not be read from $FW_CUSTOMRULES"
+	    die 1 "Firewall custom rules file can not be read from $FW_CUSTOMRULES"
 	fi
 	. "$FW_CUSTOMRULES"
-	message "Firewall customary rules loaded from $FW_CUSTOMRULES"
+	message "Firewall custom rules loaded from $FW_CUSTOMRULES"
     fi
 }
 
