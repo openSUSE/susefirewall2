@@ -798,6 +798,11 @@ function set_basic_rules()
 
     allow_basic_established
 
+    # Allow DHCPv6 by default. While the requests go out to multicast address, they
+    # can come back from unicast hosts and we might not know them.
+    $LAA $IP6TABLES -A INPUT -p udp --dport dhcpv6-client ${LOG}"-IN-DHCPv6 "
+    $IP6TABLES -A INPUT -p udp --dport dhcpv6-client -j "$ACCEPT"
+
     # make sure basic rules get committed even if there are errors later
     [ -n "$USE_IPTABLES_BATCH" ] && iptables_batch_commitpoint
 }
