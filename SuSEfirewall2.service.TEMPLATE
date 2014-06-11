@@ -36,6 +36,13 @@ BROADCAST=""
 # IPv4 use 0.0.0.0/0
 RELATED=""
 
+# space separated list of net,protocol[,sport[,dport]]
+# sets FW_SERVICES_ACCEPT_*_EXT
+# Alternative to TCP,UDP,... variants above allowing to
+# open ports for IPv6 only or IPv4 only, using ::/0 or
+# 0.0.0.0/0 as net (source address net).
+ACCEPT=""
+
 # additional kernel modules needed for this service
 # see FW_LOAD_MODULES
 MODULES=""

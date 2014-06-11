@@ -1287,6 +1287,10 @@ parse_configurations()
 		eval FW_SERVICES_ACCEPT_RELATED_`cibiz $zone`="\"\$FW_SERVICES_ACCEPT_RELATED_`cibiz $zone` \$RELATED\""
 	    fi
 
+	    if [ -n "$ACCEPT" ]; then
+		eval FW_SERVICES_ACCEPT_`cibiz $zone`="\"\$FW_SERVICES_ACCEPT_`cibiz $zone` \$ACCEPT\""
+	    fi
+
 	    if [ -n "$MODULES" ]; then
 		eval FW_LOAD_MODULES="\"\$FW_LOAD_MODULES \$MODULES\""
 	    fi
