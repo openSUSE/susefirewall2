@@ -1261,6 +1261,7 @@ parse_configurations()
 	    local BROADCAST=''
 	    local RELATED=''
 	    local MODULES=''
+	    local ACCEPT=''
 
 	    # XXX: could use a sub shell in order to enforce use of known variables only
 	    if [ ! -r $CONFIGURATIONSDIR_0/$config ] || ! . $CONFIGURATIONSDIR_0/$config; then
