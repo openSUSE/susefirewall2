@@ -23,27 +23,27 @@ SuSEfirewall2 is a shell script wrapper for the Linux firewall setup tool
 
 Main features of SuSEfirewall2:
 
-  ● sets up secure filter rules by default
+  • sets up secure filter rules by default
 
-  ● easy to configure
+  • easy to configure
 
-  ● requires only a small configuration effort
+  • requires only a small configuration effort
 
-  ● zone based setup. Interfaces are grouped into zones
+  • zone based setup. Interfaces are grouped into zones
 
-  ● supports an arbitrary number of zones
+  • supports an arbitrary number of zones
 
-  ● supports forwarding, masquerading, port redirection
+  • supports forwarding, masquerading, port redirection
 
-  ● supports RPC services with dynamically assigned ports
+  • supports RPC services with dynamically assigned ports
 
-  ● allows special treatment of IPsec packets
+  • allows special treatment of IPsec packets
 
-  ● IPv6 support
+  • IPv6 support
 
-  ● allows insertion of custom rules through hooks
+  • allows insertion of custom rules through hooks
 
-  ● graphical zone switcher applet for desktop use
+  • graphical zone switcher applet for desktop use
 
 2. Quickstart
 
@@ -74,36 +74,36 @@ nothing more and nothing less. This means that you are not automatically
 protected from all security hazards by using SuSEfirewall2. To minimize
 security risks on a networked system obey the following rules:
 
-  ● Run only those services you actually need. Think twice before opening them
+  • Run only those services you actually need. Think twice before opening them
     to the internet.
 
-  ● Use only software which has been designed with security in mind (like
+  • Use only software which has been designed with security in mind (like
     postfix, vsftpd, OpenSSH).
 
-  ● Do not expose services that are designed for use in a LAN to the internet
+  • Do not expose services that are designed for use in a LAN to the internet
     (like e.g. samba, NFS, cups).
 
-  ● Do not run untrusted software. (philosophical question, can you trust SUSE
+  • Do not run untrusted software. (philosophical question, can you trust SUSE
     or any other software distributor?)
 
-  ● Run YaST Online Update on a regular basis or enable it's automatic mode to
+  • Run YaST Online Update on a regular basis or enable it's automatic mode to
     get the latest security fixes.
 
-  ● Subscribe to the opensuse-security-announce mailinglist to keep yourself
+  • Subscribe to the opensuse-security-announce mailinglist to keep yourself
     informed about new and upcoming security issues.
 
-  ● If you are using a server as a firewall/bastion host to the internet for an
+  • If you are using a server as a firewall/bastion host to the internet for an
     internal network, try to run proxy services for everything and disable
     routing on that machine.
 
-  ● If you run DNS on the firewall: disable untrusted zone transfers and either
+  • If you run DNS on the firewall: disable untrusted zone transfers and either
     don't allow access to it from the internet or run it split-brained.
 
-  ● Check your log files regularly for unusual entries.
+  • Check your log files regularly for unusual entries.
 
 4. Source Code
 
-Source code is available at Gitorious
+Source code is available at Github
 
 5. Reporting bugs
 
