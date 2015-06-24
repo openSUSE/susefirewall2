@@ -1324,21 +1324,26 @@ drop_broadcast()
 	    [ $port = no -o $port = yes ] && continue
 	    $LAA $IPTABLES $match -p udp --dport $port ${LOG}"-ACC-BCAST${zone:0:1} "
 	    $IPTABLES $match -p udp --dport $port -j "$ACCEPT"
+	    $LAA $IP6TABLES $match -p udp --dport $port ${LOG}"-ACC-BCAST${zone:0:1} "
+	    $IP6TABLES $match -p udp --dport $port -j "$ACCEPT"
 	done
 
 	if [ "$ignore" != yes ]; then
 	    for port in $ignore; do
 		[ $port = no ] && continue
 		$IPTABLES $match -p udp --dport $port -j "$DROP"
+		$IP6TABLES $match -p udp --dport $port -j "$DROP"
 	    done
 
 	    if [ "$allow" != 'yes' ]; then
 		$LDA $IPTABLES $match ${LOG}"-DROP-BCAST${zone:0:1} "
+		$LDA $IP6TABLES $match ${LOG}"-DROP-BCAST${zone:0:1} "
 	    fi
 	fi
 
 	if [ "$allow" != 'yes' ]; then
 	    $IPTABLES $match -j "$DROP" # no need to send icmp for broadcasts
+	    $IP6TABLES $match -j "$DROP" # no need to send icmp for broadcasts
 	fi
     done
 }
