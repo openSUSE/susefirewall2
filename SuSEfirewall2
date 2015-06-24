@@ -1181,24 +1181,24 @@ verify_masq_nets()
 set_proc_stuff()
 {
     if [ "$FW_KERNEL_SECURITY" != no ]; then
-	setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts 
+	# kernel default 1: setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts 
 # test "$FW_ALLOW_PING_FW" = yes || setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_all  # XXX
-	setproc 1 /proc/sys/net/ipv4/ip_always_defrag  # XXX not there?
-	setproc 1 /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses 
-	setproc 5 /proc/sys/net/ipv4/icmp_echoreply_rate 
-	setproc 5 /proc/sys/net/ipv4/icmp_destunreach_rate 
-	setproc 5 /proc/sys/net/ipv4/icmp_paramprob_rate 
-	setproc 6 /proc/sys/net/ipv4/icmp_timeexceed_rate 
-	setproc 20 /proc/sys/net/ipv4/ipfrag_time 
+	# gone? setproc 1 /proc/sys/net/ipv4/ip_always_defrag  # XXX not there?
+	# kernel default 1: setproc 1 /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses 
+	# gone? setproc 5 /proc/sys/net/ipv4/icmp_echoreply_rate 
+	# gone? setproc 5 /proc/sys/net/ipv4/icmp_destunreach_rate 
+	# gone? setproc 5 /proc/sys/net/ipv4/icmp_paramprob_rate 
+	# gone? setproc 6 /proc/sys/net/ipv4/icmp_timeexceed_rate 
+	# 30*HZ in the kernel, setproc 20 /proc/sys/net/ipv4/ipfrag_time 
 	for i in /proc/sys/net/ipv4/conf/*; do
-	    setproc 1 $i/log_martians 
-	    setproc 0 $i/bootp_relay 
-	    [ "$FW_ROUTE" != yes ] && setproc 0 $i/forwarding
-	    setproc 0 $i/proxy_arp 
-	    setproc 1 $i/secure_redirects 
+	    setproc 1 $i/log_martians		# default is 0 in the kernel
+	    #kernel default 0: setproc 0 $i/bootp_relay 
+	    [ "$FW_ROUTE" != yes ] && setproc 0 $i/forwarding	# should stay
+	    # kernel default 0: setproc 0 $i/proxy_arp 
+	    # kernel default 1: setproc 1 $i/secure_redirects 
 	    #setproc 0 $i/accept_redirects # let kernel decide this
-	    setproc 0 $i/accept_source_route 
-	    setproc 1 $i/rp_filter 
+	    setproc 0 $i/accept_source_route 	# default is 1, should stay?
+	    setproc 1 $i/rp_filter 		# default is 0, should stay?
 	done
 	setproc 1 /proc/sys/net/ipv4/route/flush
     fi
