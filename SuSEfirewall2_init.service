@@ -2,6 +2,7 @@
 Description=SuSEfirewall2 phase 1
 Before=network.service
 Before=basic.target
+Conflicts=firewalld.service
 
 [Service]
 ExecStart=/usr/sbin/SuSEfirewall2 boot_init
