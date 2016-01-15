@@ -1,7 +1,7 @@
 [Unit]
 Description=SuSEfirewall2 phase 1
 Before=network.service
-Before=basic.service
+Before=basic.target
 
 [Service]
 ExecStart=/usr/sbin/SuSEfirewall2 boot_init
