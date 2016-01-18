@@ -2,6 +2,7 @@
 Description=SuSEfirewall2 phase 2
 After=network.target ypbind.service nfs.service nfsserver.service rpcbind.service SuSEfirewall2_init.service
 Wants=SuSEfirewall2_init.service
+Conflicts=firewalld.service
 
 [Service]
 ExecStart=/usr/sbin/SuSEfirewall2 boot_setup
