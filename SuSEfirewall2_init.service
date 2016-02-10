@@ -1,7 +1,6 @@
 [Unit]
 Description=SuSEfirewall2 phase 1
 Before=network.service
-Before=basic.target
 DefaultDependencies=false
 Requires=sysinit.target
 Conflicts=firewalld.service
