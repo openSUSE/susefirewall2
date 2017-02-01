@@ -566,8 +566,8 @@ function allow_basic_established()
     # needed for dhcp and dns replies
     local iptables
     for iptables in "$IPTABLES" "$IP6TABLES"; do
-	    $LAA $iptables -A INPUT ${LOG}"-IN-ACC-EST " -m state --state ESTABLISHED
-	    $iptables -A INPUT -j "$ACCEPT" -m state --state ESTABLISHED
+	    $LAA $iptables -A INPUT ${LOG}"-IN-ACC-EST " -m conntrack --ctstate ESTABLISHED
+	    $iptables -A INPUT -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED
 
 	    # if two hosts have a tcp connection on fixed ports and
 	    # one of the hosts crashes it will send a SYN to the
@@ -575,15 +575,15 @@ function allow_basic_established()
 	    # it thinks there is already a connection established.
 	    # This ACK is INVALID and must be answered with RST
 	    # otherwise long timeouts may occur (#46818).
-#	    $LDA $iptables -A INPUT ${LOG}"-IN-REJECT-ACK " -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
-#	    $iptables -A INPUT -j "$REJECT" -m state --state INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
+#	    $LDA $iptables -A INPUT ${LOG}"-IN-REJECT-ACK " -m conntrack --ctstate INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
+#	    $iptables -A INPUT -j "$REJECT" -m conntrack --ctstate INVALID -p tcp --tcp-flags SYN,RST,ACK ACK
     done
 
     # need to accept icmp RELATED packets (bnc#382004)
-    $LAA $IPTABLES -A INPUT ${LOG}"-IN-ACC-REL " -p icmp -m state --state RELATED
-    $IPTABLES -A INPUT -j "$ACCEPT" -p icmp -m state --state RELATED
-    $LAA $IP6TABLES -A INPUT ${LOG}"-IN-ACC-REL " -p icmpv6 -m state --state RELATED
-    $IP6TABLES -A INPUT -j "$ACCEPT" -p icmpv6 -m state --state RELATED
+    $LAA $IPTABLES -A INPUT ${LOG}"-IN-ACC-REL " -p icmp -m conntrack --ctstate RELATED
+    $IPTABLES -A INPUT -j "$ACCEPT" -p icmp -m conntrack --ctstate RELATED
+    $LAA $IP6TABLES -A INPUT ${LOG}"-IN-ACC-REL " -p icmpv6 -m conntrack --ctstate RELATED
+    $IP6TABLES -A INPUT -j "$ACCEPT" -p icmpv6 -m conntrack --ctstate RELATED
 }
 
 have_bridgeinterfaces()
@@ -651,13 +651,13 @@ function set_basic_rules()
     # loopback is always allowed
     $IPTABLES -A INPUT  -j "$ACCEPT" -i lo
     $IPTABLES -A OUTPUT -j "$ACCEPT" -o lo
-    $IPTABLES -t raw -A PREROUTING -j NOTRACK -i lo
-    $IPTABLES -t raw -A OUTPUT -j NOTRACK -o lo
+    $IPTABLES -t raw -A PREROUTING -j NOTRACK -i lo 2>/dev/null
+    $IPTABLES -t raw -A OUTPUT -j NOTRACK -o lo 2>/dev/null
 
     $IP6TABLES -A INPUT  -j "$ACCEPT" -i lo
     $IP6TABLES -A OUTPUT -j "$ACCEPT" -o lo
-    $IP6TABLES -t raw -A PREROUTING -j NOTRACK -i lo
-    $IP6TABLES -t raw -A OUTPUT -j NOTRACK -o lo
+    $IP6TABLES -t raw -A PREROUTING -j NOTRACK -i lo 2>/dev/null
+    $IP6TABLES -t raw -A OUTPUT -j NOTRACK -o lo 2>/dev/null
 
     # Special REJECT function #
     
@@ -1319,8 +1319,8 @@ protect_from_internal()
 	    eval devs="\$FW_DEV_$zone"
 	    for dev in $devs; do
 		for iptables in "$IPTABLES" "$IP6TABLES"; do
-		    $iptables -t raw -i $dev -I PREROUTING -j NOTRACK
-		    $iptables -t raw -o $dev -I OUTPUT -j NOTRACK
+		    $iptables -t raw -i $dev -I PREROUTING -j NOTRACK 2>/dev/null
+		    $iptables -t raw -o $dev -I OUTPUT -j NOTRACK 2>/dev/null
 		    $iptables -i $dev -I INPUT -j ACCEPT
 		    $iptables -o $dev -I OUTPUT -j ACCEPT
 		done
@@ -1373,8 +1373,8 @@ allow_related()
 
 	    if check_proto_port "$proto" "$port" "$sport" "$var"; then
 		for iptables in $iptables; do
-		    $LAA $iptables -A $chain -s $net $proto $rport $rsport -m state --state RELATED ${LOG}"-`rulelog $chain`-REL "
-		    $iptables -A $chain -s $net $proto $rport $rsport -j ACCEPT -m state --state RELATED
+		    $LAA $iptables -A $chain -s $net $proto $rport $rsport -m conntrack --ctstate RELATED ${LOG}"-`rulelog $chain`-REL "
+		    $iptables -A $chain -s $net $proto $rport $rsport -j ACCEPT -m conntrack --ctstate RELATED
 		done
 	    fi
 	done
@@ -1410,16 +1410,16 @@ allow_icmp()
 #    for itype in $icmp_types; do
 #	for chain in $input_zones; do
 #	    chain=input_$chain
-#	    $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-ICMP "  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
-#	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
+#	    $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-ICMP "  -m conntrack --ctstate ESTABLISHED,RELATED -p icmp --icmp-type $itype
+#	    $IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED,RELATED -p icmp --icmp-type $itype
 #	done
 #    done
 #    icmp_types="$safe_icmpv6_replies"
 #    for itype in $icmp_types; do
 #	for chain in $input_zones; do
 #	    chain=input_$chain
-#	    $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-ICMP " -m state --state ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
-#	    $IP6TABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
+#	    $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-ICMP " -m conntrack --ctstate ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
+#	    $IP6TABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
 #	done
 #    done
     # DROP rules for input ICMP are after trusted handling (see below)
@@ -1457,16 +1457,16 @@ allow_forward_icmp_echo()
 
 		chain=forward_$chain
 		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request -o $dev
-		$IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmp --icmp-type echo-request -o $dev
+		$IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW -p icmp --icmp-type echo-request -o $dev
 		$LAA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request -o $dev
-		$IP6TABLES -A $chain -j "$ACCEPT" -m state --state NEW -p icmpv6 --icmpv6-type echo-request -o $dev
+		$IP6TABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW -p icmpv6 --icmpv6-type echo-request -o $dev
 	    done
 	done
 	chain=forward_$zone
 	$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-reply
-	$IPTABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED -p icmp --icmp-type echo-reply
+	$IPTABLES -A $chain -j "$ACCEPT"  -m conntrack --ctstate ESTABLISHED -p icmp --icmp-type echo-reply
 	$LAA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-reply
-	$IP6TABLES -A $chain -j "$ACCEPT"  -m state --state ESTABLISHED -p icmpv6 --icmpv6-type echo-reply
+	$IP6TABLES -A $chain -j "$ACCEPT"  -m conntrack --ctstate ESTABLISHED -p icmpv6 --icmpv6-type echo-reply
     done
     # drop rule for forwarding chains are at the end of the forwarding rules
 }
@@ -1491,9 +1491,9 @@ process_trusted_nets()
 	elif check_proto_port "$proto" "$port" "" 'FW_TRUSTED_NETS'; then
 	    for chain in $input_zones; do # trusted networks can be on any interface ...
 		chain=input_$chain
-		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-TRUST " -m state --state NEW -s $net $proto $port
+		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-TRUST " -m conntrack --ctstate NEW -s $net $proto $port
 		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-TRUST " -s $net $proto $port
-		$IPTABLES -A $chain -j "$ACCEPT"  -m state --state NEW,ESTABLISHED,RELATED -s $net $proto $port
+		$IPTABLES -A $chain -j "$ACCEPT"  -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net $proto $port
 	    done
 	fi
     done
@@ -1539,13 +1539,13 @@ reject_or_drop_services()
 
 	    if [ "$proto" = "_rpc_" ]; then
 		rpcservicerules $service | while read ARG; do
-		    $LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-$action " -m state --state NEW $ARG
+		    $LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-$action " -m conntrack --ctstate NEW $ARG
 		    $IPTABLES -A $chain -j "$target" $ARG
 		done
 	    elif check_proto_port "$proto" "$port" "$sport" "$var"; then
 		for iptables in $iptables; do
-		    $LDA $iptables -A $chain -s $net $proto $port $sport -m state --state NEW ${LOG}"-`rulelog $chain`-$action "
-		    $iptables -A $chain -s $net $proto $port $sport -m state --state NEW -j "$target"
+		    $LDA $iptables -A $chain -s $net $proto $port $sport -m conntrack --ctstate NEW ${LOG}"-`rulelog $chain`-$action "
+		    $iptables -A $chain -s $net $proto $port $sport -m conntrack --ctstate NEW -j "$target"
 		done
 	    fi
 	done
@@ -1607,23 +1607,23 @@ accept_services()
 	    if [ "$proto" = "_rpc_" ]; then
 		rpcservicerules $service | while read ARG; do
 		    if [ -n "$ipt_recent_set" ]; then
-			$LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROPr " $ARG -m state --state NEW $ipt_recent_rcheck
-			$IPTABLES -A $chain -j "$DROP" $ARG -m state --state NEW $ipt_recent_update
+			$LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROPr " $ARG -m conntrack --ctstate NEW $ipt_recent_rcheck
+			$IPTABLES -A $chain -j "$DROP" $ARG -m conntrack --ctstate NEW $ipt_recent_update
 		    fi
-		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC " -m state --state NEW $ARG
+		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC " -m conntrack --ctstate NEW $ARG
 		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC " $ARG
-		    [ -n "$ipt_recent_set" ] && $IPTABLES -A $chain -j ACCEPT $ARG -m state --state NEW $ipt_recent_set
+		    [ -n "$ipt_recent_set" ] && $IPTABLES -A $chain -j ACCEPT $ARG -m conntrack --ctstate NEW $ipt_recent_set
 		    $IPTABLES -A $chain -j ACCEPT $ARG
 		done
 	    elif check_proto_port "$proto" "$port" "$sport" "$var"; then
 		for iptables in $iptables; do
 		    if [ -n "$ipt_recent_set" ]; then
-			$LDC $iptables -A $chain ${LOG}"-`rulelog $chain`-DROPr " -s $net $proto $port $sport -m state --state NEW $ipt_recent_rcheck
-			$iptables -A $chain -j "$DROP" -s $net $proto $port $sport -m state --state NEW $ipt_recent_update
+			$LDC $iptables -A $chain ${LOG}"-`rulelog $chain`-DROPr " -s $net $proto $port $sport -m conntrack --ctstate NEW $ipt_recent_rcheck
+			$iptables -A $chain -j "$DROP" -s $net $proto $port $sport -m conntrack --ctstate NEW $ipt_recent_update
 		    fi
-		    $LAC $iptables -A $chain -s $net $proto $port $sport -m state --state NEW ${LOG}"-`rulelog $chain`-ACC "
+		    $LAC $iptables -A $chain -s $net $proto $port $sport -m conntrack --ctstate NEW ${LOG}"-`rulelog $chain`-ACC "
 		    $LAA $iptables -A $chain -s $net $proto $port $sport ${LOG}"-`rulelog $chain`-ACC "
-		    [ -n "$ipt_recent_set" ] && $iptables -A $chain -s $net $proto $port $sport -j ACCEPT -m state --state NEW $ipt_recent_set
+		    [ -n "$ipt_recent_set" ] && $iptables -A $chain -s $net $proto $port $sport -j ACCEPT -m conntrack --ctstate NEW $ipt_recent_set
 		    $iptables -A $chain -s $net $proto $port $sport -j ACCEPT
 		done
 	    fi
@@ -1668,7 +1668,7 @@ allow_rpc_services()
 	chain=input_$zone
 	eval ports="\$FW_SERVICES_`cibiz $zone`_RPC"
 	rpcservicerules $ports | while read ARG; do
-	    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " -m state --state NEW $ARG
+	    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " -m conntrack --ctstate NEW $ARG
 	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
 	    $IPTABLES -A $chain -j "$ACCEPT" $ARG
 	done
@@ -1740,9 +1740,9 @@ allow_highports_udp()
 		deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_UDP'
 		for chain in $input_zones; do
 		    chain=input_$chain
-		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m state --state NEW -p udp --dport 1024:
+		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m conntrack --ctstate NEW -p udp --dport 1024:
 		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -p udp --dport 1024:
-		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p udp --dport 1024:
+		    $IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW -p udp --dport 1024:
 		done
 		break;
 		;;
@@ -1750,9 +1750,9 @@ allow_highports_udp()
 		deprecated 'FW_ALLOW_INCOMING_HIGHPORTS_UDP'
 		for chain in $input_zones; do
 		    chain=input_$chain
-		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m state --state NEW -p udp --sport $j --dport 1024:
+		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -m conntrack --ctstate NEW -p udp --sport $j --dport 1024:
 		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-HiUDP " -p udp --sport $j --dport 1024:
-		    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW -p udp --sport $j --dport 1024:
+		    $IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW -p udp --sport $j --dport 1024:
 		done
 		;;
 	esac
@@ -1791,9 +1791,9 @@ redirect_rules()
     if [ -n "$redirectinstalled" ]; then
 	for chain in $input_zones; do
 	    chain=input_$chain
-	    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REDIR " -m mark --mark $mark_redir -m state --state NEW
-	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REDIR " -m mark --mark $mark_redir -m state --state NEW,ESTABLISHED,RELATED
-	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -m mark --mark $mark_redir
+	    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REDIR " -m mark --mark $mark_redir -m conntrack --ctstate NEW
+	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REDIR " -m mark --mark $mark_redir -m conntrack --ctstate NEW,ESTABLISHED,RELATED
+	    $IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -m mark --mark $mark_redir
 	done
     fi
 
@@ -1830,12 +1830,12 @@ allow_related_forward_icmp()
     for chain in $forward_zones; do
 	chain=forward_$chain
 	for itype in $safe_icmp_replies; do
-	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-FWD-RELA"  -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
-	    $IPTABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmp --icmp-type $itype
+	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-FWD-RELA"  -m conntrack --ctstate ESTABLISHED,RELATED -p icmp --icmp-type $itype
+	    $IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED,RELATED -p icmp --icmp-type $itype
 	done
 	for itype in $safe_icmpv6_replies; do
-	    $LAA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-FWD-RELA " -m state --state ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
-	    $IP6TABLES -A $chain -j "$ACCEPT" -m state --state ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
+	    $LAA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-FWD-RELA " -m conntrack --ctstate ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
+	    $IP6TABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
 	done
     done
 }
@@ -1887,15 +1887,15 @@ forwarding_rules()
 	    fi
 	    for chain in $forward_zones; do
 		chain=forward_$chain
-		$LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_in
+		$LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port -m conntrack --ctstate NEW $more_args_in
 		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port $more_args_in
-		$iptables -A $chain -j "$target" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_in
-		$iptables -A $chain -j "$target" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_in
+		$iptables -A $chain -j "$target" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_in
+		$iptables -A $chain -j "$target" -m conntrack --ctstate ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_in
 		if [ -n "$more_args_out" ]; then
-		    $LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port -m state --state NEW $more_args_out
+		    $LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port -m conntrack --ctstate NEW $more_args_out
 		    $LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-${target:0:3}-FORW "  -s $net1 -d $net2 $proto $port $more_args_out
-		    $iptables -A $chain -j "$target" -m state --state NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_out
-		    $iptables -A $chain -j "$target" -m state --state ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_out
+		    $iptables -A $chain -j "$target" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net1 -d $net2 $proto $port $more_args_out
+		    $iptables -A $chain -j "$target" -m conntrack --ctstate ESTABLISHED,RELATED -s $net2 -d $net1 $proto $rport $more_args_out
 		fi
 	    done
 	else
@@ -1955,12 +1955,12 @@ masquerading_rules()
 			    if [ "forward_$z" != "$dzone" ]; then
 				#echo "$dzone: $sdev ($szone) -> $dev ($z)"
 				$LAA $IPTABLES -A $dzone ${LOG}"-`rulelog $dzone`-ACC-MASQ "  -s $net1 $net2 $proto $port -i $sdev -o $dev
-				$IPTABLES -A $dzone -j "$ACCEPT" -m state --state NEW,ESTABLISHED,RELATED -s $net1 $net2 $proto $port -i $sdev -o $dev
+				$IPTABLES -A $dzone -j "$ACCEPT" -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net1 $net2 $proto $port -i $sdev -o $dev
 			    else
 				#echo "$dzone: $sdev ($szone) <- $dev ($z)"
 				# we need to allow the replies as well
-				$LAA $IPTABLES -A $dzone -d $net1 $snet2 $proto $rport -i $dev -o $sdev ${LOG}"-`rulelog $dzone`-ACC-MASQ " -m state --state ESTABLISHED,RELATED
-				$IPTABLES -A $dzone -d $net1 $snet2 $proto $rport -i $dev -o $sdev -j "$ACCEPT" -m state --state ESTABLISHED,RELATED
+				$LAA $IPTABLES -A $dzone -d $net1 $snet2 $proto $rport -i $dev -o $sdev ${LOG}"-`rulelog $dzone`-ACC-MASQ " -m conntrack --ctstate ESTABLISHED,RELATED
+				$IPTABLES -A $dzone -d $net1 $snet2 $proto $rport -i $dev -o $sdev -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED,RELATED
 			    fi
 			done
 		    done
@@ -2021,10 +2021,10 @@ forward_masquerading_rules()
 	    done
 	    for chain in $forward_zones; do
 		chain=forward_$chain
-		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto -s $net1 -d $net2 $dport2 -m state --state NEW
+		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto -s $net1 -d $net2 $dport2 -m conntrack --ctstate NEW
 		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-REVMASQ " $proto -s $net1 -d $net2 $dport2
 		$IPTABLES -A $chain -j "$ACCEPT" $proto -s $net1 -d $net2 $dport2
-		$IPTABLES -A $chain -j "$ACCEPT" $proto -d $net1 -s $net2 -m state --state ESTABLISHED,RELATED
+		$IPTABLES -A $chain -j "$ACCEPT" $proto -d $net1 -s $net2 -m conntrack --ctstate ESTABLISHED,RELATED
 	    done
 	fi
     done
@@ -2072,8 +2072,8 @@ drop_all()
 	    $IP6TABLES -A $chain $log" " -p tcp --syn
 	    $IPTABLES  -A $chain $log" " -p icmp
 	    $IP6TABLES -A $chain $log" " -p icmpv6
-	    $IPTABLES  -A $chain $log" " -p udp -m state --state NEW
-	    $IP6TABLES -A $chain $log" " -p udp -m state --state NEW
+	    $IPTABLES  -A $chain $log" " -p udp -m conntrack --ctstate NEW
+	    $IP6TABLES -A $chain $log" " -p udp -m conntrack --ctstate NEW
 	fi
 	# log anything else
 	$LDA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT "
@@ -2112,7 +2112,7 @@ if [ "$ACTION" = "basic" ]; then
     $IPTABLES -A INPUT -j "$ACCEPT" -p icmp --icmp-type echo-request
 
     # log incoming tcp connection requests. also logging udp etc would just flood the log
-    $IPTABLES -A INPUT -p tcp -m state --state NEW $LOG"-IN-DROP-NEW-CONNECT "
+    $IPTABLES -A INPUT -p tcp -m conntrack --ctstate NEW $LOG"-IN-DROP-NEW-CONNECT "
 
     # reject anything else
     $IPTABLES -A INPUT -j "$DROP"
