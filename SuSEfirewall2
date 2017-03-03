@@ -7,24 +7,24 @@
 #
 # Author:     Marc Heuse
 # Maintainer: Ludwig Nussel
-# 
+#
 # Please send feedback via http://www.suse.de/feedback
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # version 2 as published by the Free Software Foundation.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #
-# For all those fellow experts out there: yes I know that this is NOT a 
+# For all those fellow experts out there: yes I know that this is NOT a
 # firewall setup but a simple (no, not simple, it tries actually to be
 # clever) packet filter. But if we would call this "SuSEpacketfilter",
 # only a few user would install it, hence general security would be bad.
@@ -58,7 +58,7 @@ $0 open ZONE TYPE services...
 $0 on|off
 
 Options:
-  start	  generate and load the firewall filter rules from 
+  start	  generate and load the firewall filter rules from
           /etc/sysconfig/SuSEfirewall2
   stop    unload all filter rules
   close   no incoming network traffic except bootp+ping (for boot security)
@@ -478,7 +478,7 @@ parse_logging()
 	    LAC=":"
 	    LAAC=":"
 	fi
-    else 
+    else
 	LAC=':'
     fi
 
@@ -726,7 +726,7 @@ function set_basic_rules()
     if [ "$IP6TABLES" != ':' ]; then
 	load_modules ip6table_filter ip6table_mangle
     fi
-    
+
     # determine policy
     local DROP_JUMP
     if [ "$DROP" = "ACCEPT" ]; then
@@ -748,7 +748,7 @@ function set_basic_rules()
     done
 
     # Special REJECT function #
-    
+
     $IPTABLES -N reject_func
     $IPTABLES -A reject_func -p tcp -j REJECT --reject-with tcp-reset
     $IPTABLES -A reject_func -p udp -j REJECT --reject-with icmp-port-unreachable
@@ -832,7 +832,7 @@ setlock()
     ### Locking mechanism
     if [ "$needlock" -ne 0 ]; then
 	if [ -e "$BOOTLOCKFILE" ]; then
-	    die 0 "$BOOTLOCKFILE exists which means system boot in progress, exit." 
+	    die 0 "$BOOTLOCKFILE exists which means system boot in progress, exit."
 	fi
 	if [ -e "$LOCKFILE" ]; then
 	    read PID < $LOCKFILE
@@ -1181,21 +1181,21 @@ verify_masq_nets()
 set_proc_stuff()
 {
     if [ "$FW_KERNEL_SECURITY" != no ]; then
-	# kernel default 1: setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts 
+	# kernel default 1: setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
 # test "$FW_ALLOW_PING_FW" = yes || setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_all  # XXX
 	# gone? setproc 1 /proc/sys/net/ipv4/ip_always_defrag  # XXX not there?
-	# kernel default 1: setproc 1 /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses 
-	# gone? setproc 5 /proc/sys/net/ipv4/icmp_echoreply_rate 
-	# gone? setproc 5 /proc/sys/net/ipv4/icmp_destunreach_rate 
-	# gone? setproc 5 /proc/sys/net/ipv4/icmp_paramprob_rate 
-	# gone? setproc 6 /proc/sys/net/ipv4/icmp_timeexceed_rate 
-	# 30*HZ in the kernel, setproc 20 /proc/sys/net/ipv4/ipfrag_time 
+	# kernel default 1: setproc 1 /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses
+	# gone? setproc 5 /proc/sys/net/ipv4/icmp_echoreply_rate
+	# gone? setproc 5 /proc/sys/net/ipv4/icmp_destunreach_rate
+	# gone? setproc 5 /proc/sys/net/ipv4/icmp_paramprob_rate
+	# gone? setproc 6 /proc/sys/net/ipv4/icmp_timeexceed_rate
+	# 30*HZ in the kernel, setproc 20 /proc/sys/net/ipv4/ipfrag_time
 	for i in /proc/sys/net/ipv4/conf/*; do
 	    setproc 1 $i/log_martians		# default is 0 in the kernel
-	    #kernel default 0: setproc 0 $i/bootp_relay 
+	    #kernel default 0: setproc 0 $i/bootp_relay
 	    [ "$FW_ROUTE" != yes ] && setproc 0 $i/forwarding	# should stay
-	    # kernel default 0: setproc 0 $i/proxy_arp 
-	    # kernel default 1: setproc 1 $i/secure_redirects 
+	    # kernel default 0: setproc 0 $i/proxy_arp
+	    # kernel default 1: setproc 1 $i/secure_redirects
 	    #setproc 0 $i/accept_redirects # let kernel decide this
 	    setproc 0 $i/accept_source_route 	# default is 1, should stay?
 	    setproc 1 $i/rp_filter 		# default is 0, should stay?
@@ -1283,7 +1283,7 @@ parse_configurations()
 		    eval $var="\"\$$var \$BROADCAST\""
 		fi
 	    fi
-	    
+
 	    if [ -n "$RELATED" ]; then
 		eval FW_SERVICES_ACCEPT_RELATED_`cibiz $zone`="\"\$FW_SERVICES_ACCEPT_RELATED_`cibiz $zone` \$RELATED\""
 	    fi
@@ -1478,7 +1478,7 @@ finish_chains()
     local iptables
     for iptables in "$IPTABLES" "$IP6TABLES"; do
 	# anything which is now not in the input_* chains is evil
-	$LDAC $iptables -A INPUT ${LOG}"-IN-ILL-TARGET " 
+	$LDAC $iptables -A INPUT ${LOG}"-IN-ILL-TARGET "
 	$iptables -A INPUT -j "$DROP"
 
 	$LDAC $iptables -A FORWARD ${LOG}"-FWD-ILL-ROUTING "
@@ -1525,7 +1525,7 @@ protect_from_internal()
 	elif [ "$val" = no ]; then
 	    chain=input_$zone
 	    for iptables in "$IPTABLES" "$IP6TABLES"; do
-		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-ALL " 
+		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-ALL "
 		$iptables -A $chain -j "$ACCEPT"
 	    done
 	else
@@ -1537,7 +1537,7 @@ protect_from_internal()
 	fi
     done
 
-    if [ "$input_zones" != "$newzones" ]; then 
+    if [ "$input_zones" != "$newzones" ]; then
 	saved_input_zones="$input_zones" # need that for fork_to_chains
 	input_zones="$newzones"
     fi
@@ -1556,7 +1556,7 @@ allow_related()
 
 	for service in $services; do
 	    IFS=, eval set -- \$service
-	    
+
 	    net="${1:-0/0}"
 	    proto="$2"
 	    port="$3"
@@ -1620,7 +1620,7 @@ allow_icmp()
 #	done
 #    done
     # DROP rules for input ICMP are after trusted handling (see below)
-    
+
     # state matching for these does not work
     icmp_types="$stateless_icmpv6_types"
     for itype in $icmp_types; do
@@ -1770,7 +1770,7 @@ accept_services()
 		error "too few parameters in $var -> $service"
 		continue
 	    fi
-	    
+
 	    net="${1:-0/0}"
 	    proto="$2"
 	    port="$3"
@@ -1939,7 +1939,7 @@ redirect_rules()
 	proto="$3"
 	port1="$4"
 	port2="$5"
-	
+
 	if [ -n "$6" ]; then
 	    error "Too many arguments in FW_REDIRECT -> $nets"
 	elif [ -z "$net1" -o -z "$net2" -o -z "$proto" ]; then
@@ -1981,7 +1981,7 @@ allow_class_routing()
     elif [ "$FW_ALLOW_CLASS_ROUTING" = 'no' ]; then
 	return
     fi
-    
+
     # assuming that only traffic from $zone interface enter the
     # forward_$zone chain anyways, we don't need the -i parameter
     for zone in $FW_ALLOW_CLASS_ROUTING; do
