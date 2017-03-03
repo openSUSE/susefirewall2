@@ -647,7 +647,7 @@ FW_LOG_DROP_CRIT=""
 #
 # whether all dropped packets should be logged
 #
-# Note: for broadcasts to be logged you also need to set
+# Note: for broadcasts or multicasts to be logged you also need to set
 # FW_IGNORE_FW_BROADCAST_* to 'no'
 #
 # defaults to "no" if not set
@@ -822,6 +822,8 @@ FW_ALLOW_FW_BROADCAST_DMZ=""
 # Suppress logging of dropped broadcast packets. Useful if you don't allow
 # broadcasts on a LAN interface.
 #
+# This affects both broadcast and multicast packets for both IPv4 and IPv6
+#
 # This setting only affects packets that are not allowed according
 # to FW_ALLOW_FW_BROADCAST_*
 #
@@ -834,17 +836,19 @@ FW_ALLOW_FW_BROADCAST_DMZ=""
 #           - "no" log all dropped broadcast packets
 #
 #
-# defaults to "no" if not set
+# defaults to "yes"
 FW_IGNORE_FW_BROADCAST_EXT=""
 
 ## Type:	string
 #
 # see comments for FW_IGNORE_FW_BROADCAST_EXT
+# defaults to "no"
 FW_IGNORE_FW_BROADCAST_INT=""
 
 ## Type:	string
 #
 # see comments for FW_IGNORE_FW_BROADCAST_EXT
+# defaults to "no"
 FW_IGNORE_FW_BROADCAST_DMZ=""
 
 ## Type:	list(yes,no,int,ext,dmz,)

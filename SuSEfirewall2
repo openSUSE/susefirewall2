@@ -1343,7 +1343,7 @@ drop_broadcast()
 	    $IP6TABLES $match -p udp --dport $port -j "$ACCEPT"
 	done
 
-	if [ "$ignore" != yes ]; then
+	if [ "$ignore" != 'yes' ]; then
 	    for port in $ignore; do
 		[ $port = no ] && continue
 		$IPTABLES $match -p udp --dport $port -j "$DROP"
@@ -2273,16 +2273,18 @@ drop_all()
 	    drop="$DROP"
 	fi
 
-	# log and drop multicast packets separately to not flood
-	# other log targets (#155326, #538053)
-	$LDA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype --pkt-type multicast
-	$IPTABLES -A $chain -j "$DROP" -m pkttype --pkt-type multicast
-
 	eval local ignore="\$FW_IGNORE_FW_BROADCAST_`cibiz $zone`"
+
+	# log and drop broadcast/multicast packets separately, only if not
+	# ignored, to not flood other log targets (#155326, #538053, #847193)
+
 	if [ "$ignore" != 'yes' ]; then
-	    $LDA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype --pkt-type broadcast
+	    $LDA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype \! --pkt-type unicast
+	    $LDA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype \! --pkt-type unicast
 	fi
-	$IPTABLES -A $chain -j "$DROP" -m pkttype --pkt-type broadcast
+	$IPTABLES -A $chain -j "$DROP" -m pkttype \! --pkt-type unicast
+	$IP6TABLES -A $chain -j "$DROP" -m pkttype \! --pkt-type unicast
+
 	# some packet types are considered critical
 	if [ -z "$LDC" ]; then
 	    local log=${LOG}"-`rulelog $chain`-DROP-DEFLT"
