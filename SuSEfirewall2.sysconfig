@@ -554,7 +554,7 @@ FW_FORWARD=""
 
 ## Type:	string
 #
-# same as FW_FORWARD but packages are rejected instead of accepted
+# same as FW_FORWARD but packets are rejected instead of accepted
 #
 # Requires: FW_ROUTE
 #
@@ -562,7 +562,7 @@ FW_FORWARD_REJECT=""
 
 ## Type:	string
 #
-# same as FW_FORWARD but packages are dropped instead of accepted
+# same as FW_FORWARD but packets are dropped instead of accepted
 #
 # Requires: FW_ROUTE
 #
@@ -633,7 +633,7 @@ FW_REDIRECT=""
 #
 # Which kind of packets should be logged?
 #
-# When set to "yes", packages that got dropped and are considered
+# When set to "yes", packets that got dropped and are considered
 # 'critical' will be logged. Such packets include for example
 # spoofed packets, tcp connection requests and certain icmp types.
 #
@@ -654,7 +654,7 @@ FW_LOG_DROP_ALL=""
 
 ## Type:	yesno
 #
-# When set to "yes", packages that got accepted and are considered
+# When set to "yes", packets that got accepted and are considered
 # 'critical' will be logged. Such packets include for example tcp
 # connection requests, rpc connection requests and forwarded pakets.
 #
@@ -685,7 +685,7 @@ FW_LOG_ACCEPT_ALL=""
 #
 # Set to 'no' to disable the rate limit. Setting FW_LOG_ACCEPT_ALL
 # to 'yes' disables this option as well.
-# 
+#
 # Format: a digit and suffix /second, /minute, /hour or /day
 FW_LOG_LIMIT=""
 
@@ -868,7 +868,7 @@ FW_ALLOW_CLASS_ROUTING=""
 
 ## Type:	string
 #
-# Do you want to load customary rules from a file?
+# Do you want to load custom rules from a file?
 #
 # This is really an expert option. NO HELP WILL BE GIVEN FOR THIS!
 # READ THE EXAMPLE CUSTOMARY FILE AT /etc/sysconfig/scripts/SuSEfirewall2-custom
@@ -944,9 +944,11 @@ FW_HTB_TUNE_DEV=""
 #
 # What to do with IPv6 Packets?
 #
-# On older kernels ip6tables was not stateful so it's not possible to implement
-# the same features as for IPv4 on such machines. For these there are three
-# choices:
+# On older kernels (before 2.6.20) ip6tables was not stateful so it's not
+# possible to implement the same features as for IPv4 on such machines.
+# If the CONFIG_NF_CONNTRACK_IPV6 kernel module is existing then leave this
+# empty.
+# For these there are three choices:
 # 
 # - no: do not set any IPv6 rules at all. Your Host will allow any IPv6
 #   traffic unless you setup your own rules.
