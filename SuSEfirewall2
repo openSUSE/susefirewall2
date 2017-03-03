@@ -436,6 +436,9 @@ else
     fi
 fi
 
+# list of the IPv4 and IPv6 tables commands to be used
+IPTABLES_LIST="$IPTABLES $IP6TABLES"
+
 ### jump targets
 ACCEPT="ACCEPT"
 DROP="DROP"
@@ -558,6 +561,18 @@ function setproc()
     else
 	echo "echo \"$1\" > \"$2\""
     fi
+}
+
+# returns the correct iptables binary for the given IPv4/6 address
+function get_iptables()
+{
+	local ip=$1
+
+	case "$ip" in
+		*:*) echo $IP6TABLES;;
+		# assume IPv4 for anything else
+		*) echo $IPTABLES ;;
+	esac
 }
 
 # parameters: protocol port variable
@@ -1743,6 +1758,11 @@ process_trusted_nets()
 	net="$1"
 	proto="$2"
 	port="$3"
+
+	# choose the ipv4/6 tables depending on the kind of subnet address
+	# encountered
+	ipxtables=`get_iptables $net`
+
 	if [ -n "$4" ]; then
 	    error "Too many arguments in FW_TRUSTED_NETS -> $nets"
 	elif [ -z "$net" ]; then
@@ -1752,9 +1772,9 @@ process_trusted_nets()
 	elif check_proto_port "$proto" "$port" "" 'FW_TRUSTED_NETS'; then
 	    for chain in $input_zones; do # trusted networks can be on any interface ...
 		chain=input_$chain
-		$LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-TRUST " -m conntrack --ctstate NEW -s $net $proto $port
-		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-TRUST " -s $net $proto $port
-		$IPTABLES -A $chain -j "$ACCEPT"  -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net $proto $port
+		$LAC $ipxtables -A $chain ${LOG}"-`rulelog $chain`-ACC-TRUST " -m conntrack --ctstate NEW -s $net $proto $port
+		$LAA $ipxtables -A $chain ${LOG}"-`rulelog $chain`-ACC-TRUST " -s $net $proto $port
+		$ipxtables -A $chain -j "$ACCEPT"  -m conntrack --ctstate NEW,ESTABLISHED,RELATED -s $net $proto $port
 	    done
 	fi
     done

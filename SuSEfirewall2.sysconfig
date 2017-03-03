@@ -507,7 +507,9 @@ FW_SERVICES_ACCEPT_RELATED_INT=""
 # Format: space separated list of network[,protocol[,port]]
 # in case of icmp, port means the icmp type
 #
-# Example: "172.20.1.1 172.20.0.0/16 1.1.1.1,icmp 2.2.2.2,tcp,22"
+# if network has IPv6 address format then an ip6tables rule will be assumed.
+#
+# Example: "172.20.1.1 172.20.0.0/16 1.1.1.1,icmp 2.2.2.2,tcp,22 2620:113:80c0:8080:10:160:68:136/64,rsync"
 #
 FW_TRUSTED_NETS=""
 
