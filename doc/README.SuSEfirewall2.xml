@@ -6,7 +6,7 @@
 
   <articleinfo>
 
-    <title>SuSEfirewall2</title>
+    <title>SUSEfirewall2</title>
 
   </articleinfo>
 
@@ -16,7 +16,7 @@
 
     <para>
 
-      <literal>SuSEfirewall2</literal> is a shell script wrapper for the Linux
+      <literal>SUSEfirewall2</literal> is a shell script wrapper for the Linux
       firewall setup tool (<literal>iptables</literal>). It's controlled by a
       human readable configuration file.
 
@@ -24,7 +24,7 @@
 
     <para>
 
-      Main features of SuSEfirewall2:
+      Main features of SUSEfirewall2:
 
       <itemizedlist>
 	<listitem><para>sets up secure filter rules by default</para></listitem>
@@ -57,9 +57,12 @@
       <para>
 
 	The YaST2 firewall module is the recommended tool for configuring
-	SuSEfirewall2. It offers the most common features with a nice user
+	SUSEfirewall2. It offers the most common features with a nice user
 	interface and help texts. It also takes care of proper activation of
 	the init scripts.
+
+	You can directly start the YaST2 firewall configuration via
+	<command>yast2 firewall</command>.
 
       </para>
 
@@ -70,24 +73,30 @@
 
       <para>
 
-	Enable the SuSEfirewall2 boot scripts:
+	Enable the SUSEfirewall2 systemd unit:
 
 	<informalexample>
 	  <para>
-	    <command>chkconfig SuSEfirewall2_init on</command>
-	  </para>
-	  <para>
-	    <command>chkconfig SuSEfirewall2_setup on</command>
+	    <command>systemctl enable SuSEfirewall2</command>
 	  </para>
 	</informalexample>
 
 	Edit <filename>/etc/sysconfig/SuSEfirewall2</filename> with your
 	favorite editor. Read the commented lines carefully. They give you
 	many hints and tips for the configuration. You need to at least add one
-	network interface to <varname>FW_DEV_EXT</varname> for SuSEfirewall2 to
+	network interface to <varname>FW_DEV_EXT</varname> for SUSEfirewall2 to
 	do anything. If you are stuck or need additional hints, take a look at
 	<filename>EXAMPLES</filename> file in
 	<filename>/usr/share/doc/packages/SuSEfirewall2</filename>
+
+	After you are finished with the configuration you can explicitly start
+	the firewall via systemd:
+
+	<informalexample>
+	  <para>
+	    <command>systemctl start SuSEfirewall2</command>
+	  </para>
+	</informalexample>
 
       </para>
 
@@ -101,11 +110,11 @@
 
     <para>
 
-      SuSEfirewall2 is a frontend for iptables which sets up kernel packet
+      SUSEfirewall2 is a frontend for iptables which sets up kernel packet
       filters, nothing more and nothing less. This means that you are not
-      automatically protected from all security hazards by using SuSEfirewall2.
-      To minimize security risks on a networked system obey the following
-      rules:
+      automatically protected from all security hazards by using
+      SUSEfirewall2. To minimize security risks on a networked system obey
+      the following rules:
 
       <itemizedlist>
 
@@ -146,8 +155,7 @@
 
 	<listitem>
 	  <para>
-	    Subscribe to the <ulink
-	      url="http://en.opensuse.org/Communicate/Mailinglists">opensuse-security-announce</ulink>
+	    Subscribe to the <ulink url="https://lists.opensuse.org">opensuse-security-announce</ulink>
 	    mailinglist to keep yourself informed about new and upcoming
 	    security issues.
 	  </para>
@@ -186,7 +194,7 @@
 
     <para>
 
-      Source code is available at 
+      Source code is available at
       <ulink url="http://github.com/opensuse/susefirewall2">Github</ulink>
 
     </para>
@@ -198,9 +206,9 @@
     <para>
 
       Report any problems via <ulink
-	url="https://bugzilla.novell.com/">Bugzilla</ulink>.
-      For discussion about SuSEfirewall2 join the <ulink
-	url="http://en.opensuse.org/Communicate/Mailinglists">opensuse-security</ulink>
+	url="https://bugzilla.suse.com/">Bugzilla</ulink>.
+      For discussion about SUSEfirewall2 join the <ulink
+	url="https://lists.opensuse.org">opensuse-security</ulink>
       mailinglist.
 
     </para>
@@ -224,18 +232,25 @@
 
     <para>
 
-      SuSEfirewall2 was originally created by
+      SUSEfirewall2 was originally created by
       <author>
 	<firstname>Marc</firstname>
 	<surname>Heuse</surname>
       </author>.
-      Most of it got rewritten and enhanced by it's current maintainer
+      Most of it got rewritten and enhanced by
       <ulink url="mailto:ludwig.nussel@suse.de">
 	<author>
 	  <firstname>Ludwig</firstname>
 	  <surname>Nussel</surname>
 	</author>
-      </ulink>
+      </ulink>.
+      The current maintainer is
+      <ulink url="mailto:matthias.gerstner@suse.de">
+	<author>
+	  <firstname>Matthias</firstname>
+	  <surname>Gerstner</surname>
+	</author>
+      </ulink>.
 
     </para>
 

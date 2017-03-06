@@ -1,49 +1,57 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SuSEfirewall2</title><link rel="stylesheet" type="text/css" href="susebooks.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.78.0" /></head><body><div class="article"><div class="titlepage"><div><div><h2 class="title"><a id="idm140488827897456"></a>SuSEfirewall2</h2></div></div><hr /></div><div class="toc"><p><strong>Table of Contents</strong></p><dl class="toc"><dt><span class="section"><a href="#idm140488827895712">1. Introduction</a></span></dt><dt><span class="section"><a href="#idm140488827931776">2. Quickstart</a></span></dt><dd><dl><dt><span class="section"><a href="#idm140488827931104">2.1. YaST2 firewall module</a></span></dt><dt><span class="section"><a href="#idm140488825655632">2.2. Manual configuration</a></span></dt></dl></dd><dt><span class="section"><a href="#idm140488825648944">3. Some words about security</a></span></dt><dt><span class="section"><a href="#idm140488823542032">4. Source Code</a></span></dt><dt><span class="section"><a href="#idm140488823540128">5. Reporting bugs</a></span></dt><dt><span class="section"><a href="#idm140488823537488">6. Links</a></span></dt><dt><span class="section"><a href="#idm140488823534528">7. Author</a></span></dt></dl></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140488827895712"></a>1. Introduction</h2></div></div></div><p>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8" /><title>SUSEfirewall2</title><link rel="stylesheet" type="text/css" href="susebooks.css" /><meta name="generator" content="DocBook XSL Stylesheets V1.79.1" /></head><body><div class="article"><div class="titlepage"><div><div><h2 class="title"><a id="idm140104975182400"></a>SUSEfirewall2</h2></div></div><hr /></div><div class="toc"><p><strong>Table of Contents</strong></p><dl class="toc"><dt><span class="section"><a href="#idm140104974952960">1. Introduction</a></span></dt><dt><span class="section"><a href="#idm140104973683984">2. Quickstart</a></span></dt><dd><dl><dt><span class="section"><a href="#idm140104973683312">2.1. YaST2 firewall module</a></span></dt><dt><span class="section"><a href="#idm140104973681216">2.2. Manual configuration</a></span></dt></dl></dd><dt><span class="section"><a href="#idm140104972880176">3. Some words about security</a></span></dt><dt><span class="section"><a href="#idm140104975008848">4. Source Code</a></span></dt><dt><span class="section"><a href="#idm140104975006960">5. Reporting bugs</a></span></dt><dt><span class="section"><a href="#idm140104975004272">6. Links</a></span></dt><dt><span class="section"><a href="#idm140104975001312">7. Author</a></span></dt></dl></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140104974952960"></a>1. Introduction</h2></div></div></div><p>
 
-      <code class="literal">SuSEfirewall2</code> is a shell script wrapper for the Linux
+      <code class="literal">SUSEfirewall2</code> is a shell script wrapper for the Linux
       firewall setup tool (<code class="literal">iptables</code>). It's controlled by a
       human readable configuration file.
 
     </p><p>
 
-      Main features of SuSEfirewall2:
+      Main features of SUSEfirewall2:
 
       </p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p>sets up secure filter rules by default</p></li><li class="listitem"><p>easy to configure</p></li><li class="listitem"><p>requires only a small configuration effort</p></li><li class="listitem"><p>zone based setup. Interfaces are grouped into zones</p></li><li class="listitem"><p>supports an arbitrary number of zones</p></li><li class="listitem"><p>supports forwarding, masquerading, port redirection</p></li><li class="listitem"><p>supports RPC services with dynamically assigned ports</p></li><li class="listitem"><p>allows special treatment of IPsec packets</p></li><li class="listitem"><p>IPv6 support</p></li><li class="listitem"><p>allows insertion of custom rules through hooks</p></li><li class="listitem"><p>graphical <a class="ulink" href="http://lizards.opensuse.org/2009/08/28/firewall-zone-switcher-updated/" target="_top">zone
 	      switcher applet</a> for desktop use</p></li></ul></div><p>
 
-    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140488827931776"></a>2. Quickstart</h2></div></div></div><div class="section"><div class="titlepage"><div><div><h3 class="title"><a id="idm140488827931104"></a>2.1. YaST2 firewall module</h3></div></div></div><p>
+    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140104973683984"></a>2. Quickstart</h2></div></div></div><div class="section"><div class="titlepage"><div><div><h3 class="title"><a id="idm140104973683312"></a>2.1. YaST2 firewall module</h3></div></div></div><p>
 
 	The YaST2 firewall module is the recommended tool for configuring
-	SuSEfirewall2. It offers the most common features with a nice user
+	SUSEfirewall2. It offers the most common features with a nice user
 	interface and help texts. It also takes care of proper activation of
 	the init scripts.
 
-      </p></div><div class="section"><div class="titlepage"><div><div><h3 class="title"><a id="idm140488825655632"></a>2.2. Manual configuration</h3></div></div></div><p>
+	You can directly start the YaST2 firewall configuration via
+	<span class="command"><strong>yast2 firewall</strong></span>.
 
-	Enable the SuSEfirewall2 boot scripts:
+      </p></div><div class="section"><div class="titlepage"><div><div><h3 class="title"><a id="idm140104973681216"></a>2.2. Manual configuration</h3></div></div></div><p>
+
+	Enable the SUSEfirewall2 systemd unit:
 
 	</p><div class="informalexample"><p>
-	    <span class="command"><strong>chkconfig SuSEfirewall2_init on</strong></span>
-	  </p><p>
-	    <span class="command"><strong>chkconfig SuSEfirewall2_setup on</strong></span>
+	    <span class="command"><strong>systemctl enable SuSEfirewall2</strong></span>
 	  </p></div><p>
 
 	Edit <code class="filename">/etc/sysconfig/SuSEfirewall2</code> with your
 	favorite editor. Read the commented lines carefully. They give you
 	many hints and tips for the configuration. You need to at least add one
-	network interface to <code class="varname">FW_DEV_EXT</code> for SuSEfirewall2 to
+	network interface to <code class="varname">FW_DEV_EXT</code> for SUSEfirewall2 to
 	do anything. If you are stuck or need additional hints, take a look at
 	<code class="filename">EXAMPLES</code> file in
 	<code class="filename">/usr/share/doc/packages/SuSEfirewall2</code>
 
-      </p></div></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140488825648944"></a>3. Some words about security</h2></div></div></div><p>
+	After you are finished with the configuration you can explicitly start
+	the firewall via systemd:
 
-      SuSEfirewall2 is a frontend for iptables which sets up kernel packet
+	</p><div class="informalexample"><p>
+	    <span class="command"><strong>systemctl start SuSEfirewall2</strong></span>
+	  </p></div><p>
+
+      </p></div></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140104972880176"></a>3. Some words about security</h2></div></div></div><p>
+
+      SUSEfirewall2 is a frontend for iptables which sets up kernel packet
       filters, nothing more and nothing less. This means that you are not
-      automatically protected from all security hazards by using SuSEfirewall2.
-      To minimize security risks on a networked system obey the following
-      rules:
+      automatically protected from all security hazards by using
+      SUSEfirewall2. To minimize security risks on a networked system obey
+      the following rules:
 
       </p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p>
 	    Run only those services you actually need. Think twice before
@@ -61,7 +69,7 @@
 	    Run YaST Online Update on a regular basis or enable it's automatic
 	    mode to get the latest security fixes.
 	  </p></li><li class="listitem"><p>
-	    Subscribe to the <a class="ulink" href="http://en.opensuse.org/Communicate/Mailinglists" target="_top">opensuse-security-announce</a>
+	    Subscribe to the <a class="ulink" href="https://lists.opensuse.org" target="_top">opensuse-security-announce</a>
 	    mailinglist to keep yourself informed about new and upcoming
 	    security issues.
 	  </p></li><li class="listitem"><p>
@@ -76,28 +84,32 @@
 	    Check your log files regularly for unusual entries.
 	  </p></li></ul></div><p>
 
-    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140488823542032"></a>4. Source Code</h2></div></div></div><p>
+    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140104975008848"></a>4. Source Code</h2></div></div></div><p>
 
-      Source code is available at 
+      Source code is available at
       <a class="ulink" href="http://github.com/opensuse/susefirewall2" target="_top">Github</a>
 
-    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140488823540128"></a>5. Reporting bugs</h2></div></div></div><p>
+    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140104975006960"></a>5. Reporting bugs</h2></div></div></div><p>
 
-      Report any problems via <a class="ulink" href="https://bugzilla.novell.com/" target="_top">Bugzilla</a>.
-      For discussion about SuSEfirewall2 join the <a class="ulink" href="http://en.opensuse.org/Communicate/Mailinglists" target="_top">opensuse-security</a>
+      Report any problems via <a class="ulink" href="https://bugzilla.suse.com/" target="_top">Bugzilla</a>.
+      For discussion about SUSEfirewall2 join the <a class="ulink" href="https://lists.opensuse.org" target="_top">opensuse-security</a>
       mailinglist.
 
-    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140488823537488"></a>6. Links</h2></div></div></div><p>
+    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140104975004272"></a>6. Links</h2></div></div></div><p>
       <a class="ulink" href="EXAMPLES.html" target="_top">Examples</a>
     </p><p>
       <a class="ulink" href="FAQ.html" target="_top">Frequently Asked Questions</a>
-    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140488823534528"></a>7. Author</h2></div></div></div><p>
+    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="idm140104975001312"></a>7. Author</h2></div></div></div><p>
 
-      SuSEfirewall2 was originally created by
+      SUSEfirewall2 was originally created by
       <span class="author"><span class="firstname">Marc</span> <span class="surname">Heuse</span></span>.
-      Most of it got rewritten and enhanced by it's current maintainer
+      Most of it got rewritten and enhanced by
       <a class="ulink" href="mailto:ludwig.nussel@suse.de" target="_top">
 	<span class="author"><span class="firstname">Ludwig</span> <span class="surname">Nussel</span></span>
-      </a>
+      </a>.
+      The current maintainer is
+      <a class="ulink" href="mailto:matthias.gerstner@suse.de" target="_top">
+	<span class="author"><span class="firstname">Matthias</span> <span class="surname">Gerstner</span></span>
+      </a>.
 
     </p></div></div></body></html>
