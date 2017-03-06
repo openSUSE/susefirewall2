@@ -1273,10 +1273,18 @@ switch_on_ip_forwarding()
     fi
 
     local yes_no="$1"
-    if [ "$yes_no" = yes ]; then
-	setproc 1 /proc/sys/net/ipv4/ip_forward
-    else
-	setproc 0 /proc/sys/net/ipv4/ip_forward
+    local new_value=0
+    [ "$yes_no" = "yes" ] && new_value=1
+
+    # global forwarding
+    setproc $new_value /proc/sys/net/ipv4/ip_forward
+
+    # iterare over each single interface, too, because they may be decoupled
+    # from the global setting
+    if [ "$FW_KERNEL_SECURITY" != "no" ]; then
+	for i in /proc/sys/net/ipv4/conf/*; do
+	    setproc $new_value $i/forwarding
+        done
     fi
 }
 
@@ -1323,7 +1331,6 @@ set_proc_stuff()
 	for i in /proc/sys/net/ipv4/conf/*; do
 	    setproc 1 $i/log_martians 
 	    setproc 0 $i/bootp_relay 
-	    [ "$FW_ROUTE" != yes ] && setproc 0 $i/forwarding
 	    setproc 0 $i/proxy_arp 
 	    setproc 1 $i/secure_redirects 
 	    #setproc 0 $i/accept_redirects # let kernel decide this
