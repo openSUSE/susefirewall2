@@ -824,7 +824,7 @@ function set_basic_rules()
     for iptables in "$IPTABLES" "$IP6TABLES"; do
 	$iptables -A INPUT  -j "$ACCEPT" -i lo
 	$iptables -A OUTPUT -j "$ACCEPT" -o lo
-	if [ "$FW_LO_NOTRACK" != 'no' ]; then
+	if [ "$FW_LO_NOTRACK" = 'yes' ]; then
 	    $iptables -t raw -A PREROUTING -j CT --notrack -i lo
 	    $iptables -t raw -A OUTPUT -j CT --notrack -o lo
 	fi
