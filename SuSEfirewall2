@@ -1241,24 +1241,38 @@ verify_masq_nets()
 set_proc_stuff()
 {
     if [ "$FW_KERNEL_SECURITY" != no ]; then
-	# kernel default 1: setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
-# test "$FW_ALLOW_PING_FW" = yes || setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_all  # XXX
-	# gone? setproc 1 /proc/sys/net/ipv4/ip_always_defrag  # XXX not there?
-	# kernel default 1: setproc 1 /proc/sys/net/ipv4/icmp_ignore_bogus_error_responses
-	# gone? setproc 5 /proc/sys/net/ipv4/icmp_echoreply_rate
-	# gone? setproc 5 /proc/sys/net/ipv4/icmp_destunreach_rate
-	# gone? setproc 5 /proc/sys/net/ipv4/icmp_paramprob_rate
-	# gone? setproc 6 /proc/sys/net/ipv4/icmp_timeexceed_rate
-	# 30*HZ in the kernel, setproc 20 /proc/sys/net/ipv4/ipfrag_time
+
+	# test "$FW_ALLOW_PING_FW" = yes || setproc 1 /proc/sys/net/ipv4/icmp_echo_ignore_all  # XXX
+
+	# ip_always_defrag: no longer available, are defraged by default for
+	# the packet filter now
+
+	# icmp_ignore_bogus_error_responses: gone since kernel 2.2, new
+	# default: disabled
+
+	# gone since kernel >2.4.9: icmp_*_rate
+	# replaced by icmp_{ratemask,ratelimit}
+	#
+	# ratelimit is at 1 second by default, only enabled for some icmp
+	# types though
+
+	# iterate over each single interface, because some may be decoupled
+	# from the global setting
 	for i in /proc/sys/net/ipv4/conf/*; do
-	    setproc 1 $i/log_martians		# default is 0 in the kernel
-	    #kernel default 0: setproc 0 $i/bootp_relay
-	    # kernel default 0: setproc 0 $i/proxy_arp
-	    # kernel default 1: setproc 1 $i/secure_redirects
-	    #setproc 0 $i/accept_redirects # let kernel decide this
-	    setproc 0 $i/accept_source_route 	# default is 1, should stay?
-	    setproc 1 $i/rp_filter 		# default is 0, should stay?
+
+	    # let kernel decide this
+	    #setproc 0 $i/accept_redirects
+
+            # default is 0 in the kernel
+            setproc 1 $i/log_martians
+
+	    # not accepting source route option is safer
+	    setproc 0 $i/all/accept_source_route
+            # drop packets with source addresses that aren't routable through
+	    # the interface it came in
+	    setproc 1 $i/rp_filter
 	done
+
 	setproc 1 /proc/sys/net/ipv4/route/flush
     fi
 }
