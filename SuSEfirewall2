@@ -1188,7 +1188,14 @@ verify_parameters()
 # Turn ip forwarding on if configured
 switch_on_ip_forwarding()
 {
-    if [ "$FW_ROUTE" = yes ]; then
+    if [ -z "$orig_ipv4_forwarding" ]; then
+	# save the original value before we overwrite it. needed in
+	# fw_after_finished
+	orig_ipv4_forwarding=`cat /proc/sys/net/ipv4/ip_forward`
+    fi
+
+    local yes_no="$1"
+    if [ "$yes_no" = yes ]; then
 	setproc 1 /proc/sys/net/ipv4/ip_forward
     else
 	setproc 0 /proc/sys/net/ipv4/ip_forward
@@ -2333,6 +2340,33 @@ drop_all()
     done
 }
 
+# perform some final actions after all rules have been setup
+function fw_after_finished
+{
+	# check whether libvirtd is running and trigger it to reinstate
+	# firewall rules, if necessary. See bsc#884398
+	/bin/systemctl --quiet is-active libvirtd || return
+
+	# this only affects virtual networks (NAT) created by libvirt. The
+	# default.xml example network provided by libvirt does create such
+	# rules. You don't even need a VM for this, you just need to create
+	# the network in virsh, see here
+	# https://wiki.libvirt.org/page/Networking#NAT_forwarding_.28aka_.22virtual_networks.22.29
+
+	# this signal tells libvirtd to reinstate its firewall rules for
+	# active VMs
+	/usr/bin/killall -HUP libvirtd
+
+	# sadly libvirtd may require but not doesn't restore ip_forwarding, so
+	# we don't rightly know whether this is necessary at this stage
+	#
+	# we remembered the old value in switch_on_ip_forwarding an restore it
+	# here, if it was on before
+	if [ "$FW_ROUTE" != "yes" -a "$orig_ipv4_forwarding" -eq 1 ]; then
+	    switch_on_ip_forwarding "yes"
+	fi
+}
+
 ############################################
 #                                          #
 # Now we begin to set the filter rules ... #
@@ -2465,7 +2499,7 @@ parse_configurations
 # Set default rules + flush
 set_basic_rules
 
-switch_on_ip_forwarding
+switch_on_ip_forwarding $FW_ROUTE
 
 set_proc_stuff
 
@@ -2563,6 +2597,7 @@ fi
 
 handle_initscripts
 
+fw_after_finished
 # HOOK
 fw_custom_after_finished
 
