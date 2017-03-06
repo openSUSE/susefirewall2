@@ -504,7 +504,7 @@ function is_in_sysctl()
 
 	# translate the proc path to a sysctl path
 	syspath=`echo "$path" | /usr/bin/cut -d '/' -f 4- | /usr/bin/tr '/' '.'`
-	grep -q "^[^#]*$syspath" $sysctl && return 0
+	/usr/bin/grep -q "^[^#]*$syspath" $sysctl && return 0
 
 	# special case for the all / interface specific value in ipv4/conf/*
 	# if we're about to change an interface specific value also check if
@@ -513,7 +513,7 @@ function is_in_sysctl()
 	syspath_all="`echo $syspath | /usr/bin/sed 's/ipv4\.conf\.[^\.]\+/ipv4\.conf\.all/'`"
 
 	if [ "$syspath" != "$syspath_all" ]; then
-	    grep -q "^[^#]*$syspath_all" $sysctl && return 0
+	    /usr/bin/grep -q "^[^#]*$syspath_all" $sysctl && return 0
 	fi
 
 	return 1
