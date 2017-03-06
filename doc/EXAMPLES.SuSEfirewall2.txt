@@ -4,7 +4,7 @@ SuSEfirewall2 configuration examples
 
 Table of Contents
 
-1. Simple dialup
+1. Simple home network using Wi-Fi DSL router
 2. Small home network
 3. Small home network with additional WLAN
 4. Small company with external mail and web server
@@ -19,14 +19,22 @@ All options not mentioned in a scenario should be left as they are in the
 default sysconfig/SuSEfirewall2 config file. Backup default config: /usr/share/
 doc/packages/SuSEfirewall2/SuSEfirewall2.sysconfig
 
-1. Simple dialup
+1. Simple home network using Wi-Fi DSL router
 
-A user with his nice SUSE Linux PC wants to be protected when connected to the
-internet via the ISDN dialup of his ISP. He wants to offer no services to the
-internet. He is not connected to any other network, nor are any other network
-cards active.
+Today most ISP connections are done using a feature rich Wi-Fi DSL router, that
+possibly provides wired Ethernet connections as well. The DSL router performs
+masquerading to the internet. One or more isolated SUSE Linux machines want to
+connect to the internet but need not to communicate with each other. eth0 is
+the wired or Wi-Fi ethernet device connected to the DSL router:
 
-FW_DEV_EXT="ippp0"
+FW_DEV_EXT="eth0"
+
+Alternatively, if the internal machines want to exchange data with each other
+and the DSL router is trusted and configured to perform appropriate
+masquerading/filtering/forwarding then the associated ethernet device can be
+treated as internal:
+
+FW_DEV_INT="eth0"
 
 2. Small home network
 
@@ -58,13 +66,13 @@ FW_MASQ_NETS="192.168.10.0/24 192.168.20.0/24"
 
 4. Small company with external mail and web server
 
-A company uses it's SUSE Linux PC to access the internet via an ISDN dialup of
-it's ISP. It has got a static IP address and a web server running on the PC
-plus it's mail-/pop3-server for the company. Squid is running to cache www
-traffic. No internal PC should have direct access to the internet. The LAN is
-connected to the interface eth0.
+A company uses it's SUSE Linux PC to access the internet via DSL or other
+similar kind of broadband ISP connection. It has got a static IP address and a
+web server running on the PC plus it's mail-/pop3-server for the company. Squid
+is running to cache www traffic. No internal PC should have direct access to
+the internet. The LAN is connected to the interface eth0.
 
-FW_DEV_EXT="ippp0"
+FW_DEV_EXT="dsl0"
 FW_DEV_INT="eth0"
 FW_SERVICES_EXT_TCP="smtp www"
 FW_SERVICES_INT_TCP="smtp domain www pop3 3128"
@@ -95,8 +103,8 @@ FW_MASQ_NETS="0/0,!192.168.1.0/24
 Warning
 
 Setting up IPsec and a firewall is no guarantee for safe communication! Use
-packet sniffers such as tcpdump or ethereal to verify the traffic is actually
-sent through the IPsec tunnel. Check the packet counts in the output of
+packet sniffers such as tcpdump or wireshark to verify the traffic is actually
+sent through the IPsec tunnel. Check the packet counts in the output of 
 SuSEfirewall2 status. The ESP accepting rule must increase it's counter when
 encrypted traffic is supposed to flow.
 

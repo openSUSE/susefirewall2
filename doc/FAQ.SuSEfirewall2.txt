@@ -15,7 +15,7 @@ SuSEfirewall2 FAQ
     traffic to a different zone now?
 7. Why is SuSEfirewall2 so slow? / Can't you just use iptables-restore?
 8. Enabling drbd blocks the boot process. How to get around that?
-9. I need to connect to differntly trusted networks, e.g. to use printing or
+9. I need to connect to differently trusted networks, e.g. to use printing or
     file sharing. How can I solve that without opening ports in the external
     zone?
 10. I'm executing an external script from within FW_CUSTOMRULES but the rules
@@ -39,13 +39,14 @@ SuSEfirewall2 FAQ
     FW_LOG_DROP_ALL="yes"
     FW_LOG_LIMIT="no"
 
-    Run SuSEfirewall2 again. /var/log/messages will now quickly fill up with
-    log messages about dropped packets when you try to use the not working
-    service. Those messages tell you the protocol and port you need to open.
+    Restart SuSEfirewall2 to load the new configuration. The log will now
+    quickly fill up with messages about dropped packets when you try to use the
+    not working service. Those messages tell you the protocol and port you need
+    to open. To follow the log use journalctl -u SuSEfirewall2 -f.
 
     You may also run SuSEfirewall2 in test mode: SuSEfirewall2 test. Then try
     to connect to the service in a way which failed before. It will work
-    because SuSEfirewall2 does not actually filter any packets this time.
+    because SuSEfirewall2 does not actually filter any packets in this mode.
     However, it will still log all packets it normally would have dropped.
 
     If everything works again don't forget to set the log options back to
@@ -104,40 +105,12 @@ SuSEfirewall2 FAQ
     connection from other nodes. Therefore configuring the drbd port in
     SuSEfirewall2 has no effect.
 
-      ● SLES10
+    For all current SUSEfirewall2 versions, just configure the open ports for
+    drbd and set
 
-        Add a manual iptables call to /etc/init.d/boot.local:
+    FW_BOOT_FULL_INIT="yes"
 
-        iptables -A INPUT -p tcp --dport 7788 -j ACCEPT
-
-      ● SLES11, openSUSE <= 11.2
-
-        On SLES11 SuSEfirewall2_init is called after boot.local, therefore the
-        method for SLES10 doesn't work anymore. It's possible to modify the
-        dependencies of the SuSEfirewall2_setup script to run before drbd
-        though:
-
-          ○ Create the directory /etc/insserv/overrides
-
-          ○ Create a new file /etc/insserv/overrides/SuSEfirewall2_setup
-
-          ○ Copy the the LSB header (the part between and including the lines "
-            ### BEGIN INIT INFO" and "### END INIT INFO") from /etc/init.d/
-            SuSEfirewall2_setup to /etc/insserv/overrides/SuSEfirewall2_setup
-
-          ○ Replace $ALL with $null and add the following line:
-
-            # X-Start-Before: drbd
-
-          ○ run /sbin/insserv
-
-      ● openSUSE >= 11.3
-
-        Configure the open ports for drbd and set
-
-        FW_BOOT_FULL_INIT="yes"
-
-9.  I need to connect to differntly trusted networks, e.g. to use printing or
+9.  I need to connect to differently trusted networks, e.g. to use printing or
     file sharing. How can I solve that without opening ports in the external
     zone?
 
@@ -149,6 +122,6 @@ SuSEfirewall2 FAQ
 
     When FW_USE_IPTABLES_BATCH is on (which is the default) the iptables
     command is an alias that doesn't exist outside the script context of
-    SuSEfirewall2. So either must source your script or set
+    SuSEfirewall2. So you either must source your script or set
     FW_USE_IPTABLES_BATCH="no"
 

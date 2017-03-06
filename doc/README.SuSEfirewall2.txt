@@ -1,4 +1,4 @@
-SuSEfirewall2
+SUSEfirewall2
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -18,10 +18,10 @@ Table of Contents
 
 1. Introduction
 
-SuSEfirewall2 is a shell script wrapper for the Linux firewall setup tool
+SUSEfirewall2 is a shell script wrapper for the Linux firewall setup tool
 (iptables). It's controlled by a human readable configuration file.
 
-Main features of SuSEfirewall2:
+Main features of SUSEfirewall2:
 
   • sets up secure filter rules by default
 
@@ -50,28 +50,30 @@ Main features of SuSEfirewall2:
 2.1. YaST2 firewall module
 
 The YaST2 firewall module is the recommended tool for configuring
-SuSEfirewall2. It offers the most common features with a nice user interface
+SUSEfirewall2. It offers the most common features with a nice user interface
 and help texts. It also takes care of proper activation of the init scripts.
+You can directly start the YaST2 firewall configuration via yast2 firewall.
 
 2.2. Manual configuration
 
-Enable the SuSEfirewall2 boot scripts:
+Enable the SUSEfirewall2 systemd unit:
 
-chkconfig SuSEfirewall2_init on
-
-chkconfig SuSEfirewall2_setup on
+systemctl enable SuSEfirewall2
 
 Edit /etc/sysconfig/SuSEfirewall2 with your favorite editor. Read the commented
 lines carefully. They give you many hints and tips for the configuration. You
-need to at least add one network interface to FW_DEV_EXT for SuSEfirewall2 to
+need to at least add one network interface to FW_DEV_EXT for SUSEfirewall2 to
 do anything. If you are stuck or need additional hints, take a look at EXAMPLES
-file in /usr/share/doc/packages/SuSEfirewall2
+file in /usr/share/doc/packages/SuSEfirewall2 After you are finished with the
+configuration you can explicitly start the firewall via systemd:
+
+systemctl start SuSEfirewall2
 
 3. Some words about security
 
-SuSEfirewall2 is a frontend for iptables which sets up kernel packet filters,
+SUSEfirewall2 is a frontend for iptables which sets up kernel packet filters,
 nothing more and nothing less. This means that you are not automatically
-protected from all security hazards by using SuSEfirewall2. To minimize
+protected from all security hazards by using SUSEfirewall2. To minimize
 security risks on a networked system obey the following rules:
 
   • Run only those services you actually need. Think twice before opening them
@@ -107,7 +109,7 @@ Source code is available at Github
 
 5. Reporting bugs
 
-Report any problems via Bugzilla. For discussion about SuSEfirewall2 join the
+Report any problems via Bugzilla. For discussion about SUSEfirewall2 join the
 opensuse-security mailinglist.
 
 6. Links
@@ -118,6 +120,6 @@ Frequently Asked Questions
 
 7. Author
 
-SuSEfirewall2 was originally created by Marc Heuse. Most of it got rewritten
-and enhanced by it's current maintainer Ludwig Nussel
+SUSEfirewall2 was originally created by Marc Heuse. Most of it got rewritten
+and enhanced by Ludwig Nussel . The current maintainer is Matthias Gerstner .
 

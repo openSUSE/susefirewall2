@@ -17,21 +17,28 @@
     </para>
   </important>
 
-  <section>
-    <title>Simple dialup</title>
-
+  <section><title>Simple home network using Wi-Fi DSL router</title>
     <para>
-      A user with his nice SUSE Linux PC wants to be protected when connected to
-      the internet via the ISDN dialup of his ISP. He wants to offer no
-      services to the internet. He is not connected to any other network, nor
-      are any other network cards active.
+      Today most ISP connections are done using a feature rich Wi-Fi DSL
+      router, that possibly provides wired Ethernet connections as well. The
+      DSL router performs masquerading to the internet. One or more isolated
+      SUSE Linux machines want to connect to the internet but need not to
+      communicate with each other. eth0 is the wired or Wi-Fi ethernet device
+      connected to the DSL router:
 
-      <informalexample><programlisting>
-FW_DEV_EXT="ippp0"</programlisting>
+      <informalexample>
+      <programlisting>FW_DEV_EXT="eth0"</programlisting>
       </informalexample>
 
-    </para>
+      Alternatively, if the internal machines want to exchange data with each
+      other and the DSL router is trusted and configured to perform
+      appropriate masquerading/filtering/forwarding then the associated
+      ethernet device can be treated as internal:
 
+      <informalexample>
+      <programlisting>FW_DEV_INT="eth0"</programlisting>
+      </informalexample>
+    </para>
   </section>
 
   <section><title>Small home network</title>
@@ -41,7 +48,9 @@ FW_DEV_EXT="ippp0"</programlisting>
       be used. The Firewall provides no services whatsoever. The address of the
       LAN is 192.168.10.0/24.
 
-      <informalexample><programlisting>FW_DEV_EXT="dsl0"
+      <informalexample>
+      <programlisting>
+FW_DEV_EXT="dsl0"
 FW_DEV_INT="eth0"
 FW_ROUTE="yes"
 FW_MASQUERADE="yes"
@@ -49,7 +58,6 @@ FW_MASQ_NETS="192.168.10.0/24"</programlisting>
       </informalexample>
 
     </para>
-
   </section>
 
   <section><title>Small home network with additional WLAN</title>
@@ -59,7 +67,9 @@ FW_MASQ_NETS="192.168.10.0/24"</programlisting>
       access but are not allowed to communicate with the internal network. The
       address of the WLAN is 192.168.20.0/24.
 
-      <informalexample><programlisting>FW_ZONES="wlan"
+      <informalexample>
+      <programlisting>
+FW_ZONES="wlan"
 FW_DEV_EXT="dsl0"
 FW_DEV_INT="eth0"
 FW_DEV_wlan="wlan0"
@@ -69,21 +79,22 @@ FW_MASQ_NETS="192.168.10.0/24 192.168.20.0/24"</programlisting>
       </informalexample>
 
     </para>
-
   </section>
 
   <section>
     <title>Small company with external mail and web server</title>
 
     <para>
-      A company uses it's SUSE Linux PC to access the internet via an ISDN
-      dialup of it's ISP. It has got a static IP address and a web server
-      running on the PC plus it's mail-/pop3-server for the company. Squid is
-      running to cache www traffic. No internal PC should have direct access to
-      the internet. The LAN is connected to the interface
-      <literal>eth0</literal>.
+      A company uses it's SUSE Linux PC to access the internet via DSL or
+      other similar kind of broadband ISP connection. It has got a static IP
+      address and a web server running on the PC plus it's mail-/pop3-server
+      for the company. Squid is running to cache www traffic. No internal PC
+	should have direct access to the internet. The LAN is connected to the
+      interface <literal>eth0</literal>.
 
-      <informalexample><programlisting>FW_DEV_EXT="ippp0"
+      <informalexample>
+      <programlisting>
+FW_DEV_EXT="dsl0"
 FW_DEV_INT="eth0"
 FW_SERVICES_EXT_TCP="smtp www"
 FW_SERVICES_INT_TCP="smtp domain www pop3 3128"
@@ -92,7 +103,6 @@ FW_PROTECT_FROM_INT="yes"</programlisting>
       </informalexample>
 
     </para>
-
   </section>
 
   <section>
@@ -112,7 +122,8 @@ FW_PROTECT_FROM_INT="yes"</programlisting>
       </simplelist>
 
       <informalexample>
-	<programlisting>FW_DEV_EXT="dsl0"
+      <programlisting>
+FW_DEV_EXT="dsl0"
 FW_DEV_INT="eth0"
 FW_ROUTE="yes"
 FW_MASQUERADE="yes"
@@ -126,7 +137,7 @@ FW_MASQ_NETS="0/0,!192.168.1.0/24</programlisting>
 	<para>
 	  Setting up IPsec and a firewall is no guarantee for safe
 	  communication! Use packet sniffers such as <literal>tcpdump</literal>
-	  or <literal>ethereal</literal> to verify the traffic is actually sent
+	  or <literal>wireshark</literal> to verify the traffic is actually sent
 	  through the IPsec tunnel. Check the packet counts in the output of
 	  <command>SuSEfirewall2&nbsp;status</command>. The ESP accepting rule
 	  must increase it's counter when encrypted traffic is supposed to
@@ -135,12 +146,11 @@ FW_MASQ_NETS="0/0,!192.168.1.0/24</programlisting>
       </warning>
 
     </para>
-
   </section>
 
   <section>
     <title>Company with web server in DMZ</title>
-    
+
     <para>
 
     This company has got a more complex setup:
@@ -180,8 +190,8 @@ Internal LAN
 
       <note>
 	<para>
-	  The name server on the firewall needs to be setup "split-brained". See
-	  the DNS HOWTO.
+	  The name server on the firewall needs to be setup "split-brained".
+	  See the DNS HOWTO.
 	</para>
       </note>
 
@@ -190,7 +200,8 @@ Internal LAN
       network has to use the firewall host as relay.
 
       <informalexample>
-	<programlisting>FW_DEV_EXT="eth2"
+      <programlisting>
+FW_DEV_EXT="eth2"
 FW_DEV_INT="eth0"
 FW_DEV_DMZ="eth1"
 FW_ROUTE="yes"
@@ -220,7 +231,6 @@ FW_ALLOW_PING_DMZ="yes"</programlisting>
 	firewall.
 
       </para>
-
     </section>
 
     <section>
@@ -279,7 +289,8 @@ Mail server
       relay for the internal network. The mail server on the internal
       network has to use the firewall host as relay.
 
-      <informalexample><programlisting>FW_DEV_EXT="eth3 eth4"
+      <informalexample><programlisting>
+FW_DEV_EXT="eth3 eth4"
 FW_DEV_INT="eth0 eth1"
 FW_DEV_DMZ="eth2"
 FW_ROUTE="yes"
@@ -295,14 +306,13 @@ FW_SERVICES_INT_UDP="domain"
 FW_FORWARD="10.0.1.0/24,10.0.2.0/24,tcp 10.0.1.0/24,10.0.10.2,tcp,22"
 # internet access to web server and trusted company access to internal Server
 FW_FORWARD_MASQ="0/0,10.0.10.2,tcp,80 0/0,10.0.10.2,tcp,443 \
-192.168.1.0/24,10.0.2.3,tcp,22"</programlisting>
-      </informalexample>
+192.168.1.0/24,10.0.2.3,tcp,22"</programlisting></informalexample>
     </para>
   </section>
 
   <section>
     <title>Laptop in private network but with additional public IP adresses</title>
-    
+
     <para>
 
       <screen>
@@ -335,7 +345,8 @@ LAN Server
       be considered untrustworthy, i.e. external.
 
       <informalexample>
-	<programlisting>FW_DEV_EXT="eth0"
+      <programlisting>
+FW_DEV_EXT="eth0"
 FW_SERVICES_EXT_TCP="ssh"
 FW_TRUSTED_NETS="192.168.1.0/24"</programlisting>
       </informalexample>
@@ -344,7 +355,6 @@ FW_TRUSTED_NETS="192.168.1.0/24"</programlisting>
       change that to allow them in this scenario.
 
       </para>
-
     </section>
 
 </article>
