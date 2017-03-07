@@ -799,6 +799,16 @@ xen_forward_hack()
     done
 }
 
+# some rules for easier "out of the box" functionality
+function set_ootb_rules()
+{
+	# mdns for avahi & friends. When a user uses a dsl router to connect
+	# to the internet, he only has one interface and no zones.
+	for IPT in $IPTABLES_LIST; do
+		$IPT -A INPUT -p udp --dport mdns -m pkttype --pkt-type multicast -j "ACCEPT"
+	done
+}
+
 function set_basic_rules()
 {
     local itype
@@ -886,6 +896,12 @@ function set_basic_rules()
     # can come back from unicast hosts and we might not know them.
     $LAA $IP6TABLES -A INPUT -p udp --dport dhcpv6-client ${LOG}"-IN-DHCPv6 "
     $IP6TABLES -A INPUT -p udp --dport dhcpv6-client -j "$ACCEPT"
+
+    if [ "$FW_CONFIGURED" != true ]; then
+	# we might allow some more input in case no zones have been defined,
+	# which is the default case for many desktop computers ...
+	set_ootb_rules
+    fi
 
     # make sure basic rules get committed even if there are errors later
     [ -n "$USE_IPTABLES_BATCH" ] && iptables_batch_commitpoint
@@ -1147,13 +1163,32 @@ write_status()
 
 parse_interfaces()
 {
-    local zone devs var
+    local zone devs
+
+    any_zone=false
 
     for zone in $all_zones; do
 	evaluateinterfaces $zone
+
+	eval devs="\$FW_DEV_$zone"
+
+	if [ -n "$devs" ]; then
+		any_zone=true
+	fi
     done
     if [ -z "$FW_ZONE_DEFAULT" ]; then
 	FW_ZONE_DEFAULT='ext'
+    else
+	any_zone=true
+    fi
+
+    # detect the situation when no zones have been defined at all which means
+    # we have some "don't care/don't know" user, probably a desktop PC, they
+    # expect certain things to work out of the box
+    if [ $any_zone = true ]; then
+	FW_CONFIGURED=true
+    else
+	FW_CONFIGURED=false
     fi
 }
 
