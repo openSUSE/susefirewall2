@@ -36,6 +36,13 @@ treated as internal:
 
 FW_DEV_INT="eth0"
 
+Another approach is to treat the network as external (and thereby blocking most
+traffic) but define a trusted subnet. This way only the trusted subnet IPs can
+communicate with each other, while external IPs from the internet are blocked:
+
+FW_DEV_INT="eth0"
+FW_TRUSTED_NETS="192.168.1.0/24"
+
 2. Small home network
 
 A family owns multiple PCs, a SUSE Linux PC is connected to the internet via

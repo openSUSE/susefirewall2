@@ -38,6 +38,17 @@
       <informalexample>
       <programlisting>FW_DEV_INT="eth0"</programlisting>
       </informalexample>
+
+      Another approach is to treat the network as external (and thereby
+      blocking most traffic) but define a trusted subnet. This way only the
+      trusted subnet IPs can communicate with each other, while external IPs
+      from the internet are blocked:
+
+      <informalexample>
+      <programlisting>FW_DEV_INT="eth0"
+FW_TRUSTED_NETS="192.168.1.0/24"</programlisting>
+      </informalexample>
+
     </para>
   </section>
 
