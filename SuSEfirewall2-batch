@@ -34,7 +34,7 @@ check_iptables_batch()
 
     # override iptables calls with shell function if in batch mode
     if [ -n "$USE_IPTABLES_BATCH" ]; then
-	    iptables_batchfile=`mktemp -t SuSEfirewall2_iptables.XXXXXXXX` || exit 1
+	    iptables_batchfile=`mktemp -p /dev/shm -t SuSEfirewall2_iptables.XXXXXXXX` || exit 1
 	    removeonexit "$iptables_batchfile"
 	    exec 4> "$iptables_batchfile"
 	    echo "#!$IPTABLES_BATCH" >&4
@@ -45,7 +45,7 @@ check_iptables_batch()
 		    for i in "$@"; do echo -n " \"$i\""; done >&4
 		    echo >&4
 	    }
-	    ip6tables_batchfile=`mktemp -t SuSEfirewall2_ip6tables.XXXXXXXX` || exit 1
+	    ip6tables_batchfile=`mktemp -p /dev/shm -t SuSEfirewall2_ip6tables.XXXXXXXX` || exit 1
 	    removeonexit "$ip6tables_batchfile"
 	    exec 6> "$ip6tables_batchfile"
 	    echo "#!$IP6TABLES_BATCH" >&6

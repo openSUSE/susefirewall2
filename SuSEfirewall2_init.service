@@ -3,6 +3,8 @@ Description=SuSEfirewall2 phase 1
 Before=network.service
 DefaultDependencies=false
 Requires=sysinit.target
+After=sysinit.target
+RequiresMountsFor=/dev/shm
 Conflicts=firewalld.service
 
 [Service]
