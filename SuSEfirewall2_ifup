@@ -44,7 +44,7 @@ sfw2_active()
 case "$0" in
 	(*if-up.d*|*if-down.d*)
 		if sfw2_active; then
-			/sbin/SuSEfirewall2 -q start
+			/sbin/SuSEfirewall2 -q -i "$iface" start
 		fi
 		;;
 	*) echo "don't know what to do" >&2 ;;
