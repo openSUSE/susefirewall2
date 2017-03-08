@@ -220,6 +220,8 @@ LOCKFILE="/run/SuSEfirewall2.pid"
 BOOTLOCKFILE="/run/SuSEfirewall2.booting"
 STATUSDIR="/var/run/SuSEfirewall2"
 FW_CUSTOMRULES=""
+# list of helper,protocol,port,zone pairs
+CT_HELPERS=""
 
 FW_ZONE_DEFAULT=""
 USE_IPTABLES_BATCH=''
@@ -565,6 +567,19 @@ function setproc()
     else
 	echo "echo \"$value\" > \"$path\""
     fi
+}
+
+function getproc()
+{
+	local path="$1"
+	if [ "${path:0:1}" = "/" ]; then
+	    read val <"$path"
+	else
+	    val=`/sbin/sysctl -n "$path"`
+	    [ $? -ne 0 ] && return
+	fi
+
+	echo $val
 }
 
 # returns the correct iptables binary for the given IPv4/6 address
@@ -1392,12 +1407,102 @@ create_cond_chain()
 
 ### configurations ###
 
+# is called for each service configuration file processed. Passes the
+# currently handled zone, the related subnet/port/protocol and the kernel
+# module for connection tracking.
+#
+# the function will explicitly setup the connection tracking helper, if
+# required.
+#
+# this is necessary on kernels >= 4.7 where net.netfilter.nf_conntrack_helper
+# is zero by default
+#
+# see bsc#986527
+function configure_ct_helper()
+{
+	enabled=`getproc net.netfilter.nf_conntrack_helper`
+
+	if [ "$enabled" -eq 1 ]; then
+	    # if it's enabled we don't need to bother
+	    return
+	fi
+
+	local zone="$1"
+	local related="$2"
+	local module="$3"
+
+	# if no conntrack module is involved we don't have to do anything
+	# same if no related port/protocol is given
+	if [ -z "$module" -o -z "$related" ]; then
+	    return
+	fi
+
+	# if it's not a nf_conntrack module we're out
+	/usr/bin/grep -q "^nf_conntrack_" <<<"$module" || return
+	basename=`/usr/bin/cut -d '_' -f 3- <<<"$module"`
+
+	# the mapping of module names to helper names is not easy to come by.
+	# shorewall helps:
+	# http://shorewall.org/Helpers.html
+	case $basename in
+	netbios_ns)
+		helper="netbios-ns"
+		;;
+	h323)
+		helper="RAS Q.931"
+		;;
+	amanda|ftp|irc|pptp|sane|sip|snmp|tftp)
+		helper="$basename"
+		;;
+	*)
+		# some unknown conntrack module
+		return
+	esac
+
+	IFS="," read net proto sport dport <<<"$related"
+
+	if [ -z "$proto" -o -z "$sport" ]; then
+	    return
+	fi
+
+	# all gathered information is collected as colon separated pairs in
+	# this space separated variable. will be used by enable_ct_helper()
+	CT_HELPERS="$CT_HELPERS $helper,$proto,$sport,$zone"
+}
+
+# enables connection tracker helpers as previously figured out by
+# configure_ct_helper()
+function enable_ct_helper()
+{
+    local helper proto port zone devs
+
+    for spec in $CT_HELPERS; do
+	IFS="," read helper proto port zone <<<"$spec"
+	# the devices this applies to
+	eval devs=\"\$FW_DEV_$zone\"
+
+	for dev in $devs; do
+		for iptables in $IPTABLES_LIST; do
+		    	if [[ "$iptables" == *6* ]]; then
+				if [[ "$helper" = "netbios-ns" ]]; then
+				    	# netbios-ns has no IPv6 support (in
+					# general, not even on Windows)
+					continue
+				fi
+			fi
+			$iptables -t raw -I OUTPUT -o $dev -p $proto --dport $port -j CT --helper $helper
+		done
+	done
+    done
+}
+
 parse_configurations()
 {
     local var zone configurations config
 
     for zone in $input_zones; do
-	var="FW_CONFIGURATIONS_`cibiz $zone`"
+	local zone=`cibiz $zone`
+	var="FW_CONFIGURATIONS_$zone"
 	eval configurations="\"\$$var\""
 
 	for config in $configurations; do
@@ -1421,11 +1526,11 @@ parse_configurations()
 	    fi
 
 	    for var in TCP UDP RPC IP; do
-		eval [ -n \"\$$var\" ] \&\& FW_SERVICES_`cibiz $zone`_$var="\"\$FW_SERVICES_`cibiz $zone`_$var \$$var\""
+		eval [ -n \"\$$var\" ] \&\& FW_SERVICES_${zone}_$var="\"\$FW_SERVICES_${zone}_$var \$$var\""
 	    done
 
 	    if [ -n "$BROADCAST" ]; then
-		var=FW_ALLOW_FW_BROADCAST_`cibiz $zone`
+		var=FW_ALLOW_FW_BROADCAST_$zone
 		eval allow="\"\$$var\""
 		if [ "$allow" != 'yes' ]; then
 		    # 'no' is ignored later anyways
@@ -1434,16 +1539,18 @@ parse_configurations()
 	    fi
 
 	    if [ -n "$RELATED" ]; then
-		eval FW_SERVICES_ACCEPT_RELATED_`cibiz $zone`="\"\$FW_SERVICES_ACCEPT_RELATED_`cibiz $zone` \$RELATED\""
+		eval FW_SERVICES_ACCEPT_RELATED_$zone="\"\$FW_SERVICES_ACCEPT_RELATED_$zone \$RELATED\""
 	    fi
 
 	    if [ -n "$ACCEPT" ]; then
-		eval FW_SERVICES_ACCEPT_`cibiz $zone`="\"\$FW_SERVICES_ACCEPT_`cibiz $zone` \$ACCEPT\""
+		eval FW_SERVICES_ACCEPT_$zone="\"\$FW_SERVICES_ACCEPT_$zone \$ACCEPT\""
 	    fi
 
 	    if [ -n "$MODULES" ]; then
 		eval FW_LOAD_MODULES="\"\$FW_LOAD_MODULES \$MODULES\""
 	    fi
+
+	    configure_ct_helper $zone $RELATED $MODULES
 
 	done
     done
@@ -1697,6 +1804,8 @@ allow_related()
     local var
     local services target service proto net
     local iptables zone chain
+
+    enable_ct_helper
 
     for zone in $input_zones; do
 	chain=input_$zone
