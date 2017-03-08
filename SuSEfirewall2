@@ -174,6 +174,67 @@ set_defaults()
     done
 }
 
+
+function get_device_path()
+{
+	local iface="$1"
+	/usr/bin/readlink "/sys/class/net/$iface"
+}
+
+function match_device_path()
+{
+    	local iface="$1"
+	local match="$2"
+
+	link=`get_device_path $iface`
+	if [[ "$link" == *"$match"* ]]; then
+	    return 0
+	fi
+
+	return 1
+}
+
+# gets a network device name as input and returns zero if it is a virtual
+# device like tap/tun/bond or a physical device, non-zero otherwise
+function is_virtual_device()
+{
+    	local iface="$1"
+	match_device_path $iface "virtual"
+	return $?
+}
+
+# like is_virtual_device() but checks whether the device is a removable,
+# hot-plugged device
+function is_hotplugged_device()
+{
+    	local iface="$1"
+	# difficult to generically determine whether a network device is
+	# removable, go for USB ...
+	match_device_path $iface "usb"
+	return $?
+}
+
+# takes a network device name as input and returns zero if we should ignore an
+# active bootlock for changes on this device, otherwise non-zero
+function allow_bootlock_ignore()
+{
+    	local iface="$1"
+
+	# skip the loopback by default
+	if [[ "$iface" = "lo" ]]; then
+	    return 1
+	fi
+
+	# respect virtual or hotplugged evices
+	if is_virtual_device "$iface" || is_hotplugged_device "$iface"; then
+	    return 0
+	fi
+
+	# anything else has to wait until boot finish
+	return 1
+}
+
+
 CONFIGURATIONSDIR_0="/etc/sysconfig/SuSEfirewall2.d/services"
 CONFIGURATIONSDIR_1="/usr/share/SuSEfirewall2/services"
 DEFAULTSDIR=("/etc/sysconfig/SuSEfirewall2.d/defaults" "/usr/share/SuSEfirewall2/defaults")
@@ -206,7 +267,7 @@ if test -x /usr/bin/tty && ! /usr/bin/tty -s; then
     quiet=1
 fi
 
-getopttmp=`/usr/bin/getopt -o hq --long help,scriptsdir:,batch,nobatch,file:,debug,test,bootlock,bootunlock,quiet \
+getopttmp=`/usr/bin/getopt -o hqi: --long help,scriptsdir:,batch,nobatch,file:,debug,test,bootlock,bootunlock,quiet,interface: \
      -n 'SuSEfirewall2' -- "$@"`
 
 [ $? != 0 ] && die 1 "getopt error"
@@ -225,6 +286,9 @@ while true ; do
                 --bootunlock) remove_bootlock=1 ; shift ;;
                 -h|--help) help ; shift ;;
                 -q|--quiet) quiet=1 ; shift ;;
+		# only used by if-{up,down} scripts to indicate the interface
+		# that changed
+		-i|--interface) up_down_iface="$2"; shift 2 ;;
                 --) shift ; break ;;
                 *) die 1 "getopt error"; ;;
         esac
@@ -831,8 +895,13 @@ setlock()
     fi
     ### Locking mechanism
     if [ "$needlock" -ne 0 ]; then
-	if [ -e "$BOOTLOCKFILE" ]; then
-	    die 0 "$BOOTLOCKFILE exists which means system boot in progress, exit." 
+	if [ -e "$BOOTLOCKFILE" ] ; then
+	    # ignore the bootlock, which is only a performance shortcut, in
+	    # case a virtual or hotplugged interface has just been configured
+	    # (bsc#785299)
+	    if [ -z "$up_down_iface" ] || ! allow_bootlock_ignore "$up_down_iface"; then
+		die 0 "$BOOTLOCKFILE exists which means system boot in progress, exit."
+	    fi
 	fi
 	if [ -e "$LOCKFILE" ]; then
 	    read PID < $LOCKFILE

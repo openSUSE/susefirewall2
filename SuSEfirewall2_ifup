@@ -101,7 +101,7 @@ case "$0" in
 		[ "$FIREWALL" = 'yes' ] || exit 0
 
 		if sfw2_active; then
-			/sbin/SuSEfirewall2 -q start
+			/sbin/SuSEfirewall2 -q -i "$iface" start
 		fi
 	;;
 	*) echo "don't know what to do" >&2 ;;
