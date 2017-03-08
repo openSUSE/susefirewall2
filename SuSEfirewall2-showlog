@@ -5,6 +5,7 @@ use Sys::Hostname;
 use Net::DNS;
 
 my $res;
+
 if($#ARGV >= 0 && $ARGV[0] eq '-N')
 {
     $res = Net::DNS::Resolver->new;
@@ -17,7 +18,22 @@ if($#ARGV >= 0 && $ARGV[0] eq '-N')
 
 if($#ARGV < 0)
 {
-    $ARGV[0] = '/var/log/firewall';
+    my $firewall_log = '/var/log/firewall';
+    my $journalctl = '/usr/bin/journalctl';
+
+    if (-e $firewall_log) {
+        $ARGV[0] = '/var/log/firewall';
+    }
+    elsif ( -e $journalctl )
+    {
+        close STDIN;
+        open STDIN, "$journalctl -k --no-pager|";
+    }
+    else
+    {
+        print STDERR "No logfile $firewall_log and no $journalctl found\n";
+        exit 1
+    }
 }
 elsif($ARGV[0] eq '--help' || $ARGV[0] eq '-h')
 {
@@ -41,16 +57,17 @@ sub dnsresolve($)
 
     if ($query)
     {
-	my $a;
-	foreach my $rr (grep { $_->type eq 'PTR' } $query->answer)
-	{
-	    $a = $rr->ptrdname;
-	}
-	if($a)
-	{
-	    $dnscache{$ip} = $a;
-	    return $a;
-	}
+        my $a;
+
+        foreach my $rr (grep { $_->type eq 'PTR' } $query->answer)
+        {
+            $a = $rr->ptrdname;
+        }
+        if($a)
+        {
+            $dnscache{$ip} = $a;
+            return $a;
+        }
     }
     return $ip;
 }
@@ -71,14 +88,14 @@ while(<>)
     s/OPT \((.*)\)/OPT=$1/;
     my @arr = split(/ /);
     if ($arr[0] =~ s/^SFW2-//) {
-	$sflog = shift @arr;
-	if ($sflog =~ /(IN|OUT)([^-]*)-(.*)/) {
-	    $dir = ($1 eq 'IN')?'i':(($1 eq 'OUT')?'o':'?');
-	    $zone = $2;
-	    $sflog = $3;
-	}
+        $sflog = shift @arr;
+        if ($sflog =~ /(IN|OUT)([^-]*)-(.*)/) {
+            $dir = ($1 eq 'IN')?'i':(($1 eq 'OUT')?'o':'?');
+            $zone = $2;
+            $sflog = $3;
+        }
     } else {
-	$sflog = $dir = '?';
+        $sflog = $dir = '?';
     }
 
     my %tags = map { my @a = split(/=/,$_,2); $a[0] => $a[1]; } @arr;
@@ -97,11 +114,11 @@ while(<>)
 
     if($tags{IN})
     {
-	$interface = '> '.$tags{IN};
+        $interface = '> '.$tags{IN};
     }
     else
     {
-	$interface = $tags{OUT}.' >';
+        $interface = $tags{OUT}.' >';
     }
 
     $spt = ' '.$tags{TYPE} if ($proto =~ /ICMP.*/);
@@ -112,4 +129,4 @@ while(<>)
     write;
 }
 
-# vim: sw=4
+# vim: sw=4 expandtab ts=4
