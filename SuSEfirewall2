@@ -257,7 +257,7 @@ function allow_bootlock_ignore()
     	local iface="$1"
 
 	# skip the loopback by default
-	if [[ "$iface" = "lo" ]]; then
+	if [ "$iface" = "lo" ]; then
 	    return 1
 	fi
 
@@ -475,6 +475,11 @@ fi
 # list of the IPv4 and IPv6 tables commands to be used
 IPTABLES_LIST="$IPTABLES $IP6TABLES"
 
+if [ "$FW_ROUTE" = "yes" ]; then
+    	# translate for backward compatibility
+	FW_ROUTE="IPv4"
+fi
+
 ### jump targets
 ACCEPT="ACCEPT"
 DROP="DROP"
@@ -590,24 +595,58 @@ parse_logging()
 
 ### Functions
 
-function is_in_sysctl()
+# returns whether FW_ROUTE is configured for the given iptables command
+# e.g. if ip6tables is passed in then FW_ROUTE is checked for IPv6
+function is_fwd_configured()
+{
+	local iptables="$1"
+	local num=4
+	if [ "$iptables" = "$IP6TABLES" ]; then num=6; fi
+
+	local key="IPv$num"
+	IFS="," read one two <<<"$FW_ROUTE"
+	if [ "$one" = "$key" -o "$two" = "$key" ]; then
+	    return 0
+	fi
+
+	return 1
+}
+
+is_fwd_configured $IPTABLES && FW_ROUTE_V4=true || FW_ROUTE_V4=false
+is_fwd_configured $IP6TABLES && FW_ROUTE_V6=true || FW_ROUTE_V6=false
+PROC_IPV4_FWD="/proc/sys/net/ipv4/ip_forward"
+PROC_IPV6_FWD="/proc/sys/net/ipv6/conf/all/forwarding"
+
+function get_sysctl_cfg()
 {
 	local path="$1"
 	local sysctl="/etc/sysctl.conf"
+	local line
 
 	# translate the proc path to a sysctl path
 	syspath=`echo "$path" | /usr/bin/cut -d '/' -f 4- | /usr/bin/tr '/' '.'`
-	/usr/bin/grep -q "^[^#]*$syspath" $sysctl && return 0
 
-	# special case for the all / interface specific value in ipv4/conf/*
-	# if we're about to change an interface specific value also check if
-	# the global value is configured in sysctl in which case we shouldn't
-	# touch the interface specific one, too
-	syspath_all="`echo $syspath | /usr/bin/sed 's/ipv4\.conf\.[^\.]\+/ipv4\.conf\.all/'`"
+	# no while true to avoid infinite loops
+	for try in 1 2; do
 
-	if [ "$syspath" != "$syspath_all" ]; then
-	    /usr/bin/grep -q "^[^#]*$syspath_all" $sysctl && return 0
-	fi
+	    line=`/usr/bin/grep "^[^#]*$syspath" $sysctl`
+	    if [ $? -eq 0 ]; then
+		    /usr/bin/cut -d '=' -f 2 <<<"$line" | /usr/bin/tr -d ' \t'
+		    return 0
+	    fi
+
+	    # special case for the all / interface specific value in
+	    # ipv4/conf/* if we're about to change an interface specific value
+	    # also check if the global value is configured in sysctl in which
+	    # case we shouldn't touch the interface specific one, neither
+	    syspath_all="`/usr/bin/sed 's/ipv4\.conf\.[^\.]\+/ipv4\.conf\.all/' <<<"$syspath"`"
+
+	    if [ "$syspath" = "$syspath_all" ]; then
+		break
+	    else
+		syspath="$syspath_all"
+	    fi
+	done
 
 	return 1
 }
@@ -615,20 +654,49 @@ function is_in_sysctl()
 # change value of a file in /proc/sys
 # $1: value to set the proc file to
 # $2: path of the file in proc
+# $3: mode. if zero then no overrides of sysctl.conf are done. if force then
+# override is always done. if reset then only a restore of the value in
+# sysctl.conf is done, if necessary.
 function setproc()
 {
     local value="$1"
     local path="$2"
+    local mode="$3"
 
     [ -z "$path" -o ! -w "$path" ] && return
 
-    is_in_sysctl $path && dbgmessage "$path override in sysctl.conf, not setting it" && return
+    cfg_value=`get_sysctl_cfg $path` && have_cfg=true || have_cfg=false
+
+    if $have_cfg; then
+	[ "$cfg_value" = "$value" ] && same_value=true || same_value=false
+
+	# this mode stuff is mostly to allow for backward compatibility
+	# regarding ip forwarding. If forwarding is not explicitly enabled
+	# then we want to temporarily enable it until sfw2 is stopped. This is
+	# what force and reset mode are for.
+	if [ "$mode" = "reset" ]; then
+	    if ! $same_value; then
+		dbgmessage "value for $path in sysctl is different, not resetting it"
+		# configure value is different, so do nothing
+		return 1
+	    fi
+	elif [ "$mode" = "force" ]; then
+	    if ! $same_value; then
+		warning "value for $path in sysctl.conf is different, but required by firewall, overriding"
+	    fi
+	else
+		dbgmessage "$path override in sysctl.conf, not setting it"
+		return 1
+	fi
+    fi
 
     if [ "$MODE" != "debug" ]; then
 	echo "$value" > "$path"
     else
 	echo "echo \"$value\" > \"$path\""
     fi
+
+    return 0
 }
 
 function getproc()
@@ -1341,29 +1409,25 @@ verify_parameters()
     fi
 }
 
-# Turn ip forwarding on if configured
+# Turn IPv4/6 forwarding on if configured
 switch_on_ip_forwarding()
 {
-    if [ -z "$orig_ipv4_forwarding" ]; then
-	# save the original value before we overwrite it. needed in
-	# fw_after_finished
-	orig_ipv4_forwarding=`cat /proc/sys/net/ipv4/ip_forward`
-    fi
+    local PROC_PATH="$1"
+    local FW_ROUTE_VX="$2"
 
-    local yes_no="$1"
-    local new_value=0
-    [ "$yes_no" = "yes" ] && new_value=1
+    $FW_ROUTE_VX || return
+    local enabled=`getproc $PROC_PATH`
+    # already enabled, nothing to do
+    [ "$enabled" -eq 1 ] && return
 
-    # global forwarding
-    setproc $new_value /proc/sys/net/ipv4/ip_forward
+    setproc 1 $PROC_PATH "force"
+    warning "$PROC_PATH is not enabled, you should configure this in /etc/sysctl.conf"
+}
 
-    # iterare over each single interface, too, because they may be decoupled
-    # from the global setting
-    if [ "$FW_KERNEL_SECURITY" != "no" ]; then
-	for i in /proc/sys/net/ipv4/conf/*; do
-	    setproc $new_value $i/forwarding
-        done
-    fi
+disable_ip_forwarding()
+{
+    setproc 0 $PROC_IPV4_FWD "reset"
+    setproc 0 $PROC_IPV6_FWD "reset"
 }
 
 # warn user if device to masquerade is  from a non private network
@@ -1551,7 +1615,7 @@ function enable_ct_helper()
 	for dev in $devs; do
 		for iptables in $IPTABLES_LIST; do
 		    	if [[ "$iptables" == *6* ]]; then
-				if [[ "$helper" = "netbios-ns" ]]; then
+				if [ "$helper" = "netbios-ns" ]; then
 				    	# netbios-ns has no IPv6 support (in
 					# general, not even on Windows)
 					continue
@@ -1784,11 +1848,11 @@ fork_to_chains()
 	if [ -n "$FW_ZONE_DEFAULT" -a "$FW_ZONE_DEFAULT" != 'no' ]; then
 	    $iptables -A INPUT -j "input_$FW_ZONE_DEFAULT"
 	fi
-	if [ "$FW_ROUTE" = yes ]; then
+	if is_fwd_configured $iptables; then
 	    for zone in $forward_zones; do
 		eval devs="\$FW_DEV_$zone"
 		for dev in $devs; do
-		    $iptables -A FORWARD -j forward_$zone -i $dev
+			$iptables -A FORWARD -j forward_$zone -i $dev
 		done
 	    done
 	fi
@@ -1805,7 +1869,7 @@ finish_chains()
 	$iptables -A INPUT -j "$DROP"
 
 	$LDAC $iptables -A FORWARD ${LOG}"-FWD-ILL-ROUTING "
-	if [ "$FW_ROUTE" = yes ]; then
+	if is_fwd_configured $iptables; then
 	    $iptables -A FORWARD -j "$DROP" # this is an unneeded rule, but looks nice :)
 	fi
 
@@ -1815,7 +1879,7 @@ finish_chains()
     done
 
     # MSS stuff needs this?
-    if [ "$FW_ROUTE" = yes ]; then
+    if $FW_ROUTE_V4; then
 	$IPTABLES -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     fi
 }
@@ -1960,35 +2024,44 @@ allow_icmp()
 
 allow_forward_icmp_echo()
 {
-    [ "$FW_ROUTE" != "yes" ] && return
+    [ "$FW_ROUTE" = "no" ] && return
 
     local zone chain var val
 
     # FORWARD ICMP rules
     for zone in $forward_zones; do
-	var="FW_ALLOW_PING_`cibiz $zone`"
-	eval val="\"\$$var\""
+	for iptables in $IPTABLES_LIST; do
+	    if ! is_fwd_configured $iptables; then continue; fi
 
-	[ "$val" != yes ] && continue
+	    local icmp_type=icmp
+	    [ $iptables = $IP6TABLES ] && icmp_type=icmpv6
 
-	eval devs="\$FW_DEV_$zone"
+	    var="FW_ALLOW_PING_`cibiz $zone`"
+	    eval val="\"\$$var\""
 
-	for dev in $devs; do
-	    for chain in $forward_zones; do
-		[ "$chain" = "$zone" ] && continue
+	    [ "$val" != yes ] && continue
 
-		chain=forward_$chain
-		$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-request -o $dev
-		$IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW -p icmp --icmp-type echo-request -o $dev
-		$LAA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-request -o $dev
-		$IP6TABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW -p icmpv6 --icmpv6-type echo-request -o $dev
+	    eval devs="\$FW_DEV_$zone"
+
+	    for dev in $devs; do
+		for chain in $forward_zones; do
+		    [ "$chain" = "$zone" ] && continue
+
+		    chain=forward_$chain
+		    $LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "\
+			-p $icmp_type --${icmp_type}-type echo-request -o $dev
+		    $iptables -A $chain -j "$ACCEPT" -m conntrack --ctstate NEW \
+			-p $icmp_type --${icmp_type}-type echo-request -o $dev
+		done
 	    done
+
+	    chain=forward_$zone
+
+	    $LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-PING " \
+	    	-p $icmp_type --${icmp_type}-type echo-reply
+	    $iptables -A $chain -j "$ACCEPT"  -m conntrack --ctstate ESTABLISHED\
+	    	-p $icmp_type --${icmp_type}-type echo-reply
 	done
-	chain=forward_$zone
-	$LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmp --icmp-type echo-reply
-	$IPTABLES -A $chain -j "$ACCEPT"  -m conntrack --ctstate ESTABLISHED -p icmp --icmp-type echo-reply
-	$LAA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-PING "  -p icmpv6 --icmpv6-type echo-reply
-	$IP6TABLES -A $chain -j "$ACCEPT"  -m conntrack --ctstate ESTABLISHED -p icmpv6 --icmpv6-type echo-reply
     done
     # drop rule for forwarding chains are at the end of the forwarding rules
 }
@@ -2315,14 +2388,16 @@ allow_class_routing()
     # assuming that only traffic from $zone interface enter the
     # forward_$zone chain anyways, we don't need the -i parameter
     for zone in $FW_ALLOW_CLASS_ROUTING; do
-	eval devs="\$FW_DEV_$zone"
-	chain=forward_$zone
-	for iface in $devs; do
-	    for iptables in "$IPTABLES" "$IP6TABLES"; do
-		$LAA $iptables -A $chain $LOG"-`rulelog $chain`-ACC-CLASS "  -o $iface
-		$iptables -A $chain -j "$ACCEPT" -o $iface
-	    done
-	done
+		eval devs="\$FW_DEV_$zone"
+		chain=forward_$zone
+
+		for iface in $devs; do
+			for iptables in "$IPTABLES" "$IP6TABLES"; do
+				is_fwd_configured $iptables || continue
+				$LAA $iptables -A $chain $LOG"-`rulelog $chain`-ACC-CLASS " -o $iface
+				$iptables -A $chain -j "$ACCEPT" -o $iface
+			done
+		done
     done
 }
 
@@ -2331,15 +2406,25 @@ allow_related_forward_icmp()
     local chain itype
 
     for chain in $forward_zones; do
-	chain=forward_$chain
-	for itype in $safe_icmp_replies; do
-	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-FWD-RELA"  -m conntrack --ctstate ESTABLISHED,RELATED -p icmp --icmp-type $itype
-	    $IPTABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED,RELATED -p icmp --icmp-type $itype
-	done
-	for itype in $safe_icmpv6_replies; do
-	    $LAA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-FWD-RELA " -m conntrack --ctstate ESTABLISHED,RELATED  -p icmpv6 --icmpv6-type $itype
-	    $IP6TABLES -A $chain -j "$ACCEPT" -m conntrack --ctstate ESTABLISHED,RELATED -p icmpv6 --icmpv6-type $itype
-	done
+		chain=forward_$chain
+
+		for iptables in $IPTABLES_LIST; do
+
+			is_fwd_configured $iptables || continue
+
+			local icmp_type=icmp
+			local safe_replies=$safe_icmp_replies
+			[ $iptables = $IP6TABLES ] && icmp_type=icmpv6 && \
+				safe_replies=$safe_icmpv6_replies
+
+			for itype in $safe_replies; do
+				$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-FWD-RELA" \
+					-m conntrack --ctstate ESTABLISHED,RELATED \
+					-p $icmp_type --${icmp_type}-type $itype
+				$iptables -A $chain -j "$ACCEPT" -m conntrack \
+					--ctstate ESTABLISHED,RELATED -p $icmp_type --${icmp_type}-type $itype
+			done
+		done
     done
 }
 
@@ -2397,10 +2482,10 @@ forwarding_rules()
 		set -- $iptables -A $chain $proto $more_args_in
 		if [ -z "$zonein" -o "$zonein" = "$zone" ]; then
 		    if [ -n "$zoneout" ]; then
-			create_cond_chain "$target" "out" "$zoneout"
-			jt=${target}_if_out_$zoneout
+				create_cond_chain "$target" "out" "$zoneout"
+				jt=${target}_if_out_$zoneout
 		    else
-			jt="$target"
+				jt="$target"
 		    fi
 		    $LAC "$@" -s $net1 -d $net2 ${LOG}"-`rulelog $chain`-${target:0:3}-FORW " $port -m conntrack --ctstate NEW $more_args_in
 		    $LAA "$@" -s $net1 -d $net2 ${LOG}"-`rulelog $chain`-${target:0:3}-FORW " $port $more_args_in
@@ -2566,51 +2651,49 @@ drop_all()
     local drop
     local chainprefix='input_'
 
-    for zone in $input_zones '--' $forward_zones; do
+	for iptables in $IPTABLES_LIST; do
+	    local icmp_type=icmp
+	    [ $iptables = $IP6TABLES ] && icmp_type=icmpv6
 
-	if [ "$zone" = '--' ]; then
-	    [ "$FW_ROUTE" != 'yes' ] && break
-	    chainprefix='forward_'
-	    continue
-	fi
+		for zone in $input_zones '--' $forward_zones; do
 
-	chain="$chainprefix$zone"
+			if [ "$zone" = '--' ]; then
+				is_fwd_configured $iptables || break
+				chainprefix='forward_'
+				continue
+			fi
 
-	eval drop="\$FW_REJECT_`cibiz $zone`"
-	if [ "$drop" = "yes" ]; then
-	    drop="$REJECT"
-	else
-	    drop="$DROP"
-	fi
+			chain="$chainprefix$zone"
 
-	eval local ignore="\$FW_IGNORE_FW_BROADCAST_`cibiz $zone`"
+			eval drop="\$FW_REJECT_`cibiz $zone`"
+			if [ "$drop" = "yes" ]; then
+				drop="$REJECT"
+			else
+				drop="$DROP"
+			fi
 
-	# log and drop broadcast/multicast packets separately, only if not
-	# ignored, to not flood other log targets (#155326, #538053, #847193)
+			eval local ignore="\$FW_IGNORE_FW_BROADCAST_`cibiz $zone`"
 
-	if [ "$ignore" != 'yes' ]; then
-	    $LDA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype \! --pkt-type unicast
-	    $LDA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype \! --pkt-type unicast
-	fi
-	$IPTABLES -A $chain -j "$DROP" -m pkttype \! --pkt-type unicast
-	$IP6TABLES -A $chain -j "$DROP" -m pkttype \! --pkt-type unicast
+			# log and drop broadcast/multicast packets separately, only if not
+			# ignored, to not flood other log targets (#155326, #538053, #847193)
 
-	# some packet types are considered critical
-	if [ -z "$LDC" ]; then
-	    local log=${LOG}"-`rulelog $chain`-DROP-DEFLT"
-	    $IPTABLES  -A $chain $log" " -p tcp --syn
-	    $IP6TABLES -A $chain $log" " -p tcp --syn
-	    $IPTABLES  -A $chain $log" " -p icmp
-	    $IP6TABLES -A $chain $log" " -p icmpv6
-	    $IPTABLES  -A $chain $log" " -p udp -m conntrack --ctstate NEW
-	    $IP6TABLES -A $chain $log" " -p udp -m conntrack --ctstate NEW
-	fi
-	# log anything else
-	$LDA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT "
-	$IPTABLES -A $chain -j "$drop"
-	$LDA $IP6TABLES -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT "
-	$IP6TABLES -A $chain -j "$drop"
-    done
+			if [ "$ignore" != 'yes' ]; then
+				$LDA $iptables -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype \! --pkt-type unicast
+			fi
+			$iptables -A $chain -j "$DROP" -m pkttype \! --pkt-type unicast
+
+			# some packet types are considered critical
+			if [ -z "$LDC" ]; then
+				local log=${LOG}"-`rulelog $chain`-DROP-DEFLT"
+				$iptables  -A $chain $log" " -p tcp --syn
+				$iptables  -A $chain $log" " -p ${icmp_type}
+				$iptables  -A $chain $log" " -p udp -m conntrack --ctstate NEW
+			fi
+			# log anything else
+			$LDA $iptables -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT "
+			$iptables -A $chain -j "$drop"
+		done
+	done
 }
 
 # perform some final actions after all rules have been setup
@@ -2630,14 +2713,12 @@ function fw_after_finished
 	# active VMs
 	/usr/bin/killall -HUP libvirtd
 
-	# sadly libvirtd may require but not doesn't restore ip_forwarding, so
-	# we don't rightly know whether this is necessary at this stage
+	# sadly libvirtd may require but doesn't restore ip_forwarding, so we
+	# don't rightly know whether we need to restore it.
 	#
-	# we remembered the old value in switch_on_ip_forwarding an restore it
-	# here, if it was on before
-	if [ "$FW_ROUTE" != "yes" -a "$orig_ipv4_forwarding" -eq 1 ]; then
-	    switch_on_ip_forwarding "yes"
-	fi
+	# since we no longer set ip forwarding to 0 if FW_ROUTE is not enabled
+	# for IPv4/6, the original setting from libvirt is not touched.
+	# If FW_ROUTE is enabled for IPv4/6 we make sure it's enabled anyways.
 }
 
 ############################################
@@ -2691,7 +2772,7 @@ fi
 
 if [ "$ACTION" = "stop" ]; then
     if [ "$FW_STOP_KEEP_ROUTING_STATE" != "yes" ]; then
-	setproc 0 /proc/sys/net/ipv4/ip_forward
+	disable_ip_forwarding
     fi
     # Do we have a kernel with IPv6 enabled?
     $IP6TABLES_BIN -nvL >/dev/null 2>&1 || IP6TABLES=:
@@ -2705,7 +2786,7 @@ fi
 
 if [ "$ACTION" = "close" ]; then
     set_basic_rules
-    setproc 0 /proc/sys/net/ipv4/ip_forward
+    disable_ip_forwarding
     [ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
     die 0 "Firewall rules set to CLOSE."
 fi
@@ -2763,7 +2844,7 @@ verify_parameters
 parse_ipsec
 
 remove_unused_zones
-[ "$FW_ROUTE" = 'yes' ] && forward_zones="$all_zones"
+[ "$FW_ROUTE" != 'no' ] && forward_zones="$all_zones"
 input_zones="$all_zones"
 saved_input_zones="$input_zones" # need that for fork_to_chains
 
@@ -2772,7 +2853,8 @@ parse_configurations
 # Set default rules + flush
 set_basic_rules
 
-switch_on_ip_forwarding $FW_ROUTE
+switch_on_ip_forwarding $PROC_IPV4_FWD $FW_ROUTE_V4
+switch_on_ip_forwarding $PROC_IPV6_FWD $FW_ROUTE_V6
 
 set_proc_stuff
 
@@ -2835,7 +2917,7 @@ fw_custom_before_masq
 
 redirect_rules
 
-if [ "$FW_ROUTE" = yes ]; then
+if [ "$FW_ROUTE" != no ]; then
 
     allow_related_forward_icmp
 
@@ -2845,7 +2927,8 @@ if [ "$FW_ROUTE" = yes ]; then
     forwarding_rules REJECT
     forwarding_rules ACCEPT
 
-    if [ "$FW_MASQUERADE" = yes ]; then
+    # TODO: masquerading for IPv6 is not handled yet
+    if [ "$FW_MASQUERADE" = yes ] && $FW_ROUTE_V4; then
 	masquerading_rules
 	forward_masquerading_rules
     fi

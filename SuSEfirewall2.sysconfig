@@ -114,22 +114,26 @@ FW_DEV_DMZ=""
 # Should routing between the internet, dmz and internal network be
 # activated?
 #
-# Set this to "yes" if you either want to masquerade internal
-# machines or allow access to the dmz (or internal machines, but
-# this is not a good idea).
-# 
-# This option overrides IP_FORWARD from /etc/sysconfig/sysctl and
-# net.ipv4.ip_forward settings in /etc/sysctl.conf
-# Note: IPv4 only. The IPv6 forwarding sysctl has to be turned on
-# manually.
+# Set this to "IPv4" and/or "IPv6" if you either want to masquerade internal
+# machines or allow access to the dmz (or internal machines, but this is not a
+# good idea). For backward compatiblity a value of "yes" is treated like
+# "IPv4".
 #
-# Setting this option one alone doesn't do anything. Either activate
+# You should turn on IPv4 and/or IPv6 forwarding via 'yast2 network' or
+# directly via 'sysctl' for this to work.
+#
+# Otherwise IPv4/IPv6 forwarding will be enabled temporarily, if necessary,
+# for the lifetime of the firewall and disabled again during firewall stop.
+#
+# Enabling this option alone doesn't do anything. Either activate
 # masquerading with FW_MASQUERADE below if you want to masquerade
 # your internal network to the internet, or configure FW_FORWARD to
 # define what is allowed to be forwarded. You also need to define
 # internal or dmz interfaces in FW_DEV_INT or FW_DEV_DMZ.
 #
 # defaults to "no" if not set
+#
+# Examples: "IPv4,IPv6", "IPv4", "IPv6", "no"
 #
 FW_ROUTE=""
 
