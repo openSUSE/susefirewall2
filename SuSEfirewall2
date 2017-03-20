@@ -1313,8 +1313,7 @@ write_status()
 parse_interfaces()
 {
     local zone devs
-
-    any_zone=false
+    local any_zone=false
 
     for zone in $all_zones; do
 	evaluateinterfaces $zone
