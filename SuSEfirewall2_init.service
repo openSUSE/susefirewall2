@@ -1,6 +1,8 @@
 [Unit]
 Description=SuSEfirewall2 phase 1
 Before=network.service
+After=sysinit.target
+RequiresMountsFor=/dev/shm
 
 [Service]
 ExecStart=/usr/sbin/SuSEfirewall2 boot_init
