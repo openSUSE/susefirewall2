@@ -125,6 +125,13 @@ warning()
     syslog -1 "Warning:" "$*"
 }
 
+dbgmessage()
+{
+    [ "$MODE" != "debug" ] && return
+
+    message $*
+}
+
 deprecated()
 {
     warning "$@ is deprecated and will likely be removed in the future."
@@ -486,13 +493,45 @@ parse_logging()
 }
 
 ### Functions
+
+function is_in_sysctl()
+{
+	local path="$1"
+	local sysctl="/etc/sysctl.conf"
+
+	# translate the proc path to a sysctl path
+	syspath=`echo "$path" | /usr/bin/cut -d '/' -f 4- | /usr/bin/tr '/' '.'`
+	grep -q "^[^#]*$syspath" $sysctl && return 0
+
+	# special case for the all / interface specific value in ipv4/conf/*
+	# if we're about to change an interface specific value also check if
+	# the global value is configured in sysctl in which case we shouldn't
+	# touch the interface specific one, too
+	syspath_all="`echo $syspath | /usr/bin/sed 's/ipv4\.conf\.[^\.]\+/ipv4\.conf\.all/'`"
+
+	if [ "$syspath" != "$syspath_all" ]; then
+	    grep -q "^[^#]*$syspath_all" $sysctl && return 0
+	fi
+
+	return 1
+}
+
+# change value of a file in /proc/sys
+# $1: value to set the proc file to
+# $2: path of the file in proc
 function setproc()
 {
-    [ -z "$2" -o ! -w "$2" ] && return
+    local value="$1"
+    local path="$2"
+
+    [ -z "$path" -o ! -w "$path" ] && return
+
+    is_in_sysctl $path && dbgmessage "$path override in sysctl.conf, not setting it" && return
+
     if [ "$MODE" != "debug" ]; then
-	echo "$1" > "$2"
+	echo "$value" > "$path"
     else
-	echo "echo \"$1\" > \"$2\""
+	echo "echo \"$value\" > \"$path\""
     fi
 }
 
