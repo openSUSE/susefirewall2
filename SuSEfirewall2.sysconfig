@@ -1140,7 +1140,8 @@ FW_RUNTIME_OVERRIDE=
 # certain firewall setups that need to e.g. redirect outgoing
 # packets via custom rules on the local machine.
 #
-# Defaults to "yes" if not set
+# Defaults to "no" if not set, because this can cause unexpected behaviour
+# (see bnc#916771)
 #
 FW_LO_NOTRACK=
 
