@@ -158,7 +158,7 @@ die()
 
 need()
 {
-    . "$SCRIPTSDIR/SuSEfirewall2-$1"
+   source_safe "$SCRIPTSDIR/SuSEfirewall2-$1"
 }
 
 set_defaults()
@@ -181,6 +181,34 @@ set_defaults()
     done
 }
 
+# sources the given file, but only if it has safe permissions and ownership
+function source_safe()
+{
+	local file="$1"
+	bits=`/usr/bin/stat -c %A "$file"`
+	if [ $? -ne 0 ]; then
+		echo "Cannot stat file $file to be sourced" 1>&2
+		return 1
+	fi
+	owner=`/usr/bin/stat -c %u "$file"`
+	group=`/usr/bin/stat -c %g "$file"`
+
+	world_write_bit=${bits:8:1}
+
+	if [ ${world_write_bit} != "-" -o "$owner" -ne 0 -o "$group" -ne 0 ]; then
+		echo "Unsafe permissions for file $file to be sourced" 1>&2
+		return 1
+	fi
+
+	. "$file"
+	res=$?
+	if [ $res -ne 0 ]; then
+		echo "failed to source $file: returned $res" 1>&2
+		return 1
+	fi
+
+	return 0
+}
 
 function get_device_path()
 {
@@ -240,7 +268,6 @@ function allow_bootlock_ignore()
 	# anything else has to wait until boot finish
 	return 1
 }
-
 
 CONFIGURATIONSDIR_0="/etc/sysconfig/SuSEfirewall2.d/services"
 CONFIGURATIONSDIR_1="/usr/share/SuSEfirewall2/services"
@@ -345,11 +372,10 @@ case "$ACTION" in
 	;;
 esac
 
-test -e /etc/sysconfig/network/config && . /etc/sysconfig/network/config
+test -e /etc/sysconfig/network/config && source_safe /etc/sysconfig/network/config
 
-if [ -r "$FWCONFIG" ]; then
-    . "$FWCONFIG"
-elif [ -n "$needconfig" ]; then
+source_safe $FWCONFIG
+if [ $? -ne 0 -a -n "$needconfig" ]; then
     die 6 " Can not read $FWCONFIG"
 fi
 
@@ -612,35 +638,6 @@ function get_iptables()
 		# assume IPv4 for anything else
 		*) echo $IPTABLES ;;
 	esac
-}
-
-# sources the given file, but only if it has safe permissions and ownership
-function source_safe()
-{
-	local file="$1"
-	bits=`/usr/bin/stat -c %A "$file"`
-	if [ $? -ne 0 ]; then
-		echo "Cannot stat file $file to be sourced" 1>&2
-		return 1
-	fi
-	owner=`/usr/bin/stat -c %u "$file"`
-	group=`/usr/bin/stat -c %g "$file"`
-
-	world_write_bit=${bits:8:1}
-
-	if [ ${world_write_bit} != "-" -o "$owner" -ne 0 -o "$group" -ne 0 ]; then
-		echo "Unsafe permissions for file $file to be sourced" 1>&2
-		return 1
-	fi
-
-	. "$file"
-	res=$?
-	if [ $res -ne 0 ]; then
-		echo "failed to source $file: returned $res" 1>&2
-		return 1
-	fi
-
-	return 0
 }
 
 # parameters: protocol port variable
@@ -1098,7 +1095,7 @@ source_config_for_iface()
     if [ -z "$cfg" ]; then
 	cfg=$iface
     fi
-    . $dir/ifcfg-$cfg 2>/dev/null
+    source_safe $dir/ifcfg-$cfg 2>/dev/null
 }
 
 check_iface_override()
@@ -1466,11 +1463,13 @@ parse_configurations()
 	    local ACCEPT=''
 
 	    # XXX: could use a sub shell in order to enforce use of known variables only
-	    if [ ! -r $CONFIGURATIONSDIR_0/$config ] || ! . $CONFIGURATIONSDIR_0/$config; then
-		if [ ! -r $CONFIGURATIONSDIR_1/$config ] || ! . $CONFIGURATIONSDIR_1/$config; then
+            for CDIR in $CONFIGURATIONSDIR_0 $CONFIGURATIONSDIR_1; do
+                source_safe $CDIR/$config && break
+            done
+
+	    if [ $? -ne 0 ]; then
 		    warning "config '$config' not available"
 		    continue
-		fi
 	    fi
 
 	    for var in TCP UDP RPC IP; do
