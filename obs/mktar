@@ -2,7 +2,7 @@
 set -e
 NAME=SuSEfirewall2
 VERSION=3.6
-revs=`git rev-list master|wc -l`
+revs=`git rev-list HEAD|wc -l`
 # there are two empty commits in svn were not converted to git
 # commits so increase revs by two
 let revs=revs+2
