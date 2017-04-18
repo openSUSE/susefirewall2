@@ -46,6 +46,7 @@ install:
 	ln -sf SuSEfirewall2 $(DESTDIR)/etc/sysconfig/network/scripts/firewall
 	install -m 755 SuSEfirewall2-custom.sysconfig $(DESTDIR)/etc/sysconfig/scripts/SuSEfirewall2-custom
 	install -m 644 SuSEfirewall2.service.TEMPLATE $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/services/TEMPLATE
+	install -m 644 services/* $(DESTDIR)/etc/sysconfig/SuSEfirewall2.d/services
 	install -m 644 SuSEfirewall2.defaults $(DESTDIR)/usr/share/SuSEfirewall2/defaults/50-default.cfg
 	install -m 644 rpcusers $(DESTDIR)/usr/share/SuSEfirewall2/rpcusers
 
