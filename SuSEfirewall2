@@ -1560,6 +1560,7 @@ function configure_ct_helper()
 	local zone="$1"
 	local related="$2"
 	local module="$3"
+	local helper_port=""
 
 	# if no conntrack module is involved we don't have to do anything
 	# same if no related port/protocol is given
@@ -1579,7 +1580,13 @@ function configure_ct_helper()
 		helper="netbios-ns"
 		;;
 	h323)
+		# these are two separate helpers, actually
 		helper="RAS Q.931"
+		;;
+	ftp)
+		helper="$basename"
+		# control connections on port 21, related on port 20
+		helper_port="21"
 		;;
 	amanda|ftp|irc|pptp|sane|sip|snmp|tftp)
 		helper="$basename"
@@ -1593,6 +1600,11 @@ function configure_ct_helper()
 
 	if [ -z "$proto" -o -z "$sport" ]; then
 	    return
+	fi
+
+	# use a special helper port, if required
+	if [ -n "$helper_port" ]; then
+	    sport="$helper_port"
 	fi
 
 	# all gathered information is collected as colon separated pairs in
