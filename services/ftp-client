@@ -1,0 +1,5 @@
+## Name: FTP client active mode
+## Description: allows data connection from FTP server in active mode
+
+RELATED="0/0,tcp,20"
+MODULES="nf_conntrack_ftp"
