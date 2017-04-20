@@ -1550,6 +1550,8 @@ create_cond_chain()
 # see bsc#986527
 function configure_ct_helper()
 {
+	# this module is required for checking the helper state
+	load_modules nfnetlink_cthelper
 	enabled=`getproc net.netfilter.nf_conntrack_helper`
 
 	if [ "$enabled" -eq 1 ]; then
