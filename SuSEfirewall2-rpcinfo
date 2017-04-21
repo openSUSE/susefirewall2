@@ -146,7 +146,7 @@ sub getportsfor($$)
     close FILE;
 
     # always also add portmapper
-    if($ret && !exists $services{'portmapper'})
+    if($ret && !defined $ENV{"NOPORTMAP"} && !exists $services{'portmapper'})
     {
 	push @{$services{'portmapper'}}, { tcp => [111], udp => [111] };
     }
