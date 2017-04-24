@@ -57,23 +57,28 @@ $0 start|test|debug [file FILENAME]
 $0 basic|stop|close|status|help
 $0 open ZONE TYPE services...
 $0 on|off
+$0 [-s <service>] update-rpc
 
 Options:
-  start	  generate and load the firewall filter rules from
-          /etc/sysconfig/SuSEfirewall2
-  stop    unload all filter rules
-  close   no incoming network traffic except bootp+ping (for boot security)
-  basic   set basic filter rules that drop all incoming access
-  test    generate and load the filter rules but do not drop any packet but log
-          to syslog anything which *would* be denied
-  status  print the output of "iptables -nvL"
-  debug   print the iptables command to stdout instead of executing them
-  log     show SuSEfirewall2 related syslog messages in a better readable format
-  help    this output
-  open    open the specified services in the specified zone. You need to
-          restart SuSEfirewall2 for changes to take effect.
-  on      add SuSEfirewall2 initscripts to boot process and start
-  off     remove SuSEfirwall2 initscripts from boot process and stop
+  start	      generate and load the firewall filter rules from
+              /etc/sysconfig/SuSEfirewall2
+  stop        unload all filter rules
+  close       no incoming network traffic except bootp+ping (for boot security)
+  basic       set basic filter rules that drop all incoming access
+  test        generate and load the filter rules but do not drop any packet but log
+              to syslog anything which *would* be denied
+  status      print the output of "iptables -nvL"
+  debug       print the iptables command to stdout instead of executing them
+  log         show SuSEfirewall2 related syslog messages in a better readable format
+  help        this output
+  open        open the specified services in the specified zone. You need to
+              restart SuSEfirewall2 for changes to take effect.
+  on          add SuSEfirewall2 initscripts to boot process and start
+  off         remove SuSEfirwall2 initscripts from boot process and stop
+  update-rpc  update rules for dynamic RPC services
+              if -s/--service is specified then only rules for the given
+              service will be updated, otherwise for all configured RPC
+              services
 
   file FILENAME  same as "start" but load alternate config file FILENAME
 
@@ -304,7 +309,7 @@ if test -x /usr/bin/tty && ! /usr/bin/tty -s; then
     quiet=1
 fi
 
-getopttmp=`/usr/bin/getopt -o hqi: --long help,scriptsdir:,batch,nobatch,file:,debug,test,bootlock,bootunlock,quiet,interface: \
+getopttmp=`/usr/bin/getopt -o hqi:s: --long help,scriptsdir:,batch,nobatch,file:,debug,test,bootlock,bootunlock,quiet,interface:,service: \
      -n 'SuSEfirewall2' -- "$@"`
 
 [ $? != 0 ] && die 1 "getopt error"
@@ -326,6 +331,8 @@ while true ; do
 		# only used by if-{up,down} scripts to indicate the interface
 		# that changed
 		-i|--interface) up_down_iface="$2"; shift 2 ;;
+		# only used for update-rpc action
+		-s|--service) rpc_service="$2"; shift 2 ;;
                 --) shift ; break ;;
                 *) die 1 "getopt error"; ;;
         esac
@@ -349,6 +356,7 @@ case "$1" in
     boot_init) ACTION="init"; create_bootlock=1 ;;
     boot_setup) ACTION="start"; remove_bootlock=1 ;;
     systemd_stop) ACTION="$1"; needconfig=1 ;;
+    update-rpc) ACTION="$1"; needconfig=1 ;;
     *) help ;;
 esac
 shift
@@ -1799,6 +1807,82 @@ cibiz()
     esac
 }
 
+# returns a safe identifier to use for the iptables comment module
+# input:
+# $1: the base identifier to use
+# output:
+# $id: the resulting id string
+comment_id()
+{
+	id="$1"
+	# avoid spaces in this label
+	id=`echo $id | /usr/bin/tr ' ' ','`
+	id="sfw2.$id"
+}
+
+# return comment options for adding comments to rules
+# these comments help to identify rules in later invocations of this script,
+# for incrementally removing them, for example
+# input
+# $1: unique identifier for the comment
+# output
+# $comment: resulting identifier
+comment_pars()
+{
+	local id
+	comment_id "$1"
+	comment="-m comment --comment $id"
+}
+
+# gets the insert position for incremental updates of rule sets during
+# update-rpc mode
+#
+# input
+#
+# $1: the chain where the insertion shall occur
+#
+# output
+#
+# $pos: the insertion number to pass to 'iptables -I <chain> <pos>'
+get_insert_pos()
+{
+	local chain="$1"
+	local id
+	comment_id "insert.pos" 
+	# see the comments in drop_all() and remove_matching_rules() for more
+	# about this
+
+	# just select the first matching rule in case there are multiple ones
+	# (logging rule for example)
+	pos=`$IPTABLES_BIN -S "$chain" | /usr/bin/tail -n+2 | /usr/bin/cat -n | /usr/bin/grep "\"$id\"" | /usr/bin/grep -o '^[[:space:]]*[0-9]\+' | /usr/bin/head -n 1`
+}
+
+# get the iptables parameters for inserting an rpc rule to a given chain
+#
+# input
+#
+# $1: boolean, whether we're running in update-rpc mode, thus incremental rule
+# insertion is required
+# $2: the chain where the insertion shall occur
+#
+# output
+#
+# $rpc_insert: the parameters to add to iptables to achieve the desired
+# insertion
+get_rpc_insert_pars()
+{
+	local update_rpc="$1"
+	local chain="$2"
+
+	if $update_rpc; then
+	    local pos
+	    get_insert_pos $chain
+	    rpc_insert="-I $chain $pos"
+	else
+	    rpc_insert="-A $chain"
+	fi
+}
+
 ### IPsec ###
 
 parse_ipsec()
@@ -1898,10 +1982,15 @@ finish_chains()
 }
 
 # Protect the firewall from the internal network? #
+#
+# optional parameters:
+# $1: mode (currently only update-rpc: don't modify, just collect zones)
 protect_from_internal()
 {
     local iptables zone devs dev chain
     local newzones=
+    local mode=$1
+
     for zone in $input_zones; do
 
 	if [ "$zone" = "int" -a "$FW_PROTECT_FROM_INTERNAL" = "no" ]; then
@@ -1912,7 +2001,15 @@ protect_from_internal()
 	    eval val="\"\$$var\""
 	fi
 
-	if [ "$val" = notrack ]; then
+	if [ "$val" != notrack -a "$val" != no ]; then
+	    if [ -z "$newzones" ]; then
+		newzones="$zone"
+	    else
+		newzones="$newzones $zone"
+	    fi
+	elif [ "$mode" = "update-rpc" ]; then
+	    continue
+	elif [ "$val" = notrack ]; then
 	    eval devs="\$FW_DEV_$zone"
 	    for dev in $devs; do
 		for iptables in "$IPTABLES" "$IP6TABLES"; do
@@ -1928,12 +2025,6 @@ protect_from_internal()
 		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-ALL "
 		$iptables -A $chain -j "$ACCEPT"
 	    done
-	else
-	    if [ -z "$newzones" ]; then
-		newzones="$zone"
-	    else
-		newzones="$newzones $zone"
-	    fi
 	fi
     done
 
@@ -1956,6 +2047,7 @@ allow_related()
 	var="FW_SERVICES_ACCEPT_RELATED_`cibiz $zone`"
 	eval services="\"\$$var\""
 
+	local service
 	for service in $services; do
 	    IFS=, eval set -- \$service
 
@@ -2115,19 +2207,44 @@ process_trusted_nets()
 # determine port numbers of rpc services and generate a suitable iptables
 # parameter fragment
 #
-# parameters: names of rpc services, e.g. ypbind mountd
+# parameters:
+# $1: names of rpc services, e.g. ypbind mountd
+# $2: whether portmapper ports shall be implicitly added (boolean)
 rpcservicerules()
 {
+    # The -rpcinfo script by default implicitly adds extra rules for portmap
+    # itself. This is because portmap needs to be reached in order for other
+    # rpc services to work at all.
+    # In some contexts this generates superfluous portmap rules, however. In
+    # conjunction with the update-rpc functionality we might end up with a lot
+    # of redundant rules. Thus we can selectively disabled this implicit
+    # behaviour.
+    # It would be better to only explicitly add the portmap rules. But this
+    # required more refactoring, and also the current solution is buggy: The
+    # implicit portmap rules don't take source subnet restrictions into
+    # account.
+    if [ $# -eq 2 ] && ! $2; then
+	export NOPORTMAP=1
+    fi
+
     perl "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" 2>/dev/null
+    unset NOPORTMAP
 }
 
-# parameters: REJECT|DROP
+# parameters:
+# $1: REJECT|DROP
+# optional:
+# $2: mode (currently only update-rpc)
+# $3: service (for update-rpc mode)
 reject_or_drop_services()
 {
     local action="$1"
     local var
     local services target service proto net port
     local iptables zone chain
+    local mode="$2" selected="$3"
+    local update_rpc=false
+    [ "$mode" = "update-rpc" ] && update_rpc=true
 
     eval target=\$$action
 
@@ -2135,7 +2252,11 @@ reject_or_drop_services()
 	chain=input_$zone
 	var="FW_SERVICES_${action}_`cibiz $zone`"
 	eval services="\"\$$var\""
+	
+	local rpc_insert
+	get_rpc_insert_pars $update_rpc $chain
 
+	local service
 	for service in $services; do
 	    IFS=, eval set -- \$service
 
@@ -2151,10 +2272,16 @@ reject_or_drop_services()
 	    esac
 
 	    if [ "$proto" = "_rpc_" ]; then
+		[ -n "$selected" -a "$selected" != $port ] && continue
+		local comment
+		comment_pars "rpc.$port"
 		rpcservicerules $service | while read ARG; do
-		    $LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-$action " -m conntrack --ctstate NEW $ARG
-		    $IPTABLES -A $chain -j "$target" $ARG
+		    $LDC $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-$action " -m conntrack --ctstate NEW $ARG
+		    $IPTABLES $rpc_insert $comment -j "$target" $ARG
 		done
+	    elif $update_rpc; then
+	        # don't add any other rules in update rpc mode
+	    	continue
 	    elif check_proto_port "$proto" "$port" "$sport" "$var"; then
 		for iptables in $iptables; do
 		    $LDA $iptables -A $chain -s $net $proto $port $sport -m conntrack --ctstate NEW ${LOG}"-`rulelog $chain`-$action "
@@ -2165,18 +2292,29 @@ reject_or_drop_services()
     done
 }
 
+# optional parameters
+# $1: mode (currently only update-rpc: used for selectively updating RPC
+# rules)
+# $2: selected service (for mode = update-rpc, to restrict to certain service)
 accept_services()
 {
     local var
     local services target service proto net
     local iptables zone chain
     local ipt_recent_update ipt_recent_set ipt_recent_rcheck
+    local mode="$1" selected="$2"
+    local update_rpc=false
+    [ "$mode" = "update-rpc" ] && update_rpc=true
 
     for zone in $input_zones; do
 	chain=input_$zone
 	var="FW_SERVICES_ACCEPT_`cibiz $zone`"
 	eval services="\"\$$var\""
 
+	local rpc_insert
+	get_rpc_insert_pars $update_rpc $chain
+
+	local service
 	for service in $services; do
 	    ipt_recent_update=''
 	    ipt_recent_set=''
@@ -2218,16 +2356,22 @@ accept_services()
 	    esac
 
 	    if [ "$proto" = "_rpc_" ]; then
+		[ -n "$selected" -a "$selected" != "$port" ] && continue
+		local comment
+		comment_pars "rpc.$port"
 		rpcservicerules $service | while read ARG; do
 		    if [ -n "$ipt_recent_set" ]; then
-			$LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROPr " $ARG -m conntrack --ctstate NEW $ipt_recent_rcheck
-			$IPTABLES -A $chain -j "$DROP" $ARG -m conntrack --ctstate NEW $ipt_recent_update
+			$LDC $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-DROPr " $ARG -m conntrack --ctstate NEW $ipt_recent_rcheck
+			$IPTABLES $rpc_insert $comment -j "$DROP" $ARG -m conntrack --ctstate NEW $ipt_recent_update
 		    fi
-		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC " -m conntrack --ctstate NEW $ARG
-		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC " $ARG
-		    [ -n "$ipt_recent_set" ] && $IPTABLES -A $chain -j ACCEPT $ARG -m conntrack --ctstate NEW $ipt_recent_set
-		    $IPTABLES -A $chain -j ACCEPT $ARG
+		    $LAC $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-ACC " -m conntrack --ctstate NEW $ARG
+		    $LAA $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-ACC " $ARG
+		    [ -n "$ipt_recent_set" ] && $IPTABLES $rpc_insert $comment -j ACCEPT $ARG -m conntrack --ctstate NEW $ipt_recent_set
+		    $IPTABLES $rpc_insert $comment -j ACCEPT $ARG
 		done
+	    elif $update_rpc; then
+	        # don't add any other rules in update rpc mode
+	    	continue
 	    elif check_proto_port "$proto" "$port" "$sport" "$var"; then
 		for iptables in $iptables; do
 		    if [ -n "$ipt_recent_set" ]; then
@@ -2244,18 +2388,44 @@ accept_services()
     done
 }
 
+
+# optional parameters:
+# $1: limit the rules to the given service, if given, otherwise all configured
+# services are used
+# optional envvar:
+# add_portmapper: whether to add rules for portmapper itself (boolean,
+# default: true)
+# update_rpc: whether we're running in update-rpc mode (boolean, default:
+# false)
 allow_rpc_services()
 {
-    local zone chain ports
-    for zone in $input_zones; do
-	chain=input_$zone
-	eval ports="\$FW_SERVICES_`cibiz $zone`_RPC"
-	rpcservicerules $ports | while read ARG; do
-	    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " -m conntrack --ctstate NEW $ARG
-	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
-	    $IPTABLES -A $chain -j "$ACCEPT" $ARG
+	local zone chain services comment
+	local selected="$1"
+	[ -z "$add_portmapper" ] && add_portmapper=true
+	[ -z "$update_rpc" ] && update_rpc=false
+
+	for zone in $input_zones; do
+		chain=input_$zone
+		eval services="\$FW_SERVICES_`cibiz $zone`_RPC"
+		# explicitly add portmapper ourselves, otherwise -rpcinfo will
+		# add it each time, causing duplicate rules
+		$add_portmapper && [ ! -z "$services" ] && services="$services portmapper"
+
+		local rpc_insert
+		get_rpc_insert_pars $update_rpc $chain
+
+		local service
+		for service in $services; do
+			# skip not matching services for incremental updates
+			[ -n "$selected" -a "$selected" != "$service" -a "$service" != "portmapper" ] && continue
+			comment_pars "rpc.$service"
+			rpcservicerules $service false | while read ARG; do
+				$LAC $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-ACC-RPC " -m conntrack --ctstate NEW $ARG
+				$LAA $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
+				$IPTABLES $rpc_insert $comment -j "$ACCEPT" $ARG
+			done
+		done
 	done
-    done
 }
 
 allow_ip_services()
@@ -2663,6 +2833,8 @@ drop_all()
     local zone
     local drop
     local chainprefix='input_'
+    local comment
+    comment_pars "insert.pos"
 
 	for iptables in $IPTABLES_LIST; do
 	    local icmp_type=icmp
@@ -2690,10 +2862,21 @@ drop_all()
 			# log and drop broadcast/multicast packets separately, only if not
 			# ignored, to not flood other log targets (#155326, #538053, #847193)
 
+			# the $comment added here is a marker that helps us to
+			# find the right insert position for incremental rule
+			# additions in update-rpc mode. We can't simply append
+			# the incremental rules, because we have general DROP
+			# statements at the end, but also should't simply
+			# prepend incremental rules, because we have some DROP
+			# statements at the beginning like DROP broadcast in
+			# the INPUT chain. This here should be a good spot,
+			# after the initial DROP statements but before the
+			# final ones.
+
 			if [ "$ignore" != 'yes' ]; then
-				$LDA $iptables -A $chain ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype \! --pkt-type unicast
+				$LDA $iptables -A $chain $comment ${LOG}"-`rulelog $chain`-DROP-DEFLT " -m pkttype \! --pkt-type unicast
 			fi
-			$iptables -A $chain -j "$DROP" -m pkttype \! --pkt-type unicast
+			$iptables -A $chain $comment -j "$DROP" -m pkttype \! --pkt-type unicast
 
 			# some packet types are considered critical
 			if [ -z "$LDC" ]; then
@@ -2732,6 +2915,122 @@ function fw_after_finished
 	# since we no longer set ip forwarding to 0 if FW_ROUTE is not enabled
 	# for IPv4/6, the original setting from libvirt is not touched.
 	# If FW_ROUTE is enabled for IPv4/6 we make sure it's enabled anyways.
+}
+
+# reads in all config files, prepares script state for further activity
+function init_configuration()
+{
+	parse_zones
+	parse_interfaces
+	check_interfaces_unique
+	autodetect_interfaces
+	write_status
+	process_masq_dev
+
+	load_customrules
+
+	check_interfaces
+
+	verify_parameters
+	#verify_masq_nets
+
+	parse_ipsec
+
+	remove_unused_zones
+	[ "$FW_ROUTE" != 'no' ] && forward_zones="$all_zones"
+	input_zones="$all_zones"
+	saved_input_zones="$input_zones" # need that for fork_to_chains
+
+	parse_configurations
+}
+
+# removes all rules from the separate sfw2 chains that match the given comment
+# string
+# $1: the comment string to use for finding matching rules. This may also
+# contain grep regular expression wildcards to selecting multiple groups of
+# comments
+function remove_matching_rules()
+{
+	local id
+	comment_id "$1"
+
+	# there are different approaches to remove inidividual rules again.
+	# the default is that we'd need to specify the complete rule to
+	# iptables -D, which is pretty cumbersome. An alternative is to
+	# specify the rule number in the chain, that we want to delete
+
+	# the rule number is not fixed, when removing a rule in the middle
+	# then the numbers of all following rules change. thus it also isn't
+	# race free if multiple programs modify the tables. This is true for
+	# many things regarding iptables, however.
+
+	# we use the rule number approach here.
+	# iptables -L --line shows the rule numbers, however for all chains.
+	# this is difficult to process for us.
+	# iptables -S shows the rules from a given chain, but doesn't support
+	# the --line parameter >:-(
+
+	# - the first rule from iptables -S is to be ignored (it's the chain
+	# creation rule).
+	# - cat prints us the numbers
+	# - grep filters the rules we want
+	# - ... and extracts the rule numbers
+	# - tac reverses the numbers so we start with the highest
+	#   rule numbers first, to prevent the renumbering of rules hitting
+	#   us.
+
+	for zone in $all_zones; do
+		for chain in input forward; do
+			chain="${chain}_${zone}"
+			# use IPTABLES_BIN here, to avoid iptables-batch
+			# handling that breaks when we want to parse the
+			# iptables output, or calculate rule numbers in
+			# get_rpc_insert_pars
+			for rulenr in `$IPTABLES_BIN -S $chain | /usr/bin/tail -n +2 | /usr/bin/cat -n | /usr/bin/grep "\"$id\"" | /usr/bin/grep -o '^[[:space:]]*[0-9]\+' | /usr/bin/tac`; do
+				$IPTABLES_BIN -D $chain $rulenr
+			done
+		done
+	done
+}
+
+# called in update-rpc mode:
+# - remove any currently active rules for the selected rpc services
+# - reinstate the rules based on updated port mapper information
+# $1: the rpc_service to update, or empty for all services currently
+# configured
+function update_rpc()
+{
+	local service="$1"
+	local pattern="$service"
+
+	# wildcard all rpc comments if no special service is selected
+	[ -z "$pattern" ] && pattern='[^"]\+'
+
+	remove_matching_rules "rpc.$pattern"
+	# necessary to reduce the input_zones to the necessary amount
+	protect_from_internal "update-rpc"
+	
+	local action
+	for action in DROP REJECT; do
+		reject_or_drop_services $action "update-rpc" $service
+	done
+
+	# don't add the portmapper rules if we're doing a selective rpc
+	# service update and the rules are already in place
+	# - except if the service is the portmapper itself, in which case we
+	# want to process it, of course
+	local add_portmapper=true
+	if [ -n "$service" -a "$service" != "portmapper" ]; then
+		local id
+		comment_id "rpc.portmapper"
+		$IPTABLES_BIN -L | grep -q "$id"
+		[ $? -eq 0 ] && add_portmapper=false
+	fi
+
+	add_portmapper=$add_portmapper update_rpc=true allow_rpc_services $service
+	accept_services "update-rpc" $service
+
+	[ -n "$USE_IPTABLES_BATCH" ] && commit_iptables_batch
 }
 
 ############################################
@@ -2836,32 +3135,17 @@ if [ "$ACTION" = "open" ]; then
     die 1 "failed to execute $OPENHELPER"
 fi
 
+if [ "$ACTION" = "update-rpc" ]; then
+    init_configuration
+    update_rpc $rpc_service
+    die 0
+fi
+
 ### main mode ###
 
 message "Setting up rules from $FWCONFIG ..."
 
-parse_zones
-parse_interfaces
-check_interfaces_unique
-autodetect_interfaces
-write_status
-process_masq_dev
-
-load_customrules
-
-check_interfaces
-
-verify_parameters
-#verify_masq_nets
-
-parse_ipsec
-
-remove_unused_zones
-[ "$FW_ROUTE" != 'no' ] && forward_zones="$all_zones"
-input_zones="$all_zones"
-saved_input_zones="$input_zones" # need that for fork_to_chains
-
-parse_configurations
+init_configuration
 
 # Set default rules + flush
 set_basic_rules
@@ -2973,4 +3257,4 @@ fw_custom_after_finished
 # END #
 die 0 "Firewall rules successfully set"
 
-# vim: sw=4
+# vim: fo-=t
