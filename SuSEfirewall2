@@ -1807,6 +1807,13 @@ cibiz()
     esac
 }
 
+# returns zero if the firewall is currently considered to be running, non-zero
+# otherwise
+is_firewall_running()
+{
+    /bin/systemctl -q is-active SuSEfirewall2 || return 1
+}
+
 # returns a safe identifier to use for the iptables comment module
 # input:
 # $1: the base identifier to use
@@ -3009,7 +3016,7 @@ function update_rpc()
 	remove_matching_rules "rpc.$pattern"
 	# necessary to reduce the input_zones to the necessary amount
 	protect_from_internal "update-rpc"
-	
+
 	local action
 	for action in DROP REJECT; do
 		reject_or_drop_services $action "update-rpc" $service
@@ -3137,6 +3144,11 @@ fi
 
 if [ "$ACTION" = "update-rpc" ]; then
     init_configuration
+    if ! is_firewall_running; then
+        die 1 "SuSEfirewall2 is not running, no rpc update possible"
+    else
+	message "Updating rules for ${rpc_service:-every} rpc service"
+    fi
     update_rpc $rpc_service
     die 0
 fi
