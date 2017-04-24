@@ -790,7 +790,7 @@ FW_ALLOW_FW_SOURCEQUENCH=""
 # If you want to drop broadcasts however ignore the annoying log entries, set
 # FW_IGNORE_FW_BROADCAST_* to yes.
 #
-# Note that if you allow specifc ports here it just means that broadcast
+# Note that if you allow specific ports here it just means that broadcast
 # packets for that port are not dropped. You still need to set
 # FW_SERVICES_*_UDP to actually allow regular unicast packets to
 # reach the applications.
