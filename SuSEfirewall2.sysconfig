@@ -381,6 +381,8 @@ FW_CONFIGURATIONS_INT=""
 # Format: space separated list of net,protocol[,port][,sport]
 # Example: "0/0,tcp,445 0/0,udp,4662"
 #
+# If you specify "all" as protocol then all protocols will be dropped.
+#
 # The special value _rpc_ is recognized as protocol and means that dport is
 # interpreted as rpc service name. See FW_SERVICES_EXT_RPC for
 # details.
