@@ -625,15 +625,32 @@ is_fwd_configured $IP6TABLES && FW_ROUTE_V6=true || FW_ROUTE_V6=false
 PROC_IPV4_FWD="/proc/sys/net/ipv4/ip_forward"
 PROC_IPV6_FWD="/proc/sys/net/ipv6/conf/all/forwarding"
 
+# checks multiple sysctl.d config locations for configure values
+function get_any_sysctl_cfg()
+{
+	local path="$1"
+
+	for file in /etc/sysctl.conf /etc/sysctl.d/*; do
+		get_sysctl_cfg "$path" "$file" && return 0
+	done
+
+	return 1
+}
+
+# outputs the configured value of the sysctl setting passed as $1 in the
+# configuration file $2.
+# return code of 0 if a value was found and output, 1 if none was found
 function get_sysctl_cfg()
 {
 	local path="$1"
-	local sysctl="/etc/sysctl.conf"
+	local sysctl="$2"
 	local line
 
 	# translate the proc path to a sysctl path
 	syspath=`echo "$path" | /usr/bin/cut -d '/' -f 4- | /usr/bin/tr '/' '.'`
 
+	# iterate two times in case a more general setting should be checked,
+	# too
 	# no while true to avoid infinite loops
 	for try in 1 2; do
 
@@ -673,7 +690,7 @@ function setproc()
 
     [ -z "$path" -o ! -w "$path" ] && return
 
-    cfg_value=`get_sysctl_cfg $path` && have_cfg=true || have_cfg=false
+    cfg_value=`get_any_sysctl_cfg $path` && have_cfg=true || have_cfg=false
 
     if $have_cfg; then
 	[ "$cfg_value" = "$value" ] && same_value=true || same_value=false
