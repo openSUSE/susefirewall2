@@ -630,7 +630,7 @@ function get_any_sysctl_cfg()
 {
 	local path="$1"
 
-	for file in /etc/sysctl.conf /etc/sysctl.d/*; do
+	for file in /etc/sysctl.conf /etc/sysctl.d/*.conf; do
 		get_sysctl_cfg "$path" "$file" && return 0
 	done
 
