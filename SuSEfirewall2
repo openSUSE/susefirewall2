@@ -631,7 +631,12 @@ function get_any_sysctl_cfg()
 	local path="$1"
 
 	for file in /etc/sysctl.conf /etc/sysctl.d/*.conf; do
-		get_sysctl_cfg "$path" "$file" && return 0
+		# check for existance, because the wildcard match above might
+		# yield no matches, which would result in error messages
+		# otherwise
+		if [ -r "$file" ]; then
+			get_sysctl_cfg "$path" "$file" && return 0
+		fi
 	done
 
 	return 1
