@@ -1450,7 +1450,7 @@ switch_on_ip_forwarding()
     [ "$enabled" -eq 1 ] && return
 
     setproc 1 $PROC_PATH "force"
-    warning "$PROC_PATH is not enabled, you should configure this in /etc/sysctl.conf"
+    warning "$PROC_PATH is not enabled, but required for FW_ROUTE, you should configure this in /etc/sysctl.conf. This option has been implicitly enabled now."
 }
 
 disable_ip_forwarding()
