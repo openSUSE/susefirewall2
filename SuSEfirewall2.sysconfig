@@ -718,7 +718,7 @@ FW_LOG=""
 #
 # If you have configured one of these settings in /etc/sysctl.conf then
 # SuSEfirewall2 won't apply any different value to allow you to override some
-# of these settings to your liking.
+# of these settings to your liking. Also see FW_SYSCTL_DIRS.
 #
 # Tip: Set this to "no" until you have verified that you have got a
 # configuration which works for you. Then set this to "yes" and keep it
@@ -727,6 +727,18 @@ FW_LOG=""
 # Choice: "yes" or "no", if not set defaults to "yes"
 #
 FW_KERNEL_SECURITY=""
+
+## Type: string
+#
+# Consider the following sysctl.d style directories and sysctl.conf style
+# files before modifying any sysctl values during runtime. If a value is
+# already configured in one of these dirs/files then it won't be changed by
+# SuSEFirewall any more.
+#
+# This affects FW_KERNEL_SECURITY settings and forwarding settings for
+# FW_ROUTE. If empty this defaults to /etc/sysctl.conf, /etc/sysctl.d,
+# /usr/local/lib/sysctl.d.conf.
+FW_SYSCTL_PATHS=""
 
 ## Type:	yesno
 #
