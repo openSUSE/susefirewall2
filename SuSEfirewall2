@@ -561,10 +561,54 @@ parse_logging()
 
 ### Functions
 
+# checks multiple sysctl.d config locations for configure values
+function is_in_any_sysctl()
+{
+	local value="$1"
+
+	if [ -z "$FW_SYSCTL_PATHS" ]; then
+		# don't check all available sysctl.d directories for the
+		# reason discussed in bnc#1044523
+		FW_SYSCTL_PATHS="/etc/sysctl.conf /etc/sysctl.d /usr/local/lib/sysctl.d"
+	fi
+
+	local path
+	for path in $FW_SYSCTL_PATHS; do
+		dbgmessage "Checking for sysctl value $value in path $path"
+
+		if [ -d "$path" ]; then
+			# expand to any config files found in the sysctl.d
+			# style directory
+			paths=$path/*.conf
+			dbgmessage "Expanded $path to $paths"
+		else
+			paths=$path
+		fi
+
+		for file in $paths; do
+			# check for existence, because the wildcard match
+			# above might yield no matches, which would result in
+			# error messages otherwise
+			if [ -r "$file" ]; then
+				dbgmessage "Checking in file $file"
+				is_in_sysctl "$value" "$file" && sysctl_file="$file" && return 0
+				dbgmessage "no match"
+			fi
+		done
+
+	done
+
+	sysctl_file=""
+	return 1
+}
+
+# returns whether the given sysctl setting passed as $1 is found in the sysctl
+# style configuration file $2.
+# return code of 0 if a value was found, 1 if none was found
 function is_in_sysctl()
 {
 	local path="$1"
-	local sysctl="/etc/sysctl.conf"
+	local sysctl="$2"
 
 	# translate the proc path to a sysctl path
 	syspath=`echo "$path" | /usr/bin/cut -d '/' -f 4- | /usr/bin/tr '/' '.'`
@@ -593,7 +637,7 @@ function setproc()
 
     [ -z "$path" -o ! -w "$path" ] && return
 
-    is_in_sysctl $path && dbgmessage "$path override in sysctl.conf, not setting it" && return
+    is_in_any_sysctl $path && message "$path override in $sysctl_file, not setting it" && return
 
     if [ "$MODE" != "debug" ]; then
 	echo "$value" > "$path"
