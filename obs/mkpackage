@@ -1,9 +1,15 @@
 #!/bin/bash
 set -e
 shopt -s nullglob
-name="`pwd -P`"
-name=${name##*/}
-name=${name%%.*}
+# when running from git with multiple worktrees then deducing the name via pwd
+# doesn't suffice any more. Thus allow to provide the package name on cmdline
+if [ $# -eq 1 ]; then
+	name="$1"
+else
+	name="`pwd -P`"
+	name=${name##*/}
+	name=${name%%.*}
+fi
 dstdir="package"
 src="$PWD"
 if [ ! -d "$dstdir/.osc" ]; then
