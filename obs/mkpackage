@@ -18,11 +18,16 @@ if [ ! -d "$dstdir/.osc" ]; then
 	echo "ln -s home\:*\:branches\:*/$name $dstdir"
 	exit 1
 fi
+if [ ! -f "$dstdir/$name.spec" ]; then
+	echo "*** Error: Couldn't find $dstdir/$name.spec"
+	exit 1
+fi
 if [ "`git --no-pager diff --name-only|wc -l`" != '0' -o "`git --no-pager diff --name-only --cached|wc -l`" != 0 ]; then
 	echo "*** Error: uncomitted changes"
 	echo "run 'git add file' to add files, 'git commit -a' to commit changes"
 	exit 1
 fi
+
 cd "$dstdir"
 echo "osc up"
 osc up
