@@ -61,6 +61,13 @@ foreach my $service (@ARGV)
         $h{'net'} = $a[0] if($a[0] && length($a[0]));
         $h{'sport'} = $a[3] if($a[3] && length($a[3]));
         push @{$services{$a[2]}}, \%h;
+        # always also add portmapper with the given restrictions so clients
+        # can query for the service ports in question
+        #
+        # use a copy of the hashmap lest we share data between services with
+        # strange results
+        my %copy = %h;
+        push @{$services{'portmapper'}}, \%copy;
     }
 }
 
@@ -145,12 +152,6 @@ sub getportsfor($$)
         }
     }
     close FILE;
-
-    # always also add portmapper
-    if($ret && !defined $ENV{"NOPORTMAP"} && !exists $services{'portmapper'})
-    {
-	push @{$services{'portmapper'}}, { tcp => [111], udp => [111] };
-    }
 }
 
 getportsfor('udp', \%udpports);

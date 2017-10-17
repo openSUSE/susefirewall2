@@ -2265,27 +2265,15 @@ process_trusted_nets()
 # parameter fragment
 #
 # parameters:
-# $1: names of rpc services, e.g. ypbind mountd
-# $2: whether portmapper ports shall be implicitly added (boolean)
+# $1: names of rpc services, e.g. ypbind mountd or a comma separated tuple
+# like 192.168.1.0/24,_rpc_,nfs
 rpcservicerules()
 {
+
     # The -rpcinfo script by default implicitly adds extra rules for portmap
     # itself. This is because portmap needs to be reached in order for other
     # rpc services to work at all.
-    # In some contexts this generates superfluous portmap rules, however. In
-    # conjunction with the update-rpc functionality we might end up with a lot
-    # of redundant rules. Thus we can selectively disabled this implicit
-    # behaviour.
-    # It would be better to only explicitly add the portmap rules. But this
-    # required more refactoring, and also the current solution is buggy: The
-    # implicit portmap rules don't take source subnet restrictions into
-    # account.
-    if [ $# -eq 2 ] && ! $2; then
-	export NOPORTMAP=1
-    fi
-
-    perl "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" 2>/dev/null
-    unset NOPORTMAP
+    perl "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$1"
 }
 
 # parameters:
@@ -2476,7 +2464,7 @@ allow_rpc_services()
 			# skip not matching services for incremental updates
 			[ -n "$selected" -a "$selected" != "$service" -a "$service" != "portmapper" ] && continue
 			comment_pars "rpc.$service"
-			rpcservicerules $service false | while read ARG; do
+			rpcservicerules $service | while read ARG; do
 				$LAC $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-ACC-RPC " -m conntrack --ctstate NEW $ARG
 				$LAA $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
 				$IPTABLES $rpc_insert $comment -j "$ACCEPT" $ARG
