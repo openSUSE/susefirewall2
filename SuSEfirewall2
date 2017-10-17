@@ -2297,7 +2297,7 @@ reject_or_drop_services()
 	chain=input_$zone
 	var="FW_SERVICES_${action}_`cibiz $zone`"
 	eval services="\"\$$var\""
-	
+
 	local rpc_insert
 	get_rpc_insert_pars $update_rpc $chain
 
@@ -2320,10 +2320,13 @@ reject_or_drop_services()
 		[ -n "$selected" -a "$selected" != $port ] && continue
 		local comment
 		comment_pars "rpc.$port"
+		set -o pipefail
 		rpcservicerules $service | while read ARG; do
 		    $LDC $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-$action " -m conntrack --ctstate NEW $ARG
 		    $IPTABLES $rpc_insert $comment -j "$target" $ARG
 		done
+		[ $? -eq 0 ] || die "Failed to setup rpc service rules for $service"
+		set +o pipefail
 	    elif $update_rpc; then
 	        # don't add any other rules in update rpc mode
 	    	continue
@@ -2404,6 +2407,7 @@ accept_services()
 		[ -n "$selected" -a "$selected" != "$port" ] && continue
 		local comment
 		comment_pars "rpc.$port"
+		set -o pipefail
 		rpcservicerules $service | while read ARG; do
 		    if [ -n "$ipt_recent_set" ]; then
 			$LDC $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-DROPr " $ARG -m conntrack --ctstate NEW $ipt_recent_rcheck
@@ -2414,6 +2418,8 @@ accept_services()
 		    [ -n "$ipt_recent_set" ] && $IPTABLES $rpc_insert $comment -j ACCEPT $ARG -m conntrack --ctstate NEW $ipt_recent_set
 		    $IPTABLES $rpc_insert $comment -j ACCEPT $ARG
 		done
+		[ $? -eq 0 ] || die "Failed to setup rpc service rules for $service"
+		set +o pipefail
 	    elif $update_rpc; then
 	        # don't add any other rules in update rpc mode
 	    	continue
@@ -2464,11 +2470,14 @@ allow_rpc_services()
 			# skip not matching services for incremental updates
 			[ -n "$selected" -a "$selected" != "$service" -a "$service" != "portmapper" ] && continue
 			comment_pars "rpc.$service"
+			set -o pipefail
 			rpcservicerules $service | while read ARG; do
 				$LAC $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-ACC-RPC " -m conntrack --ctstate NEW $ARG
 				$LAA $IPTABLES $rpc_insert $comment ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
 				$IPTABLES $rpc_insert $comment -j "$ACCEPT" $ARG
 			done
+			[ $? -eq 0 ] || die "failed to setup rpc service rules for $service"
+			set +o pipefail
 		done
 	done
 }
