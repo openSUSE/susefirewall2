@@ -1866,10 +1866,15 @@ process_trusted_nets()
 # determine port numbers of rpc services and generate a suitable iptables
 # parameter fragment
 #
-# parameters: names of rpc services, e.g. ypbind mountd
+# parameters:
+# $1: names of rpc services, e.g. ypbind mountd or a comma separated tuple
+# like 192.168.1.0/24,_rpc_,nfs
 rpcservicerules()
 {
-    perl "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@" 2>/dev/null
+    # The -rpcinfo script by default implicitly adds extra rules for portmap
+    # itself. This is because portmap needs to be reached in order for other
+    # rpc services to work at all.
+    perl "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$1"
 }
 
 # parameters: REJECT|DROP
