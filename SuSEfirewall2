@@ -2452,7 +2452,7 @@ allow_rpc_services()
 {
 	local zone chain services comment
 	local selected="$1"
-	[ -z "$add_portmapper" ] && add_portmapper=true
+	[ -z "$add_portmapper" ] && local add_portmapper=true
 	[ -z "$update_rpc" ] && update_rpc=false
 
 	for zone in $input_zones; do
