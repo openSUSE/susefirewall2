@@ -1874,7 +1874,7 @@ rpcservicerules()
     # The -rpcinfo script by default implicitly adds extra rules for portmap
     # itself. This is because portmap needs to be reached in order for other
     # rpc services to work at all.
-    perl "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$1"
+    perl "$SCRIPTSDIR/SuSEfirewall2-rpcinfo" "$@"
 }
 
 # parameters: REJECT|DROP
@@ -2003,9 +2003,13 @@ accept_services()
 allow_rpc_services()
 {
     local zone chain ports
+    [ -z "$add_portmapper" ] && local add_portmapper=true
     for zone in $input_zones; do
 	chain=input_$zone
 	eval ports="\$FW_SERVICES_`cibiz $zone`_RPC"
+	# explicitly add portmapper ourselves, otherwise -rpcinfo will
+	# add it each time, causing duplicate rules
+	$add_portmapper && [ ! -z "$ports" ] && ports="$ports portmapper"
 	rpcservicerules $ports | while read ARG; do
 	    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " -m conntrack --ctstate NEW $ARG
 	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
