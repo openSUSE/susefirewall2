@@ -2704,9 +2704,79 @@ drop_all()
 	done
 }
 
+# bnc#1069760
+# in some circumstances like with rpc service rules for portmapper
+# port 111 we can end up with duplicate rules in the rule set. It's
+# difficult to avoid setting them in the first place due to
+# customizations by users, different packages dropping rpc service
+# files not according to standard (specifying portmap instead of portmapper),
+# therefore we're implicitly adding portmapper for each rpc service setup ...
+#
+# so this is not elegant but involves the smallest risk of breaking
+# something: iterate over the rules we've set know and remove unneeded
+# ones
+function erase_duplicates
+{
+	for zone in $all_zones; do
+		for chain in input forward; do
+			chain="${chain}_${zone}"
+			# use _BIN variants here, to avoid iptables-batch
+			# getting in our way
+			for iptables in $IPTABLES_BIN $IP6TABLES_BIN; do
+				erase_duplicates_in_chain "$iptables" "$chain"
+			done
+		done
+	done
+}
+
+function erase_duplicates_in_chain
+{
+	local iptables="$1"
+	local chain="$2"
+
+	[ -z "$chain" -o -z "$iptables" ] && return 1
+
+	# keep track of duplicate rules via an associative array
+	declare -A ruleset
+	declare -A rulemap
+
+	local ORIG_IFS="$IFS"
+	local replace='s/-m comment --comment "[^"]\+" //g'
+	local rulenum=1
+	local dups=""
+	local rule
+
+	# - tail: ignore the first rule (chain creation rule, not counted)
+	# - sed: cut out the comments from the rules, because equal rules
+	#        can have different comments for the update-rpc logic
+
+	IFS=$'\n'; for rule in `$iptables -S "$chain" | /usr/bin/tail -n +2 | /usr/bin/sed $replace`; do
+		if [ ${ruleset[$rule]+abc} ]; then
+			# it's important to put higher numbers first, because
+			# otherwise we'll screw up order upon delete
+			dups="$rulenum $dups"
+		else
+			ruleset[$rule]=true
+		fi
+
+		rulemap[$rulenum]=$rule
+		rulenum=$(($rulenum + 1))
+	done
+
+	IFS="$ORIG_IFS"
+
+	for rulenum in $dups; do
+		rule=${rulemap[$rulenum]}
+		tracemessage "Removing duplicate rule nr. $rulenum from $chain: $rule"
+		$iptables -D "$chain" $rulenum
+	done
+}
+
 # perform some final actions after all rules have been setup
 function fw_after_finished
 {
+	erase_duplicates
+
 	# check whether libvirtd is running and trigger it to reinstate
 	# firewall rules, if necessary. See bsc#884398
 	/bin/systemctl --quiet is-active libvirtd || return
