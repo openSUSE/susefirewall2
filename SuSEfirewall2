@@ -132,6 +132,13 @@ dbgmessage()
     message $*
 }
 
+tracemessage()
+{
+    $TRACE || return
+
+    message ${FUNCNAME[1]} $*
+}
+
 deprecated()
 {
     warning "$@ is deprecated and will likely be removed in the future."
@@ -263,6 +270,7 @@ IP6TABLES_HAVE_REJECT=1
 
 ACTION="start"
 MODE="standard"
+TRACE=false
 INITSCRIPTS="" # on|off
 needconfig=
 needlock=1
@@ -274,7 +282,7 @@ if test -x /usr/bin/tty && ! /usr/bin/tty -s; then
     quiet=1
 fi
 
-getopttmp=`/usr/bin/getopt -o hqi: --long help,scriptsdir:,batch,nobatch,file:,debug,test,bootlock,bootunlock,quiet,interface: \
+getopttmp=`/usr/bin/getopt -o hqi: --long help,scriptsdir:,batch,nobatch,file:,debug,trace,test,bootlock,bootunlock,quiet,interface: \
      -n 'SuSEfirewall2' -- "$@"`
 
 [ $? != 0 ] && die 1 "getopt error"
@@ -289,6 +297,7 @@ while true ; do
                 --scriptsdir) SCRIPTSDIR="$2" ; shift 2 ;;
                 --test) MODE="test" ; shift ;;
                 --debug) MODE="debug"; needlock=0 ; shift ;;
+                --trace) TRACE=true ; shift ;;
                 --bootlock) create_bootlock=1 ; shift ;;
                 --bootunlock) remove_bootlock=1 ; shift ;;
                 -h|--help) help ; shift ;;
