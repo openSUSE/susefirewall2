@@ -118,7 +118,7 @@ syslog()
 	pri="-p auth.warn"
     fi
     shift
-    /bin/logger $dashs $pri -t SuSEfirewall2 "$*"
+    /bin/logger $dashs $pri --id=$$ -t SuSEfirewall2 "$*"
 }
 
 message()
