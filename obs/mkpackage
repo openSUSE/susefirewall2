@@ -21,7 +21,18 @@ fi
 if [ "`git --no-pager diff --name-only|wc -l`" != '0' -o "`git --no-pager diff --name-only --cached|wc -l`" != 0 ]; then
 	echo "*** Error: uncomitted changes"
 	echo "run 'git add file' to add files, 'git commit -a' to commit changes"
-	exit 1
+	if [ ! -t 0 ]; then
+		exit 1
+	fi
+	echo "Do you want to continue anyway (y/n)?"
+	while true; do
+		read CONT
+		if [ "$CONT" = "y" ]; then
+			break
+		else
+			exit 1
+		fi
+	done
 fi
 cd "$dstdir"
 echo "osc up"
