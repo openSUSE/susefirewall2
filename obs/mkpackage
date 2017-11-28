@@ -29,6 +29,7 @@ if [ "`git --no-pager diff --name-only|wc -l`" != '0' -o "`git --no-pager diff -
 		exit 1
 	fi
 	echo "Do you want to continue anyway (y/n)?"
+	echo "The resulting package will not contain the uncommited changes."
 	while true; do
 		read CONT
 		if [ "$CONT" = "y" ]; then
