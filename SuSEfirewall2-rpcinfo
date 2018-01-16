@@ -141,7 +141,7 @@ sub getportsfor($$)
 
         my $uid = $line[7];
         if ($uid && !($rpcusers{$service} && $uid == $rpcusers{$service})) {
-            print STDERR "$service/$proto doesn't run as root, ignored.\n";
+            print STDERR "$service/$proto doesn't run as root (but as $uid), ignored.\n";
             next;
         }
 
