@@ -2901,12 +2901,12 @@ drop_all()
     local chain
     local zone
     local drop
-    local chainprefix='input_'
     local comment
     comment_pars "insert.pos"
 
 	for iptables in $IPTABLES_LIST; do
 	    local icmp_type=icmp
+	    local chainprefix='input_'
 	    [ $iptables = $IP6TABLES ] && icmp_type=icmpv6
 
 		for zone in $input_zones '--' $forward_zones; do
