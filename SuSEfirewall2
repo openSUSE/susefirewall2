@@ -1909,19 +1909,21 @@ reject_or_drop_services()
 	    port="$3"
 	    sport="$4"
 
-	    iptables="$IPTABLES $IP6TABLES"
+	    iptables_list=$IPTABLES_LIST
 	    case "$net" in
-		*:*) iptables="$IP6TABLES" ;;
-		[0-9]*.*.*.*) iptables="$IPTABLES" ;;
+		*:*) iptables_list="$IP6TABLES" ;;
+		[0-9]*.*.*.*) iptables_list="$IPTABLES" ;;
 	    esac
 
 	    if [ "$proto" = "_rpc_" ]; then
 		rpcservicerules $service | while read ARG; do
-		    $LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-$action " -m conntrack --ctstate NEW $ARG
-		    $IPTABLES -A $chain -j "$target" $ARG
+			for iptables in $iptables_list; do
+			    $LDC $iptables -A $chain ${LOG}"-`rulelog $chain`-$action " -m conntrack --ctstate NEW $ARG
+			    $iptables -A $chain -j "$target" $ARG
+			done
 		done
 	    elif check_proto_port "$proto" "$port" "$sport" "$var"; then
-		for iptables in $iptables; do
+		for iptables in $iptables_list; do
 		    $LDA $iptables -A $chain -s $net $proto $port $sport -m conntrack --ctstate NEW ${LOG}"-`rulelog $chain`-$action "
 		    $iptables -A $chain -s $net $proto $port $sport -m conntrack --ctstate NEW -j "$target"
 		done
@@ -1976,25 +1978,27 @@ accept_services()
 		ipt_recent_set="-m recent --set$ipt_recent_set"
 	    fi
 
-	    iptables="$IPTABLES $IP6TABLES"
+	    iptables_list=$IPTABLES_LIST
 	    case "$net" in
-		*:*) iptables="$IP6TABLES" ;;
-		[0-9]*.*.*.*) iptables="$IPTABLES" ;;
+		*:*) iptables_list="$IP6TABLES" ;;
+		[0-9]*.*.*.*) iptables_list="$IPTABLES" ;;
 	    esac
 
 	    if [ "$proto" = "_rpc_" ]; then
 		rpcservicerules $service | while read ARG; do
-		    if [ -n "$ipt_recent_set" ]; then
-			$LDC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-DROPr " $ARG -m conntrack --ctstate NEW $ipt_recent_rcheck
-			$IPTABLES -A $chain -j "$DROP" $ARG -m conntrack --ctstate NEW $ipt_recent_update
-		    fi
-		    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC " -m conntrack --ctstate NEW $ARG
-		    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC " $ARG
-		    [ -n "$ipt_recent_set" ] && $IPTABLES -A $chain -j ACCEPT $ARG -m conntrack --ctstate NEW $ipt_recent_set
-		    $IPTABLES -A $chain -j ACCEPT $ARG
+		    for iptables in $iptables_list; do
+			if [ -n "$ipt_recent_set" ]; then
+			    $LDC $iptables -A $chain ${LOG}"-`rulelog $chain`-DROPr " $ARG -m conntrack --ctstate NEW $ipt_recent_rcheck
+			    $iptables -A $chain -j "$DROP" $ARG -m conntrack --ctstate NEW $ipt_recent_update
+			fi
+			$LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC " -m conntrack --ctstate NEW $ARG
+			$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC " $ARG
+			[ -n "$ipt_recent_set" ] && $iptables -A $chain -j ACCEPT $ARG -m conntrack --ctstate NEW $ipt_recent_set
+			$iptables -A $chain -j ACCEPT $ARG
+		    done
 		done
 	    elif check_proto_port "$proto" "$port" "$sport" "$var"; then
-		for iptables in $iptables; do
+		for iptables in $iptables_list; do
 		    if [ -n "$ipt_recent_set" ]; then
 			$LDC $iptables -A $chain ${LOG}"-`rulelog $chain`-DROPr " -s $net $proto $port $sport -m conntrack --ctstate NEW $ipt_recent_rcheck
 			$iptables -A $chain -j "$DROP" -s $net $proto $port $sport -m conntrack --ctstate NEW $ipt_recent_update
@@ -2021,9 +2025,11 @@ allow_rpc_services()
 	$add_portmapper && [ ! -z "$ports" ] && ports="$ports portmapper"
 	[ -z "$ports" ] && continue
 	rpcservicerules $ports | while read ARG; do
-	    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " -m conntrack --ctstate NEW $ARG
-	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
-	    $IPTABLES -A $chain -j "$ACCEPT" $ARG
+	    for iptables in $IPTABLES_LIST; do
+		$LAC $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " -m conntrack --ctstate NEW $ARG
+		$LAA $iptables -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
+		$iptables -A $chain -j "$ACCEPT" $ARG
+	    done
 	done
     done
 }
