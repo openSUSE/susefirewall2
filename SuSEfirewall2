@@ -1782,6 +1782,7 @@ allow_rpc_services()
 	# explicitly add portmapper ourselves, otherwise -rpcinfo will
 	# add it each time, causing duplicate rules
 	$add_portmapper && [ ! -z "$ports" ] && ports="$ports portmapper"
+	[ -z "$ports" ] && continue
 	rpcservicerules $ports | while read ARG; do
 	    $LAC $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " -m conntrack --ctstate NEW $ARG
 	    $LAA $IPTABLES -A $chain ${LOG}"-`rulelog $chain`-ACC-RPC " $ARG
