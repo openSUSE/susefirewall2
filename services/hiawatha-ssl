@@ -1,0 +1,17 @@
+## Name: Hiwatha webserver (https)
+## Description: Opens https port for Hiawatha webserver.
+
+# space separated list of allowed TCP ports
+TCP="https"
+
+# space separated list of allowed UDP ports
+UDP="https"
+
+# space separated list of allowed RPC services
+RPC=""
+
+# space separated list of allowed IP protocols
+IP=""
+
+# space separated list of allowed UDP broadcast ports
+BROADCAST=""

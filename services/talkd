@@ -1,0 +1,5 @@
+## Name: Talk Server
+## Description: Open ports for Talk Server
+
+# space separated list of allowed UDP ports
+UDP="talk ntalk"

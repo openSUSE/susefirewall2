@@ -1,0 +1,4 @@
+## Name: Synergy
+## Description: Synergy allows screens from different hosts to be linked together as one virtual screen
+
+TCP="24800"

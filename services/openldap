@@ -1,0 +1,17 @@
+## Name: OpenLDAP Server
+## Description: Opens ports for the OpenLDAP Server (slapd).
+
+# space separated list of allowed TCP ports
+TCP="ldap ldaps"
+
+# space separated list of allowed UDP ports
+UDP="ldap"
+
+# space separated list of allowed RPC services
+RPC=""
+
+# space separated list of allowed IP protocols
+IP=""
+
+# space separated list of allowed UDP broadcast ports
+BROADCAST=""

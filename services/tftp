@@ -1,0 +1,5 @@
+## Name: TFTP Server
+## Description: Opens ports for tftp service.
+
+# space separated list of allowed UDP ports
+UDP="tftp"

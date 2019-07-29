@@ -1,0 +1,6 @@
+## Name: Remote Desktop Protocol
+## Description: Opens ports for Remote Desktop Protocol
+
+# space separated list of allowed TCP ports
+TCP="3389"
+

@@ -1,0 +1,5 @@
+## Name: Mosquitto MQTT Broker
+## Description: Open ports for Mosquitto MQTT Broker
+
+# space separated list of allowed TCP ports
+TCP="1883"

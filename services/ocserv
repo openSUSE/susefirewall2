@@ -1,0 +1,6 @@
+## Name: ocserv
+## Description: opens ports for ocserv
+# space separated list of allowed TCP ports
+TCP="9000"
+# space separated list of allowed UDP ports
+UDP="9001"

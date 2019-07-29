@@ -1,0 +1,3 @@
+## Name: PulseAudio server (TCP)
+## Description: Ports for PulseAudio network access (for module-native-protocol-tcp)
+TCP="4713"

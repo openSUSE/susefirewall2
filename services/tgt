@@ -1,0 +1,18 @@
+ ## Name: iSCSI Target Daemon
+ ## Description: Opens ports for iSCSI Target Daemon with broadcast allowed.
+ 
+ # space separated list of allowed TCP ports
+ TCP="iscsi-target"
+ 
+ # space separated list of allowed UDP ports
+ UDP="iscsi-target"
+ 
+ # space separated list of allowed RPC services
+ RPC=""
+ 
+ # space separated list of allowed IP protocols
+ IP=""
+ 
+ # space separated list of allowed UDP broadcast ports
+ BROADCAST="iscsi-target"
+

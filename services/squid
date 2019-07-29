@@ -1,0 +1,7 @@
+## Name: Squid Service
+## Description: Opens ports for Squid
+TCP=""
+UDP=""
+RPC=""
+IP=""
+BROADCAST=""

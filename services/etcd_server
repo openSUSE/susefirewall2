@@ -1,0 +1,5 @@
+## Name: etcd server to server
+## Description: etcd server to server communication port
+
+# space separated list of allowed TCP ports
+TCP="2380"

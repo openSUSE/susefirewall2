@@ -1,0 +1,8 @@
+## Name: Simple Virtual Private Network Daemon
+## Description: Opens ports for GoVPN.
+
+# space separated list of allowed TCP ports
+TCP="1194"
+
+# space separated list of allowed UDP ports
+UDP="1194"

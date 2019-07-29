@@ -1,0 +1,17 @@
+## Name: cyrus-imapd Server
+## Description: Opens ports for the cyrus-imapd Server.
+
+# space separated list of allowed TCP ports
+TCP="imap imaps pop3 pop3s sieve"
+
+# space separated list of allowed UDP ports
+UDP=""
+
+# space separated list of allowed RPC services
+RPC=""
+
+# space separated list of allowed IP protocols
+IP=""
+
+# space separated list of allowed UDP broadcast ports
+BROADCAST=""

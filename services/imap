@@ -1,0 +1,17 @@
+## Name: imap Server
+## Description: Opens ports for imap Server.
+
+# space separated list of allowed TCP ports
+TCP="imaps imap pop3 pop3s"
+
+# space separated list of allowed UDP ports
+UDP="imaps imap pop3 pop3s"
+
+# space separated list of allowed RPC services
+RPC=""
+
+# space separated list of allowed IP protocols
+IP=""
+
+# space separated list of allowed UDP broadcast ports
+BROADCAST=""

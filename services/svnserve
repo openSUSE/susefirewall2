@@ -1,0 +1,4 @@
+## Name: svnserve
+## Description: Open ports for svnserve
+  
+TCP="svn"

@@ -1,0 +1,5 @@
+## Name: Mosh Server UDP ports
+## Description: Opens UDP ports for the Mosh Server
+
+# space separated list of allowed UDP ports
+UDP="60000:61000"

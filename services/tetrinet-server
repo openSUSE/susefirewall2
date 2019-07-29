@@ -1,0 +1,5 @@
+## Name: Tetrinet Server
+## Description: Opens ports in firewall to make possible to connect clients to your server. 
+## This makes your system less secure, but you know what you're doing, don't you?
+ 
+TCP="31457 31456 31458"

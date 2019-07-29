@@ -1,0 +1,8 @@
+## Name: Precision Time Protocol v2
+## Description: Ports needed for PTPv2 over UDP
+#
+# For a more detailed description of the individual variables see
+# the comments for FW_SERVICES_EXT_* in /etc/sysconfig/SuSEfirewall2
+#
+
+UDP="ptp-general ptp-event"

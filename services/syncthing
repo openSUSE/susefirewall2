@@ -1,0 +1,8 @@
+## Name: FOSS Continuous File Synchronization
+## Description: Opens ports for Syncthing.
+
+# space separated list of allowed TCP ports
+TCP="22000"
+
+# space separated list of allowed UDP ports
+UDP="21027"

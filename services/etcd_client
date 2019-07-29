@@ -1,0 +1,5 @@
+## Name: etcd
+## Description: etcd communication port
+
+# space separated list of allowed TCP ports
+TCP="2379"
